@@ -23,11 +23,18 @@ Native macOS Pokemon HeartGold/SoulSilver engine scaffold (Swift + SPM), with a 
 ./scripts/check_repo.sh
 ```
 
+Optional upstream-informed extractor run:
+
+```bash
+POKEHEARTGOLD_ROOT=/path/to/pokeheartgold ./scripts/run_extractor_stub.sh
+```
+
 ## Content and Legal Hygiene
 
 - Commit only source code, docs, and synthetic fixtures.
 - Never commit ROMs, save files, proprietary extracted assets, or dumps.
 - Keep local extraction outputs in `Content/Local/`.
+- Keep local `pokeheartgold` clones outside git or under ignored paths such as `External/`.
 
 See `docs/LEGAL_AND_ASSET_HYGIENE.md`.
 

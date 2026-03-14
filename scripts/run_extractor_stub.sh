@@ -13,5 +13,10 @@ SWIFT=(xcrun swift)
 INPUT_PATH="$ROOT_DIR/DevContent/Stub"
 OUTPUT_PATH="$ROOT_DIR/Content/Local/StubExtract"
 
-echo "Running extractor stub..."
-"${SWIFT[@]}" run HGSSExtractCLI --input "$INPUT_PATH" --output "$OUTPUT_PATH"
+if [[ -n "${POKEHEARTGOLD_ROOT:-}" ]]; then
+  echo "Running extractor against local pret/pokeheartgold clone..."
+  "${SWIFT[@]}" run HGSSExtractCLI --input "$INPUT_PATH" --output "$OUTPUT_PATH" --pret-root "$POKEHEARTGOLD_ROOT"
+else
+  echo "Running extractor with checked-in normalized profile..."
+  "${SWIFT[@]}" run HGSSExtractCLI --input "$INPUT_PATH" --output "$OUTPUT_PATH"
+fi
