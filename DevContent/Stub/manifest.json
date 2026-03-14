@@ -1,11 +1,288 @@
 {
-  "schemaVersion": 1,
-  "title": "HGSS Stub Content",
-  "build": "0.1.0-stub",
+  "schemaVersion": 2,
+  "title": "HGSS Normalized Stub Content",
+  "build": "0.2.0-normalized",
+  "initialMapID": "MAP_NEW_BARK",
+  "initialEntryPointID": "ENTRY_BOOT_DEFAULT",
   "maps": [
     {
-      "id": "new-bark-town",
-      "displayName": "New Bark Town (Stub)"
+      "mapID": "MAP_NEW_BARK",
+      "displayName": "New Bark Town (Excerpt)",
+      "provenance": {
+        "upstreamMapID": "MAP_NEW_BARK",
+        "mapHeaderSymbol": "sMapHeaders[MAP_NEW_BARK]",
+        "matrixID": "NARC_map_matrix_map_matrix_0000_EVERYWHERE_bin",
+        "eventsBank": "NARC_zone_event_057_T20_bin"
+      },
+      "header": {
+        "wildEncounterBank": "ENCDATA_T20",
+        "areaDataBank": 2,
+        "moveModelBank": 15,
+        "worldMapX": 0,
+        "worldMapY": 0,
+        "mapSection": "MAPSEC_NEW_BARK_TOWN",
+        "mapType": "MAP_TYPE_CITY_TOWN",
+        "followMode": "MAP_FOLLOWMODE_ALLOW",
+        "bikeAllowed": true,
+        "flyAllowed": true,
+        "isKanto": false,
+        "weather": 0,
+        "cameraType": 0
+      },
+      "layout": {
+        "width": 25,
+        "height": 18,
+        "sourceOrigin": {
+          "x": 676,
+          "z": 391,
+          "y": 0
+        }
+      },
+      "collision": {
+        "impassableTiles": [
+          { "x": 3, "y": 1 },
+          { "x": 3, "y": 2 },
+          { "x": 3, "y": 3 },
+          { "x": 4, "y": 3 },
+          { "x": 5, "y": 3 },
+          { "x": 1, "y": 4 },
+          { "x": 6, "y": 5 },
+          { "x": 6, "y": 6 },
+          { "x": 16, "y": 4 },
+          { "x": 17, "y": 4 },
+          { "x": 18, "y": 4 },
+          { "x": 16, "y": 5 },
+          { "x": 18, "y": 5 },
+          { "x": 2, "y": 13 },
+          { "x": 3, "y": 13 },
+          { "x": 4, "y": 13 },
+          { "x": 13, "y": 15 },
+          { "x": 14, "y": 15 },
+          { "x": 15, "y": 15 }
+        ]
+      },
+      "entryPoints": [
+        {
+          "id": "ENTRY_BOOT_DEFAULT",
+          "localPosition": { "x": 1, "y": 1 },
+          "facing": "down",
+          "summary": "Engine-defined boot point for the New Bark traversal slice."
+        }
+      ],
+      "warps": [
+        {
+          "id": "WARP_ELMS_LAB_1F",
+          "localPosition": { "x": 8, "y": 2 },
+          "sourcePosition": { "x": 684, "z": 393, "y": 0 },
+          "destinationMapID": "MAP_NEW_BARK_ELMS_LAB_1F",
+          "destinationAnchor": 0,
+          "summary": "Front door into Elm's Lab 1F."
+        },
+        {
+          "id": "WARP_PLAYER_HOUSE_1F",
+          "localPosition": { "x": 19, "y": 5 },
+          "sourcePosition": { "x": 695, "z": 396, "y": 0 },
+          "destinationMapID": "MAP_NEW_BARK_PLAYER_HOUSE_1F",
+          "destinationAnchor": 0,
+          "summary": "Front door into the player house."
+        },
+        {
+          "id": "WARP_SOUTHWEST_HOUSE",
+          "localPosition": { "x": 3, "y": 14 },
+          "sourcePosition": { "x": 679, "z": 405, "y": 0 },
+          "destinationMapID": "MAP_NEW_BARK_SOUTHWEST_HOUSE",
+          "destinationAnchor": 0,
+          "summary": "Southwest house entrance."
+        },
+        {
+          "id": "WARP_RIVAL_HOUSE_1F",
+          "localPosition": { "x": 14, "y": 16 },
+          "sourcePosition": { "x": 690, "z": 407, "y": 0 },
+          "destinationMapID": "MAP_NEW_BARK_RIVAL_HOUSE_1F",
+          "destinationAnchor": 0,
+          "summary": "Front door into the rival house."
+        },
+        {
+          "id": "WARP_ELMS_LAB_2F",
+          "localPosition": { "x": 12, "y": 1 },
+          "sourcePosition": { "x": 688, "z": 392, "y": 0 },
+          "destinationMapID": "MAP_NEW_BARK_ELMS_LAB_2F",
+          "destinationAnchor": 0,
+          "summary": "Upper lab entrance trigger kept as a normalized warp tile."
+        }
+      ],
+      "placements": [
+        {
+          "id": "obj_T20_gsrivel",
+          "kind": "object",
+          "localPosition": { "x": 6, "y": 0 },
+          "sourcePosition": { "x": 682, "z": 391, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:10000",
+          "summary": "Upstream object event for the rival."
+        },
+        {
+          "id": "obj_T20_gswoman1",
+          "kind": "object",
+          "localPosition": { "x": 7, "y": 8 },
+          "sourcePosition": { "x": 683, "z": 399, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:10002",
+          "summary": "Upstream object event for an NPC woman."
+        },
+        {
+          "id": "obj_T20_gsbigman",
+          "kind": "object",
+          "localPosition": { "x": 9, "y": 17 },
+          "sourcePosition": { "x": 685, "z": 408, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:10003",
+          "summary": "Upstream object event for an NPC man at the south edge."
+        },
+        {
+          "id": "obj_T20_var_1",
+          "kind": "object",
+          "localPosition": { "x": 12, "y": 1 },
+          "sourcePosition": { "x": 688, "z": 392, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:10004",
+          "summary": "Upstream object event colocated with the upper lab trigger."
+        },
+        {
+          "id": "obj_T20_gsmama",
+          "kind": "object",
+          "localPosition": { "x": 19, "y": 5 },
+          "sourcePosition": { "x": 695, "z": 396, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:10006",
+          "summary": "Upstream object event near the player house."
+        },
+        {
+          "id": "obj_T20_var_1_2",
+          "kind": "object",
+          "localPosition": { "x": 18, "y": 9 },
+          "sourcePosition": { "x": 694, "z": 400, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:10008",
+          "summary": "Upstream object event preserved as a placement reference."
+        },
+        {
+          "id": "obj_T20_marill_2",
+          "kind": "object",
+          "localPosition": { "x": 17, "y": 9 },
+          "sourcePosition": { "x": 693, "z": 400, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:10009",
+          "summary": "Upstream Marill object near the center of town."
+        },
+        {
+          "id": "obj_T20_gsmiddleman1",
+          "kind": "object",
+          "localPosition": { "x": 19, "y": 12 },
+          "sourcePosition": { "x": 695, "z": 403, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:10010",
+          "summary": "Upstream object event preserved for later script hookup."
+        },
+        {
+          "id": "obj_T20_marill",
+          "kind": "object",
+          "localPosition": { "x": 19, "y": 15 },
+          "sourcePosition": { "x": 695, "z": 406, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:10011",
+          "summary": "Upstream Marill object near the south-east edge."
+        },
+        {
+          "id": "coord_T20_west_exit",
+          "kind": "coordinateTrigger",
+          "localPosition": { "x": 0, "y": 5 },
+          "sourcePosition": { "x": 676, "z": 396, "y": 0 },
+          "width": 1,
+          "height": 7,
+          "scriptReference": "script:20000",
+          "summary": "Upstream west route exit trigger."
+        },
+        {
+          "id": "coord_T20_elms_lab_door",
+          "kind": "coordinateTrigger",
+          "localPosition": { "x": 12, "y": 1 },
+          "sourcePosition": { "x": 688, "z": 392, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:20001",
+          "summary": "Upstream coordinate trigger at Elm's Lab."
+        },
+        {
+          "id": "coord_T20_east_exit",
+          "kind": "coordinateTrigger",
+          "localPosition": { "x": 24, "y": 7 },
+          "sourcePosition": { "x": 700, "z": 398, "y": 0 },
+          "width": 1,
+          "height": 5,
+          "scriptReference": "script:20002",
+          "summary": "Upstream east route exit trigger."
+        },
+        {
+          "id": "bg_T20_hidden_item",
+          "kind": "backgroundEvent",
+          "localPosition": { "x": 6, "y": 0 },
+          "sourcePosition": { "x": 682, "z": 391, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:30000",
+          "summary": "Upstream hidden item background event."
+        },
+        {
+          "id": "bg_T20_lab_sign",
+          "kind": "backgroundEvent",
+          "localPosition": { "x": 6, "y": 2 },
+          "sourcePosition": { "x": 682, "z": 393, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:30001",
+          "summary": "Upstream lab sign background event."
+        },
+        {
+          "id": "bg_T20_player_house_sign",
+          "kind": "backgroundEvent",
+          "localPosition": { "x": 17, "y": 5 },
+          "sourcePosition": { "x": 693, "z": 396, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:30002",
+          "summary": "Upstream player house sign background event."
+        },
+        {
+          "id": "bg_T20_town_sign",
+          "kind": "backgroundEvent",
+          "localPosition": { "x": 9, "y": 9 },
+          "sourcePosition": { "x": 685, "z": 400, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:30003",
+          "summary": "Upstream town sign background event."
+        },
+        {
+          "id": "bg_T20_rival_house_sign",
+          "kind": "backgroundEvent",
+          "localPosition": { "x": 12, "y": 16 },
+          "sourcePosition": { "x": 688, "z": 407, "y": 0 },
+          "width": 1,
+          "height": 1,
+          "scriptReference": "script:30004",
+          "summary": "Upstream rival house sign background event."
+        }
+      ]
     }
   ],
   "pokemon": [
@@ -22,5 +299,5 @@
       "nationalDex": 158
     }
   ],
-  "notes": "Checked-in fake data for bootstrap, smoke tests, and app wiring only."
+  "notes": "Checked-in normalized fixture for a New Bark Town traversal excerpt. Header and event provenance are aligned to pret/pokeheartgold, while collision remains a small checked-in stand-in for future extracted output."
 }

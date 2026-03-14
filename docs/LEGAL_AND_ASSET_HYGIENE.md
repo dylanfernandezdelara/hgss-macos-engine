@@ -15,7 +15,7 @@ This repository does not distribute Nintendo ROMs or proprietary extracted asset
 - Source code
 - Documentation
 - Tiny synthetic fixtures in `DevContent/Stub`
-- Tests that use synthetic data only
+- Small text fixtures that exercise parser shape without shipping ROMs, binaries, or full extracted asset dumps
 
 ## Local-Only Paths
 

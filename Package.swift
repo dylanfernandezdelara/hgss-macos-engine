@@ -21,7 +21,8 @@ let package = Package(
         .target(
             name: "HGSSContent",
             dependencies: ["HGSSDataModel"],
-            path: "Sources/HGSSContent"
+            path: "Sources/HGSSContent",
+            sources: ["StubContentLoader.swift", "StubWorldContent.swift", "PretNewBarkNormalization.swift"]
         ),
         .target(
             name: "HGSSTelemetry",

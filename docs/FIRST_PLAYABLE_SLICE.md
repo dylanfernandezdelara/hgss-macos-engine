@@ -1,31 +1,38 @@
-# First Playable Slice (Planning)
+# First Playable Slice
 
-This document scopes the first meaningful runtime milestone after bootstrap.
+## Scope
 
-## Proposed Slice
+The first slice is a playable excerpt of `MAP_NEW_BARK` backed by a normalized content contract.
 
-- Boot to a minimal map scene placeholder
-- One controllable player entity
-- Deterministic movement and collision on a tiny test map
-- Basic telemetry around frame/update loop and input events
+Included:
 
-## Out of Scope
+- fixed-timestep core loop
+- one controllable player
+- local collision and bounds checks
+- normalized warps
+- normalized placement references for objects, coordinate triggers, and background events
+- thin macOS grid renderer
 
-- Battle system
-- Audio pipeline
-- Scripting engine parity
-- Asset-complete rendering
+Not included:
 
-## Ticket Breakdown (Example)
+- script execution
+- map transitions
+- encounters
+- battle system
+- art-complete rendering
 
-1. Core loop timing and deterministic tick policy
-2. Content schema extension for map collision grid
-3. App shell input bridge to core commands
-4. Minimal renderer placeholder in app shell
-5. Smoke tests for movement/collision invariants
+## Why This Slice
+
+This proves the engine shape against upstream-informed data without committing the runtime to raw ROM structures. It also defines the minimum extractor output we need next.
 
 ## Exit Criteria
 
-- Contributor can run app and move player in stub environment
-- CI covers core logic with deterministic tests
-- No prohibited assets committed
+- contributor can run the app and move around the New Bark excerpt
+- loader validates normalized provenance and local coordinates
+- core boots from `initialMapID` and `initialEntryPointID`
+- snapshots expose collision, warp, and placement tiles
+- tests cover determinism and normalization invariants
+
+## Next Slice
+
+The next chunk should replace more hand-authored stand-in collision/layout data with extractor-produced normalized output for the same map contract. After that, map transitions and arrival entry points can be implemented on top of the same model.

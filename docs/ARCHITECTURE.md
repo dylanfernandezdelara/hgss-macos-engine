@@ -2,45 +2,55 @@
 
 ## Current Modules
 
-- `HGSSDataModel`: Codable domain/content schema types used across modules.
-- `HGSSContent`: Loads and validates content manifests and future extracted bundles.
-- `HGSSCore`: Headless runtime boot path and future gameplay simulation state.
-- `HGSSTelemetry`: Event sinks and instrumentation hooks.
-- `HGSSExtractCLI`: Offline extraction pipeline entrypoint (currently stub).
-- `Apps/HGSSMac`: Native macOS shell and presentation layer.
+- `HGSSDataModel`: shared schema types for normalized content and tooling.
+- `HGSSContent`: loads checked-in fixtures today and will normalize extractor output later.
+- `HGSSCore`: authoritative simulation loop, state updates, and render snapshots.
+- `HGSSTelemetry`: event sinks and counters.
+- `HGSSExtractCLI`: offline extraction entrypoint.
+- `Apps/HGSSMac`: thin macOS shell for input and presentation.
 
 ## Dependency Direction
 
 - App shell depends on core.
-- Core depends on content + telemetry + shared data model.
+- Core depends on content, telemetry, and shared data model.
 - Content depends on data model.
-- Extractor depends on content/data model.
+- Extractor depends on content and data model.
 
-No package target should depend on app shell code.
+No package target should depend on app-shell code.
+
+## Runtime Data Flow
+
+1. App or tests locate `DevContent/Stub/manifest.json`.
+2. `HGSSContent` decodes a normalized New Bark excerpt with upstream provenance.
+3. `HGSSCore` boots from `initialMapID` plus `initialEntryPointID`.
+4. The fixed-timestep loop advances authoritative state against normalized collision data.
+5. The app shell renders snapshots and never owns gameplay rules.
+
+## Normalization Boundary
+
+- Upstream `MapHeader` fields are preserved as metadata.
+- Upstream `map_matrix` and `zone_event` references are preserved as provenance.
+- Upstream coordinates are converted into local tile coordinates before `HGSSCore` sees them.
+- `entryPoints` are engine-defined anchors, not canonical upstream records.
+
+This keeps the runtime stable while letting the extractor evolve around upstream file quirks.
 
 ## Future Modules (Documented, Not Yet Created)
 
-Potential future targets once real implementation warrants them:
+Potential future targets once implementation warrants them:
 
 - `HGSSScriptVM`
 - `HGSSRender`
 - `HGSSAudio`
 - `HGSSHarness`
 
-These are intentionally deferred to avoid empty-target churn.
+## Extraction Direction
 
-## Runtime Data Flow (Today)
+Extraction stays offline and explicit:
 
-1. App or tests locate `DevContent/Stub/manifest.json`.
-2. `HGSSContent` decodes manifest into `HGSSManifest`.
-3. `HGSSCore` boots headless runtime with telemetry events.
-4. App displays status from core runtime.
+- Input: user-local legally obtained files.
+- Process: read upstream structures such as headers, matrix references, and event banks, then combine them with local normalization profiles where extraction is not complete yet.
+- Output: normalized content under `Content/Local`.
+- Runtime: load the normalized schema version that `HGSSCore` already understands.
 
-## Extraction Integration Direction
-
-Long-term extraction should remain offline and explicit:
-
-- Input: user-local legally obtained files
-- Process: extractor transforms into normalized local content layout
-- Output: `Content/Local` only
-- Runtime: content layer loads extracted output by schema version
+The current checked-in fixture exists to prove the engine contract before broad extraction work begins.
