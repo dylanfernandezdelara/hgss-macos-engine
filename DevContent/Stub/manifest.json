@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "title": "HGSS Stub Content",
+  "build": "0.1.0-stub",
+  "maps": [
+    {
+      "id": "new-bark-town",
+      "displayName": "New Bark Town (Stub)"
+    }
+  ],
+  "pokemon": [
+    {
+      "species": "Chikorita",
+      "nationalDex": 152
+    },
+    {
+      "species": "Cyndaquil",
+      "nationalDex": 155
+    },
+    {
+      "species": "Totodile",
+      "nationalDex": 158
+    }
+  ],
+  "notes": "Checked-in fake data for bootstrap, smoke tests, and app wiring only."
+}

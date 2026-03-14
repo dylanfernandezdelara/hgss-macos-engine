@@ -1,0 +1,40 @@
+name: Task
+about: Delivery ticket for a scoped implementation change
+labels: [task]
+body:
+  - type: input
+    id: linear_ticket
+    attributes:
+      label: Linear Ticket
+      description: Reference ticket key (e.g., GAME-123)
+      placeholder: GAME-123
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What should be built or changed?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Clear pass/fail list
+      placeholder: |
+        - [ ] builds locally
+        - [ ] tests pass
+        - [ ] docs updated
+    validations:
+      required: true
+
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: Explicitly list what this task will not do
+    validations:
+      required: false

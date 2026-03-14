@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bootstrap
+        run: ./scripts/bootstrap.sh
+
+      - name: Repo checks
+        run: ./scripts/check_repo.sh
+
+      - name: Test
+        run: ./scripts/test.sh

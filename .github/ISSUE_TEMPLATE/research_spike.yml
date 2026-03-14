@@ -1,0 +1,40 @@
+name: Research / Spike
+about: Time-boxed investigation with explicit outcomes
+labels: [research]
+body:
+  - type: input
+    id: linear_ticket
+    attributes:
+      label: Linear Ticket
+      placeholder: GAME-123
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Research Question
+      description: What uncertainty are we resolving?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and Timebox
+      placeholder: |
+        Scope:
+        Timebox (hours):
+    validations:
+      required: true
+
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Deliverables
+      description: What artifact should this spike produce?
+      placeholder: |
+        - Decision memo in docs/
+        - Candidate implementation plan
+    validations:
+      required: true

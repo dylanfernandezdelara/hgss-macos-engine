@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Swift / Xcode
+.build/
+.swiftpm/
+DerivedData/
+*.xcworkspace
+*.xcodeproj/project.xcworkspace/
+xcuserdata/
+
+# Local content and external local clones
+Content/Local/**
+!Content/Local/.gitkeep
+External/
+external/
+
+# ROMs, saves, extracted binaries/assets
+*.nds
+*.gba
+*.3ds
+*.sav
+*.dsv
+*.bin
+*.narc
+*.sdat
+*.nclr
+*.ncgr
+*.ncer
+*.nsbmd
+*.nsbtx
+*.arm9
+*.arm7
+baserom*
+
+# Runtime/output logs
+*.log
+*.tmp

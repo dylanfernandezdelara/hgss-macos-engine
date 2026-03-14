@@ -1,0 +1,46 @@
+name: Bug Report
+about: Describe a defect and expected behavior
+labels: [bug]
+body:
+  - type: input
+    id: linear_ticket
+    attributes:
+      label: Linear Ticket (optional)
+      placeholder: GAME-123
+    validations:
+      required: false
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Actual Behavior
+      description: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction Steps
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Proof / Logs
+      description: Include command output, traces, or screenshots
+    validations:
+      required: false

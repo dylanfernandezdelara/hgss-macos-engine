@@ -1,0 +1,28 @@
+name: PR Proof Of Work
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  validate-pr-body:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate ticket + proof-of-work sections
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request?.body || "";
+            const title = context.payload.pull_request?.title || "";
+
+            const hasLinearKey = /[A-Z]{2,}-\d+/.test(body) || /[A-Z]{2,}-\d+/.test(title);
+            const hasProofHeading = /##\s*Proof of Work/i.test(body);
+            const hasChecklist = /- \[[ xX]\]/.test(body);
+
+            if (!hasLinearKey) {
+              core.setFailed("Missing Linear ticket key (for example: GAME-123) in PR title or body.");
+            }
+
+            if (!hasProofHeading || !hasChecklist) {
+              core.setFailed("PR body must include a '## Proof of Work' section and checklist items.");
+            }
