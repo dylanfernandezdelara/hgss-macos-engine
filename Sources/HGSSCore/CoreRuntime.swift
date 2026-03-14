@@ -111,13 +111,22 @@ public actor HGSSCoreRuntime {
     }
 
     @discardableResult
+    public func send(command: CoreCommand) async -> CoreSnapshot {
+        await apply(command: command)
+    }
+
+    @discardableResult
     public func advanceOneTick() async -> CoreSnapshot {
+        await apply(command: heldCommand)
+    }
+
+    private func apply(command: CoreCommand) async -> CoreSnapshot {
         guard let map = content.map(id: state.currentMapID) else {
             await telemetry.emit(event: "content.map.missing")
             return latestSnapshot
         }
 
-        let result = GameReducer.step(state: state, command: heldCommand, map: map)
+        let result = GameReducer.step(state: state, command: command, map: map)
         state = result.state
         latestSnapshot = CoreSnapshot.make(manifest: content.manifest, map: map, state: state)
 

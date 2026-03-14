@@ -12,10 +12,10 @@ final class GameViewModel: ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .loading
+    @Published private(set) var inputStatus = "Press an arrow key."
 
     private var runtime: HGSSCoreRuntime?
     private var snapshotTask: Task<Void, Never>?
-    private var pressedDirections: [MovementDirection] = []
 
     func boot() {
         guard runtime == nil else {
@@ -34,7 +34,6 @@ final class GameViewModel: ObservableObject {
                 let runtime = try await HGSSCoreRuntime.bootWithStubContent(stubRoot: stubRoot)
                 await runtime.start()
                 self.runtime = runtime
-                await runtime.setHeldDirection(nil)
                 phase = .ready(await runtime.snapshot())
                 startSnapshotLoop()
             } catch {
@@ -49,7 +48,7 @@ final class GameViewModel: ObservableObject {
 
         let runtime = self.runtime
         self.runtime = nil
-        pressedDirections.removeAll()
+        inputStatus = "Press an arrow key."
 
         Task {
             await runtime?.stop()
@@ -61,26 +60,36 @@ final class GameViewModel: ObservableObject {
             return
         }
 
-        pressedDirections.removeAll { $0 == direction }
-        pressedDirections.append(direction)
-        pushCurrentDirection()
+        inputStatus = "Input: \(direction.rawValue)"
+#if DEBUG
+        print("HGSSMac keyDown: \(direction.rawValue)")
+#endif
+        step(direction)
     }
 
     func handleKeyUp(_ keyCode: UInt16) {
-        guard let direction = MovementDirection(keyCode: keyCode) else {
+        guard MovementDirection(keyCode: keyCode) != nil else {
             return
         }
 
-        pressedDirections.removeAll { $0 == direction }
-        pushCurrentDirection()
+        inputStatus = "Press an arrow key."
     }
 
-    private func pushCurrentDirection() {
-        let direction = pressedDirections.last
+    private func step(_ direction: MovementDirection) {
         let runtime = self.runtime
 
         Task {
-            await runtime?.setHeldDirection(direction)
+            guard let runtime else {
+                return
+            }
+
+            let snapshot = await runtime.send(command: .move(direction))
+            await MainActor.run {
+                phase = .ready(snapshot)
+            }
+#if DEBUG
+            print("HGSSMac player: \(snapshot.playerPosition.x),\(snapshot.playerPosition.y)")
+#endif
         }
     }
 
@@ -118,6 +127,37 @@ private extension MovementDirection {
         default:
             return nil
         }
+    }
+}
+
+private final class GameWindow: NSWindow {
+    var onArrowKeyDown: ((UInt16) -> Void)?
+    var onArrowKeyUp: ((UInt16) -> Void)?
+
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        true
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if MovementDirection(keyCode: event.keyCode) != nil {
+            onArrowKeyDown?(event.keyCode)
+            return
+        }
+
+        super.keyDown(with: event)
+    }
+
+    override func keyUp(with event: NSEvent) {
+        if MovementDirection(keyCode: event.keyCode) != nil {
+            onArrowKeyUp?(event.keyCode)
+            return
+        }
+
+        super.keyUp(with: event)
     }
 }
 
@@ -175,6 +215,7 @@ private struct TileCell: View {
 
 private struct GameBoardView: View {
     let snapshot: CoreSnapshot
+    let inputStatus: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -187,6 +228,9 @@ private struct GameBoardView: View {
                 Text("Arrow keys move the player. Dark tiles block movement, blue tiles are warps, and amber tiles preserve upstream placements.")
                     .font(.system(size: 12, weight: .regular, design: .rounded))
                     .foregroundStyle(.secondary)
+                Text(inputStatus)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color(red: 0.32, green: 0.36, blue: 0.30))
             }
 
             VStack(spacing: 4) {
@@ -279,51 +323,8 @@ private struct ErrorView: View {
     }
 }
 
-private struct KeyboardCaptureView: NSViewRepresentable {
-    let onKeyDown: (UInt16) -> Void
-    let onKeyUp: (UInt16) -> Void
-
-    func makeNSView(context: Context) -> KeyCaptureNSView {
-        let view = KeyCaptureNSView()
-        view.onKeyDown = onKeyDown
-        view.onKeyUp = onKeyUp
-        return view
-    }
-
-    func updateNSView(_ nsView: KeyCaptureNSView, context: Context) {
-        nsView.onKeyDown = onKeyDown
-        nsView.onKeyUp = onKeyUp
-
-        DispatchQueue.main.async {
-            nsView.window?.makeFirstResponder(nsView)
-        }
-    }
-}
-
-private final class KeyCaptureNSView: NSView {
-    var onKeyDown: ((UInt16) -> Void)?
-    var onKeyUp: ((UInt16) -> Void)?
-
-    override var acceptsFirstResponder: Bool {
-        true
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        window?.makeFirstResponder(self)
-    }
-
-    override func keyDown(with event: NSEvent) {
-        onKeyDown?(event.keyCode)
-    }
-
-    override func keyUp(with event: NSEvent) {
-        onKeyUp?(event.keyCode)
-    }
-}
-
-struct RootView: View {
-    @StateObject private var viewModel = GameViewModel()
+private struct RootView: View {
+    @ObservedObject var viewModel: GameViewModel
 
     var body: some View {
         Group {
@@ -331,31 +332,66 @@ struct RootView: View {
             case .loading:
                 LoadingView()
             case let .ready(snapshot):
-                GameBoardView(snapshot: snapshot)
+                GameBoardView(snapshot: snapshot, inputStatus: viewModel.inputStatus)
             case let .error(message):
                 ErrorView(message: message)
             }
         }
-        .background(
-            KeyboardCaptureView(
-                onKeyDown: viewModel.handleKeyDown,
-                onKeyUp: viewModel.handleKeyUp
-            )
+    }
+}
+
+@MainActor
+private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private let viewModel = GameViewModel()
+    private var window: GameWindow?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let window = GameWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 700),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
         )
-        .task {
-            viewModel.boot()
+
+        window.title = "HGSSMac"
+        window.center()
+        window.delegate = self
+        window.isReleasedWhenClosed = false
+        window.onArrowKeyDown = { [weak self] keyCode in
+            self?.viewModel.handleKeyDown(keyCode)
         }
-        .onDisappear {
-            viewModel.shutdown()
+        window.onArrowKeyUp = { [weak self] keyCode in
+            self?.viewModel.handleKeyUp(keyCode)
         }
+        window.contentView = NSHostingView(rootView: RootView(viewModel: viewModel))
+        window.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+
+        self.window = window
+        viewModel.boot()
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        viewModel.shutdown()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        viewModel.shutdown()
     }
 }
 
 @main
-struct HGSSMacApp: App {
-    var body: some Scene {
-        WindowGroup {
-            RootView()
-        }
+struct HGSSMacApp {
+    @MainActor
+    static func main() {
+        let application = NSApplication.shared
+        let delegate = AppDelegate()
+        application.setActivationPolicy(.regular)
+        application.delegate = delegate
+        application.run()
     }
 }
