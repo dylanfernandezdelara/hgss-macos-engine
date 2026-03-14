@@ -1,22 +1,17 @@
-# HGSS macOS Engine (Repo Bootstrap)
+# HGSS macOS Engine
 
-Native macOS Pokémon HeartGold/SoulSilver engine foundation with a thin app shell and shared Swift package modules.
+Native macOS Pokemon HeartGold/SoulSilver engine scaffold (Swift + SPM), with a thin app shell and headless shared core modules.
 
-This repository is intentionally initialized for workflow readiness, not full gameplay implementation.
+## Current Scope
 
-## What Exists Today
-
-- Thin macOS app shell at `Apps/HGSSMac`
-- Shared Swift package targets:
-  - `HGSSDataModel`
-  - `HGSSContent`
-  - `HGSSCore`
-  - `HGSSTelemetry`
-  - `HGSSExtractCLI` (stub extractor CLI)
-- Checked-in fake content at `DevContent/Stub`
-- Local-only content area at `Content/Local`
-- Smoke tests and CI
-- Ticket-oriented workflow docs for Symphony + Linear
+- `Apps/HGSSMac`: macOS app shell only
+- `Sources/HGSSDataModel`: shared schema/domain types
+- `Sources/HGSSContent`: content loading
+- `Sources/HGSSCore`: headless runtime
+- `Sources/HGSSTelemetry`: telemetry/event sink
+- `Sources/HGSSExtractCLI`: offline extractor stub
+- `DevContent/Stub`: tiny checked-in synthetic content
+- `Content/Local`: local extracted content (ignored)
 
 ## Quick Start
 
@@ -28,29 +23,18 @@ This repository is intentionally initialized for workflow readiness, not full ga
 ./scripts/check_repo.sh
 ```
 
-## Repo Layout
+## Content and Legal Hygiene
 
-- `Apps/HGSSMac`: Native macOS shell (UI and app entry only)
-- `Sources/*`: Shared package modules and CLI
-- `Tests/*`: Smoke tests and future module tests
-- `DevContent/Stub`: Tiny fake checked-in content
-- `Content/Local`: Local extracted content (ignored in git)
-- `docs`: Architecture, schema, legal/asset hygiene, roadmap docs
-- `scripts`: Stable local automation commands
-- `.github`: CI and issue/PR templates
+- Commit only source code, docs, and synthetic fixtures.
+- Never commit ROMs, save files, proprietary extracted assets, or dumps.
+- Keep local extraction outputs in `Content/Local/`.
 
-## Content Policy
-
-- `DevContent/Stub` is fake, tiny, and safe to commit.
-- `Content/Local` is for local extracted data and never committed.
-- ROMs, extracted commercial assets, saves, and dumps are never committed.
-
-See `docs/LEGAL_AND_ASSET_HYGIENE.md` and `.gitignore` for strict rules.
+See `docs/LEGAL_AND_ASSET_HYGIENE.md`.
 
 ## Workflow
 
 - Use small Linear-ticketed PRs.
-- Include proof-of-work in every PR.
-- Keep app shell thin; build engine behavior in shared package modules.
+- Include proof-of-work in PRs.
+- Keep game logic in `Sources/`, not in `Apps/HGSSMac`.
 
-See `WORKFLOW.md` and `.github/pull_request_template.md`.
+See `WORKFLOW.md`, `AGENTS.md`, and `.github/pull_request_template.md`.
