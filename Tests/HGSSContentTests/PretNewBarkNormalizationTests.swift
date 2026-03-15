@@ -1,66 +1,62 @@
 import Foundation
-import Testing
+import XCTest
 import HGSSContent
 import HGSSDataModel
 
-struct PretNewBarkNormalizationTests {
-    @Test("Regresses generated manifest against committed contract")
-    func regressesGeneratedManifestAgainstCommittedContract() throws {
-        #expect(try generatedManifest() == expectedGeneratedManifest())
+final class PretNewBarkNormalizationTests: XCTestCase {
+    func testRegressesGeneratedManifestAgainstCommittedContract() throws {
+        XCTAssertEqual(try generatedManifest(), try expectedGeneratedManifest())
     }
 
-    @Test("Regresses generated header and provenance")
-    func regressesHeaderAndProvenance() throws {
+    func testRegressesHeaderAndProvenance() throws {
         let manifest = try generatedManifest()
         let actualMap = try generatedMap(from: manifest)
         let expectedMap = try expectedGeneratedMap()
 
-        #expect(manifest.schemaVersion == 2)
-        #expect(manifest.title == "HGSS Normalized Stub Content")
-        #expect(manifest.build == "0.2.0-normalized")
-        #expect(manifest.initialMapID == expectedMap.mapID)
-        #expect(manifest.initialEntryPointID == "ENTRY_BOOT_DEFAULT")
-        #expect(manifest.maps.count == 1)
-        #expect(actualMap.displayName == expectedMap.displayName)
-        #expect(actualMap.layout == expectedMap.layout)
-        #expect(actualMap.entryPoints == expectedMap.entryPoints)
-        #expect(actualMap.provenance == expectedMap.provenance)
-        #expect(actualMap.header == expectedMap.header)
+        XCTAssertEqual(manifest.schemaVersion, 2)
+        XCTAssertEqual(manifest.title, "HGSS Normalized Stub Content")
+        XCTAssertEqual(manifest.build, "0.2.0-normalized")
+        XCTAssertEqual(manifest.initialMapID, expectedMap.mapID)
+        XCTAssertEqual(manifest.initialEntryPointID, "ENTRY_BOOT_DEFAULT")
+        XCTAssertEqual(manifest.maps.count, 1)
+        XCTAssertEqual(actualMap.displayName, expectedMap.displayName)
+        XCTAssertEqual(actualMap.layout, expectedMap.layout)
+        XCTAssertEqual(actualMap.entryPoints, expectedMap.entryPoints)
+        XCTAssertEqual(actualMap.provenance, expectedMap.provenance)
+        XCTAssertEqual(actualMap.header, expectedMap.header)
     }
 
-    @Test("Regresses generated warps and placements")
-    func regressesWarpsAndPlacements() throws {
+    func testRegressesWarpsAndPlacements() throws {
         let actualMap = try generatedMap()
         let expectedMap = try expectedGeneratedMap()
 
-        #expect(actualMap.warps == expectedMap.warps)
-        #expect(actualMap.placements == expectedMap.placements)
+        XCTAssertEqual(actualMap.warps, expectedMap.warps)
+        XCTAssertEqual(actualMap.placements, expectedMap.placements)
     }
 
-    @Test("Preserves normalization invariants")
-    func preservesNormalizationInvariants() throws {
+    func testPreservesNormalizationInvariants() throws {
         let manifest = try generatedManifest()
         let content = try NormalizedWorldContent(manifest: manifest)
-        let map = try #require(content.map(id: "MAP_NEW_BARK"))
+        let map = try XCTUnwrap(content.map(id: "MAP_NEW_BARK"))
 
-        #expect(map.warpTiles == Set([
+        XCTAssertEqual(map.warpTiles, Set([
             NormalizedTileCoordinate(x: 8, y: 2),
             NormalizedTileCoordinate(x: 19, y: 5),
         ]))
-        #expect(map.placementTiles.contains(NormalizedTileCoordinate(x: 0, y: 11)))
-        #expect(map.placementTiles.contains(NormalizedTileCoordinate(x: 24, y: 11)))
-        #expect(content.initialEntryPoint.localPosition == NormalizedTileCoordinate(x: 1, y: 1))
+        XCTAssertTrue(map.placementTiles.contains(NormalizedTileCoordinate(x: 0, y: 11)))
+        XCTAssertTrue(map.placementTiles.contains(NormalizedTileCoordinate(x: 24, y: 11)))
+        XCTAssertEqual(content.initialEntryPoint.localPosition, NormalizedTileCoordinate(x: 1, y: 1))
 
         for warp in map.warps {
-            #expect(map.contains(warp.localPosition))
-            #expect(warp.localPosition == normalizedTile(for: warp.sourcePosition, origin: map.sourceOrigin))
+            XCTAssertTrue(map.contains(warp.localPosition))
+            XCTAssertEqual(warp.localPosition, normalizedTile(for: warp.sourcePosition, origin: map.sourceOrigin))
         }
 
         for placement in map.placements {
-            #expect(map.contains(placement.localPosition))
-            #expect(placement.localPosition == normalizedTile(for: placement.sourcePosition, origin: map.sourceOrigin))
+            XCTAssertTrue(map.contains(placement.localPosition))
+            XCTAssertEqual(placement.localPosition, normalizedTile(for: placement.sourcePosition, origin: map.sourceOrigin))
             for tile in placement.occupiedTiles {
-                #expect(map.contains(tile))
+                XCTAssertTrue(map.contains(tile))
             }
         }
     }
@@ -89,7 +85,7 @@ struct PretNewBarkNormalizationTests {
         } else {
             resolvedManifest = try generatedManifest()
         }
-        return try #require(resolvedManifest.maps.first(where: { $0.mapID == "MAP_NEW_BARK" }))
+        return try XCTUnwrap(resolvedManifest.maps.first(where: { $0.mapID == "MAP_NEW_BARK" }))
     }
 
     private func expectedGeneratedMap() throws -> HGSSManifest.MapEntry {

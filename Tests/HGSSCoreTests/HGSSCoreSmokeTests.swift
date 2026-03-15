@@ -1,10 +1,9 @@
 import Foundation
-import Testing
+import XCTest
 import HGSSCore
 
-struct HGSSCoreSmokeTests {
-    @Test("Boots runtime at declared entry point")
-    func bootsCoreWithStubContent() async throws {
+final class HGSSCoreSmokeTests: XCTestCase {
+    func testBootsCoreWithStubContent() async throws {
         let testFile = URL(fileURLWithPath: #filePath)
         let repoRoot = testFile
             .deletingLastPathComponent()
@@ -15,75 +14,69 @@ struct HGSSCoreSmokeTests {
         let runtime = try await HGSSCoreRuntime.bootWithStubContent(stubRoot: stubPath)
         let snapshot = await runtime.snapshot()
 
-        #expect(snapshot.mapID == "MAP_NEW_BARK")
-        #expect(snapshot.mapWidth == 25)
-        #expect(snapshot.mapHeight == 18)
-        #expect(snapshot.playerPosition == TilePosition(x: 1, y: 1))
-        #expect(snapshot.warpTiles.contains(TilePosition(x: 8, y: 2)))
-        #expect(snapshot.placementTiles.contains(TilePosition(x: 24, y: 11)))
+        XCTAssertEqual(snapshot.mapID, "MAP_NEW_BARK")
+        XCTAssertEqual(snapshot.mapWidth, 25)
+        XCTAssertEqual(snapshot.mapHeight, 18)
+        XCTAssertEqual(snapshot.playerPosition, TilePosition(x: 1, y: 1))
+        XCTAssertTrue(snapshot.warpTiles.contains(TilePosition(x: 8, y: 2)))
+        XCTAssertTrue(snapshot.placementTiles.contains(TilePosition(x: 24, y: 11)))
         await runtime.stop()
     }
 
-    @Test("Moves into an open tile")
-    func movesIntoOpenTile() async throws {
+    func testMovesIntoOpenTile() async throws {
         let runtime = try await makeRuntime()
         await runtime.setHeldDirection(.right)
         let snapshot = await runtime.advanceOneTick()
 
-        #expect(snapshot.playerPosition == TilePosition(x: 2, y: 1))
-        #expect(snapshot.tick == 1)
+        XCTAssertEqual(snapshot.playerPosition, TilePosition(x: 2, y: 1))
+        XCTAssertEqual(snapshot.tick, 1)
         await runtime.stop()
     }
 
-    @Test("Tick results expose typed trigger event contract")
-    func exposesTickResultContract() async throws {
+    func testTickResultsExposeTypedTriggerEventContract() async throws {
         let runtime = try await makeRuntime()
         let result = await runtime.sendStep(command: .move(.right))
 
-        #expect(result.snapshot.playerPosition == TilePosition(x: 2, y: 1))
-        #expect(result.outcome == .moved(.right))
-        #expect(result.triggerEvents.isEmpty)
+        XCTAssertEqual(result.snapshot.playerPosition, TilePosition(x: 2, y: 1))
+        XCTAssertEqual(result.outcome, .moved(.right))
+        XCTAssertTrue(result.triggerEvents.isEmpty)
         await runtime.stop()
     }
 
-    @Test("Blocked movement leaves player in place")
-    func blocksMovementIntoObstacle() async throws {
+    func testBlockedMovementLeavesPlayerInPlace() async throws {
         let runtime = try await makeRuntime()
         await runtime.setHeldDirection(.right)
         _ = await runtime.advanceOneTick()
         await runtime.setHeldDirection(.right)
         let snapshot = await runtime.advanceOneTick()
 
-        #expect(snapshot.playerPosition == TilePosition(x: 2, y: 1))
-        #expect(snapshot.tick == 2)
+        XCTAssertEqual(snapshot.playerPosition, TilePosition(x: 2, y: 1))
+        XCTAssertEqual(snapshot.tick, 2)
         let counters = await runtime.telemetryCounters()
-        #expect(counters["movement.blocked"] == 1)
+        XCTAssertEqual(counters["movement.blocked"], 1)
         await runtime.stop()
     }
 
-    @Test("Out-of-bounds movement is blocked")
-    func blocksMovementOutOfBounds() async throws {
+    func testOutOfBoundsMovementIsBlocked() async throws {
         let runtime = try await makeRuntime()
         await runtime.setHeldDirection(.left)
         _ = await runtime.advanceOneTick()
         await runtime.setHeldDirection(.left)
         let snapshot = await runtime.advanceOneTick()
 
-        #expect(snapshot.playerPosition == TilePosition(x: 0, y: 1))
-        #expect(snapshot.tick == 2)
+        XCTAssertEqual(snapshot.playerPosition, TilePosition(x: 0, y: 1))
+        XCTAssertEqual(snapshot.tick, 2)
         await runtime.stop()
     }
 
-    @Test("Same command sequence yields same final state")
-    func deterministicSequence() async throws {
+    func testSameCommandSequenceYieldsSameFinalState() async throws {
         let first = try await runSequence([.right, .down, .down, .left, .up, nil])
         let second = try await runSequence([.right, .down, .down, .left, .up, nil])
 
-        #expect(first == second)
+        XCTAssertEqual(first, second)
     }
 
-    @Test("TriggerEvent schema carries map context and trigger identity")
-    func triggerEventSchema() {
+    func testTriggerEventSchemaCarriesMapContextAndTriggerIdentity() {
         let event = TriggerEvent(
             tick: 7,
             playerPosition: TilePosition(x: 24, y: 9),
@@ -103,13 +96,13 @@ struct HGSSCoreSmokeTests {
             )
         )
 
-        #expect(event.tick == 7)
-        #expect(event.map.mapID == "MAP_NEW_BARK")
-        #expect(event.map.eventsBank == "NARC_zone_event_057_T20_bin")
-        #expect(event.trigger.id == "coord_T20_east_exit")
-        #expect(event.trigger.kind == .coordinateTrigger)
-        #expect(event.trigger.height == 5)
-        #expect(event.trigger.scriptReference == "script:20002")
+        XCTAssertEqual(event.tick, 7)
+        XCTAssertEqual(event.map.mapID, "MAP_NEW_BARK")
+        XCTAssertEqual(event.map.eventsBank, "NARC_zone_event_057_T20_bin")
+        XCTAssertEqual(event.trigger.id, "coord_T20_east_exit")
+        XCTAssertEqual(event.trigger.kind, .coordinateTrigger)
+        XCTAssertEqual(event.trigger.height, 5)
+        XCTAssertEqual(event.trigger.scriptReference, "script:20002")
     }
 
     private func makeRuntime() async throws -> HGSSCoreRuntime {

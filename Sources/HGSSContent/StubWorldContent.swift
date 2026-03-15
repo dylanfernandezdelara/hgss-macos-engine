@@ -113,6 +113,7 @@ public struct NormalizedPlayableMap: Sendable {
     public let placementTiles: Set<NormalizedTileCoordinate>
 
     private let entryPointsByID: [String: NormalizedMapEntryPoint]
+    private let placementsByTile: [NormalizedTileCoordinate: [NormalizedMapPlacement]]
 
     public init(
         id: String,
@@ -140,9 +141,20 @@ public struct NormalizedPlayableMap: Sendable {
         self.placements = placements
         self.entryPointsByID = Dictionary(uniqueKeysWithValues: entryPoints.map { ($0.id, $0) })
         self.warpTiles = Set(warps.map(\.localPosition))
-        self.placementTiles = placements.reduce(into: Set<NormalizedTileCoordinate>()) { partialResult, placement in
-            partialResult.formUnion(placement.occupiedTiles)
+
+        var placementsByTile: [NormalizedTileCoordinate: [NormalizedMapPlacement]] = [:]
+        var placementTiles: Set<NormalizedTileCoordinate> = []
+
+        // Preserve placement declaration order so overlapping trigger hits emit deterministically.
+        for placement in placements {
+            for tile in placement.occupiedTiles {
+                placementsByTile[tile, default: []].append(placement)
+                placementTiles.insert(tile)
+            }
         }
+
+        self.placementTiles = placementTiles
+        self.placementsByTile = placementsByTile
     }
 
     public func contains(_ tile: NormalizedTileCoordinate) -> Bool {
@@ -155,6 +167,10 @@ public struct NormalizedPlayableMap: Sendable {
 
     public func entryPoint(id: String) -> NormalizedMapEntryPoint? {
         entryPointsByID[id]
+    }
+
+    public func placements(at tile: NormalizedTileCoordinate) -> [NormalizedMapPlacement] {
+        placementsByTile[tile] ?? []
     }
 }
 

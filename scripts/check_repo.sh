@@ -9,6 +9,11 @@ if [[ -d /Applications/Xcode.app/Contents/Developer ]]; then
 fi
 
 SWIFT=(xcrun swift)
+SWIFT_FLAGS=()
+
+if [[ "${SWIFT_PACKAGE_DISABLE_SANDBOX:-0}" == "1" ]]; then
+  SWIFT_FLAGS+=(--disable-sandbox)
+fi
 
 echo "Checking required files..."
 required=(
@@ -30,13 +35,13 @@ for file in "${required[@]}"; do
 done
 
 echo "Building shared package..."
-"${SWIFT[@]}" build
+"${SWIFT[@]}" build "${SWIFT_FLAGS[@]}"
 
 echo "Building app shell package..."
-"${SWIFT[@]}" build --package-path Apps/HGSSMac
+"${SWIFT[@]}" build "${SWIFT_FLAGS[@]}" --package-path Apps/HGSSMac
 
 echo "Running extractor stub dry-run check..."
-"${SWIFT[@]}" run HGSSExtractCLI --input "$ROOT_DIR/DevContent/Stub" --output "$ROOT_DIR/Content/Local/CheckRepoExtract" --dry-run
+"${SWIFT[@]}" run "${SWIFT_FLAGS[@]}" HGSSExtractCLI --input "$ROOT_DIR/DevContent/Stub" --output "$ROOT_DIR/Content/Local/CheckRepoExtract" --dry-run
 
 echo "Verifying ignore rules for local content..."
 if ! git check-ignore -q Content/Local/example_extracted_asset.bin; then

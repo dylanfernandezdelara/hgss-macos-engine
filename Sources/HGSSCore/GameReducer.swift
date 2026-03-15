@@ -35,13 +35,23 @@ public enum GameReducer {
                 )
             }
 
+            let triggerEvents = map.placements(at: proposedTile).map { placement in
+                TriggerEvent.triggerHit(
+                    tick: advancedTick,
+                    playerPosition: proposed,
+                    map: map,
+                    placement: placement
+                )
+            }
+
             return GameStepResult(
                 state: GameState(
                     tick: advancedTick,
                     currentMapID: state.currentMapID,
                     playerPosition: proposed
                 ),
-                outcome: .moved(direction)
+                outcome: .moved(direction),
+                triggerEvents: triggerEvents
             )
         }
     }

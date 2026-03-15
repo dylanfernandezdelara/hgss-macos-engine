@@ -45,7 +45,7 @@ let package = Package(
         ),
         .testTarget(
             name: "HGSSCoreTests",
-            dependencies: ["HGSSCore"],
+            dependencies: ["HGSSCore", "HGSSContent", "HGSSDataModel"],
             path: "Tests/HGSSCoreTests"
         )
     ]
