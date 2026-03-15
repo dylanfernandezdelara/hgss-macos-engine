@@ -41,6 +41,26 @@ export SYMPHONY_LINEAR_PROJECT_SLUG=your-linear-project-slug
 export LINEAR_API_KEY=lin_api_...
 ```
 
+## Recommended Linear Workflow States (Required)
+
+Symphony's upstream workflow expects these additional Linear issue states:
+
+- `Rework`
+- `Human Review`
+- `Merging`
+
+Configure them in Linear:
+
+1. Open **Linear -> Team Settings -> Workflow** for `FDL Studio`.
+2. Add `Rework`, `Human Review`, and `Merging` (recommended under the **Started** category).
+3. If you currently use `In Review`, either rename it to `Human Review` or keep both and standardize on `Human Review` for Symphony.
+4. Keep terminal states including `Done`, `Canceled`/`Cancelled`, and `Duplicate`.
+
+Notes:
+
+- The repo template tracks `Todo`, `In Progress`, `Rework`, and `Merging` as `active_states`.
+- `Human Review` is intentionally not an active polling state in Symphony; it acts as the human gate between implementation and merge.
+
 ## Run Symphony
 
 ```bash
