@@ -112,18 +112,30 @@ public actor HGSSCoreRuntime {
 
     @discardableResult
     public func send(command: CoreCommand) async -> CoreSnapshot {
-        await apply(command: command)
+        let result = await sendStep(command: command)
+        return result.snapshot
     }
 
     @discardableResult
     public func advanceOneTick() async -> CoreSnapshot {
+        let result = await advanceOneTickResult()
+        return result.snapshot
+    }
+
+    @discardableResult
+    public func sendStep(command: CoreCommand) async -> CoreTickResult {
+        await apply(command: command)
+    }
+
+    @discardableResult
+    public func advanceOneTickResult() async -> CoreTickResult {
         await apply(command: heldCommand)
     }
 
-    private func apply(command: CoreCommand) async -> CoreSnapshot {
+    private func apply(command: CoreCommand) async -> CoreTickResult {
         guard let map = content.map(id: state.currentMapID) else {
             await telemetry.emit(event: "content.map.missing")
-            return latestSnapshot
+            return CoreTickResult(snapshot: latestSnapshot, outcome: .idle, triggerEvents: [])
         }
 
         let result = GameReducer.step(state: state, command: command, map: map)
@@ -140,7 +152,11 @@ public actor HGSSCoreRuntime {
             await telemetry.emit(event: "movement.blocked")
         }
 
-        return latestSnapshot
+        return CoreTickResult(
+            snapshot: latestSnapshot,
+            outcome: result.outcome,
+            triggerEvents: result.triggerEvents
+        )
     }
 
     public func snapshot() -> CoreSnapshot {
