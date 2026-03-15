@@ -28,6 +28,11 @@ At minimum include:
 - App run confirmation for shell changes
 - Extractor run confirmation for content/tooling changes
 
+## Script Notes
+
+- In constrained automation environments, set `SWIFT_PACKAGE_DISABLE_SANDBOX=1` before running the repository scripts so SwiftPM commands use `--disable-sandbox`.
+- `./scripts/test.sh` adds the macOS developer `usr/lib` and `Frameworks` search paths when `DEVELOPER_DIR` points at Xcode, which keeps XCTest discoverable on the current SwiftPM toolchain.
+
 ## Agent Operating Rules
 
 - Treat Symphony and Linear as workflow tooling, not runtime dependencies.

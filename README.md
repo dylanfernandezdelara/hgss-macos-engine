@@ -29,6 +29,14 @@ Optional upstream-informed extractor run:
 POKEHEARTGOLD_ROOT=/path/to/pokeheartgold ./scripts/run_extractor_stub.sh
 ```
 
+When running the repository scripts from a sandboxed automation environment, set:
+
+```bash
+SWIFT_PACKAGE_DISABLE_SANDBOX=1
+```
+
+`./scripts/test.sh` also adds the explicit macOS developer framework search paths needed for XCTest resolution on the current SwiftPM/Xcode toolchain.
+
 ## Content and Legal Hygiene
 
 - Commit only source code, docs, and synthetic fixtures.
