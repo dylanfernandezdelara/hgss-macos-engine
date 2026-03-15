@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import HGSSContent
+import HGSSDataModel
 
 struct HGSSContentSmokeTests {
     @Test("Loads normalized New Bark fixture and entry point")
@@ -75,5 +76,69 @@ struct HGSSContentSmokeTests {
         #expect(playerArrival.localPosition == NormalizedTileCoordinate(x: 2, y: 3))
         #expect(elmLab.warps.first?.destinationMapID == "MAP_NEW_BARK")
         #expect(playerHouse.warps.first?.destinationMapID == "MAP_NEW_BARK")
+    }
+
+    @Test("Rejects warp destinations that are missing from the manifest")
+    func rejectsDanglingWarpDestinations() throws {
+        let testFile = URL(fileURLWithPath: #filePath)
+        let repoRoot = testFile
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let stubPath = repoRoot.appendingPathComponent("DevContent/Stub", isDirectory: true)
+
+        let loader = StubContentLoader()
+        let manifest = try loader.loadManifest(from: stubPath)
+        let brokenMaps = manifest.maps.map { map in
+            guard map.mapID == "MAP_NEW_BARK" else {
+                return map
+            }
+
+            let brokenWarps = map.warps.enumerated().map { index, warp in
+                guard index == 0 else {
+                    return warp
+                }
+
+                return HGSSManifest.Warp(
+                    id: warp.id,
+                    localPosition: warp.localPosition,
+                    sourcePosition: warp.sourcePosition,
+                    destinationMapID: "MAP_MISSING_INTERIOR",
+                    destinationAnchor: warp.destinationAnchor,
+                    summary: warp.summary
+                )
+            }
+
+            return HGSSManifest.MapEntry(
+                mapID: map.mapID,
+                displayName: map.displayName,
+                provenance: map.provenance,
+                header: map.header,
+                layout: map.layout,
+                collision: map.collision,
+                entryPoints: map.entryPoints,
+                warps: brokenWarps,
+                placements: map.placements
+            )
+        }
+        let brokenManifest = HGSSManifest(
+            schemaVersion: manifest.schemaVersion,
+            title: manifest.title,
+            build: manifest.build,
+            initialMapID: manifest.initialMapID,
+            initialEntryPointID: manifest.initialEntryPointID,
+            maps: brokenMaps,
+            pokemon: manifest.pokemon,
+            notes: manifest.notes
+        )
+
+        do {
+            _ = try NormalizedWorldContent(manifest: brokenManifest)
+            Issue.record("Expected missing warp destination validation failure.")
+        } catch let HGSSContentError.missingWarpDestinationMap(mapID, warpID, destinationMapID) {
+            #expect(mapID == "MAP_NEW_BARK")
+            #expect(warpID == "WARP_ELMS_LAB_1F")
+            #expect(destinationMapID == "MAP_MISSING_INTERIOR")
+        }
     }
 }

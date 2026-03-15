@@ -73,6 +73,7 @@ The two interior maps deliberately stop at the first room boundary. Their map ID
 - `HGSSCore` consumes only normalized local coordinates.
 - Upstream `MapHeader`, `map_matrix`, and `zone_event` details stay in provenance or extractor-facing fields.
 - `entryPoints` are engine-defined boot/arrival anchors.
+- `warps.destinationMapID` must point at another normalized map record even while arrival-anchor semantics remain deferred.
 - `warps` and `placements` preserve upstream source coordinates for validation and debugging.
 - Collision in the current fixture is still checked-in stand-in data; long-term it should be derived offline from upstream map data into the same normalized contract.
 - The extractor may combine local profile fields such as excerpt bounds, entry points, and temporary collision with upstream-derived header/event data until full extraction is implemented.
@@ -84,6 +85,7 @@ The two interior maps deliberately stop at the first room boundary. Their map ID
 - `initialEntryPointID` must exist on the initial map.
 - `layout.width` and `layout.height` must be positive.
 - `entryPoints`, `warps`, and `placements` must be inside local bounds.
+- Each `warps.destinationMapID` must reference a defined map in the same manifest.
 - `sourcePosition` must normalize to the declared `localPosition`.
 - `placements` must have positive extents and remain inside bounds.
 

@@ -15,6 +15,7 @@ public enum HGSSContentError: LocalizedError {
     case duplicateWarpID(mapID: String, warpID: String)
     case invalidWarpTile(mapID: String, warpID: String, x: Int, y: Int)
     case invalidWarpNormalization(mapID: String, warpID: String)
+    case missingWarpDestinationMap(mapID: String, warpID: String, destinationMapID: String)
     case duplicatePlacementID(mapID: String, placementID: String)
     case invalidPlacementSize(mapID: String, placementID: String, width: Int, height: Int)
     case invalidPlacementTile(mapID: String, placementID: String, x: Int, y: Int)
@@ -48,6 +49,8 @@ public enum HGSSContentError: LocalizedError {
             return "Map '\(mapID)' has out-of-bounds warp '\(warpID)' at (\(x), \(y))."
         case let .invalidWarpNormalization(mapID, warpID):
             return "Map '\(mapID)' has warp '\(warpID)' whose source coordinates do not normalize to the declared local tile."
+        case let .missingWarpDestinationMap(mapID, warpID, destinationMapID):
+            return "Map '\(mapID)' has warp '\(warpID)' targeting undefined destination map '\(destinationMapID)'."
         case let .duplicatePlacementID(mapID, placementID):
             return "Map '\(mapID)' defines duplicate placement '\(placementID)'."
         case let .invalidPlacementSize(mapID, placementID, width, height):
