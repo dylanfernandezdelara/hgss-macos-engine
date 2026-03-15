@@ -55,7 +55,9 @@ Use the helper script to bootstrap and run the upstream Symphony reference imple
 ```bash
 cp .symphony.local.env.example .symphony.local.env
 # edit .symphony.local.env and set SYMPHONY_LINEAR_PROJECT_SLUG
-./scripts/run_symphony.sh --port 4000
+./scripts/run_symphony.sh
 ```
+
+The launcher always enables the observability UI. By default it serves at `http://localhost:4000/`; pass `--port <port>` to override.
 
 See `docs/SYMPHONY_SETUP.md` for full setup and customization options.
