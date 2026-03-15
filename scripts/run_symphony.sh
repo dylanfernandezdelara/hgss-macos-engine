@@ -54,29 +54,21 @@ else
   git -C "$SYMPHONY_ROOT" pull --ff-only origin main
 fi
 
-RUNTIME_WORKFLOW="$(mktemp "${TMPDIR:-/tmp}/hgss-symphony-workflow.XXXXXX.md")"
+runtime_workflow_tmp="$(mktemp -t hgss-symphony-workflow)"
+RUNTIME_WORKFLOW="${runtime_workflow_tmp}.md"
+mv "$runtime_workflow_tmp" "$RUNTIME_WORKFLOW"
 trap 'rm -f "$RUNTIME_WORKFLOW"' EXIT
 sed "s/__PROJECT_SLUG__/${PROJECT_SLUG}/g" "$WORKFLOW_TEMPLATE" >"$RUNTIME_WORKFLOW"
 
 mkdir -p "${SYMPHONY_WORKSPACE_ROOT:-$HOME/code/symphony-workspaces}"
 
 ACK_FLAG="--i-understand-that-this-will-be-running-without-the-usual-guardrails"
-DEFAULT_DASHBOARD_PORT="4000"
 EXTRA_ARGS=("$@")
 HAS_ACK_FLAG="false"
-HAS_PORT_FLAG="false"
 if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
   for arg in "${EXTRA_ARGS[@]}"; do
     if [[ "$arg" == "$ACK_FLAG" ]]; then
       HAS_ACK_FLAG="true"
-      break
-    fi
-  done
-
-  for ((i = 0; i < ${#EXTRA_ARGS[@]}; i++)); do
-    arg="${EXTRA_ARGS[$i]}"
-    if [[ "$arg" == "--port" || "$arg" == --port=* ]]; then
-      HAS_PORT_FLAG="true"
       break
     fi
   done
@@ -90,10 +82,6 @@ if [[ "$HAS_ACK_FLAG" != "true" ]]; then
   fi
 fi
 
-if [[ "$HAS_PORT_FLAG" != "true" ]]; then
-  EXTRA_ARGS=("--port" "$DEFAULT_DASHBOARD_PORT" "${EXTRA_ARGS[@]}")
-fi
-
 cd "$SYMPHONY_ELIXIR_DIR"
 mise trust
 mise install
@@ -101,7 +89,6 @@ mise exec -- mix setup
 mise exec -- mix build
 
 echo "Starting Symphony with workflow: $RUNTIME_WORKFLOW"
-if [[ "$HAS_PORT_FLAG" != "true" ]]; then
-  echo "Observability UI enabled by default at http://localhost:$DEFAULT_DASHBOARD_PORT/"
-fi
+echo "Recommended run mode: keep Symphony in its own Terminal window or tab while it is active."
+echo "Upstream-aligned default: dashboard disabled unless you pass --port <port>."
 mise exec -- ./bin/symphony "$RUNTIME_WORKFLOW" "${EXTRA_ARGS[@]}"

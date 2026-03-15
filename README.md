@@ -50,7 +50,9 @@ See `WORKFLOW.md`, `AGENTS.md`, and `.github/pull_request_template.md`.
 
 This repo is configured with a Symphony workflow template at `Symphony/WORKFLOW.md`.
 
-Use the helper script to bootstrap and run the upstream Symphony reference implementation:
+This repo follows the upstream `openai/symphony` operating model as closely as practical.
+Upstream's recommended launch shape is `mise exec -- ./bin/symphony ./WORKFLOW.md`. For this repo,
+use the helper below as a thin wrapper around that same flow:
 
 ```bash
 cp .symphony.local.env.example .symphony.local.env
@@ -58,6 +60,22 @@ cp .symphony.local.env.example .symphony.local.env
 ./scripts/run_symphony.sh
 ```
 
-The launcher always enables the observability UI. By default it serves at `http://localhost:4000/`; pass `--port <port>` to override.
+The wrapper should not be treated as a separate Symphony mode. It exists only to apply repo-local
+setup and then invoke the upstream foreground `mise exec` service startup. Current repo-local
+additions are limited to:
+
+- reading `.symphony.local.env`
+- resolving `LINEAR_API_KEY`
+- patching the runtime workflow with this repo's Linear project slug
+- adding Symphony's required preview acknowledgment flag
+
+Run Symphony in its own Terminal window or tab and leave that terminal open while it is active.
+Dashboard behavior matches upstream: disabled by default, enabled only when you pass `--port
+<port>`, for example `./scripts/run_symphony.sh --port 4000`.
+
+Per-ticket code changes do not run in the main repo checkout. Symphony creates isolated issue
+workspaces under `SYMPHONY_WORKSPACE_ROOT`, and this repo follows the upstream example by cloning
+the repository into each workspace via `hooks.after_create`. Git worktrees are not the documented
+default here.
 
 See `docs/SYMPHONY_SETUP.md` for full setup and customization options.

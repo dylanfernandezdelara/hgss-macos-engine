@@ -72,10 +72,18 @@ Execution expectations:
 1. Follow this state flow:
    - `Todo` -> move to `In Progress` before implementation.
    - `In Progress` -> use for active implementation.
-   - `Human Review` -> wait for human review, do not continue coding unless moved to `Rework`.
+   - `Human Review` -> only use after review handoff artifacts exist; wait for human review and do not continue coding unless moved to `Rework`.
    - `Rework` -> address requested changes, then return to `Human Review`.
    - `Merging` -> land approved PR and transition to `Done`.
 2. Implement the smallest complete fix that satisfies acceptance criteria.
-3. Keep commits coherent and keep PR body aligned to `.github/pull_request_template.md`.
-4. Include proof-of-work command summaries in PR/comment output.
-5. If blocked by missing required auth/tools, report blocker clearly and stop early.
+3. Before moving an issue to `Human Review`, make the work reviewable:
+   - Verify `git remote get-url origin` points to `https://github.com/dylanfernandezdelara/hgss-macos-engine.git`. If it does not, fix it before pushing.
+   - Create or switch to the issue branch. Prefer `{{ issue.branch_name }}` when provided.
+   - Commit the intended changes.
+   - Push the branch to GitHub `origin`.
+   - Open or update a PR against `main`.
+   - Add a Linear comment that includes the PR URL, branch name, commit SHA, and proof-of-work summary.
+4. If branch push or PR creation cannot be completed, do not move the issue to `Human Review`. Stay in `In Progress` and leave a blocker comment explaining exactly what failed.
+5. Keep commits coherent and keep the PR body aligned to `.github/pull_request_template.md`.
+6. Include proof-of-work command summaries in PR/comment output.
+7. If blocked by missing required auth/tools, report blocker clearly and stop early.
