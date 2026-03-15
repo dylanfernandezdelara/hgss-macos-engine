@@ -63,15 +63,21 @@ mkdir -p "${SYMPHONY_WORKSPACE_ROOT:-$HOME/code/symphony-workspaces}"
 ACK_FLAG="--i-understand-that-this-will-be-running-without-the-usual-guardrails"
 EXTRA_ARGS=("$@")
 HAS_ACK_FLAG="false"
-for arg in "${EXTRA_ARGS[@]}"; do
-  if [[ "$arg" == "$ACK_FLAG" ]]; then
-    HAS_ACK_FLAG="true"
-    break
-  fi
-done
+if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+  for arg in "${EXTRA_ARGS[@]}"; do
+    if [[ "$arg" == "$ACK_FLAG" ]]; then
+      HAS_ACK_FLAG="true"
+      break
+    fi
+  done
+fi
 
 if [[ "$HAS_ACK_FLAG" != "true" ]]; then
-  EXTRA_ARGS=("$ACK_FLAG" "${EXTRA_ARGS[@]}")
+  if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+    EXTRA_ARGS=("$ACK_FLAG" "${EXTRA_ARGS[@]}")
+  else
+    EXTRA_ARGS=("$ACK_FLAG")
+  fi
 fi
 
 cd "$SYMPHONY_ELIXIR_DIR"
