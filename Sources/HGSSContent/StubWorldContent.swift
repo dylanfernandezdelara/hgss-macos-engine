@@ -256,6 +256,16 @@ public struct NormalizedWorldContent: Sendable {
             )
         }
 
+        for map in builtMaps {
+            for warp in map.warps where builtLookup[warp.destinationMapID] == nil {
+                throw HGSSContentError.missingWarpDestinationMap(
+                    mapID: map.id,
+                    warpID: warp.id,
+                    destinationMapID: warp.destinationMapID
+                )
+            }
+        }
+
         self.manifest = manifest
         self.maps = builtMaps
         self.initialMapID = manifest.initialMapID

@@ -1,5 +1,5 @@
 {
-  "build" : "0.2.0-normalized",
+  "build" : "0.3.0-normalized",
   "initialEntryPointID" : "ENTRY_BOOT_DEFAULT",
   "initialMapID" : "MAP_NEW_BARK",
   "maps" : [
@@ -94,6 +94,24 @@
             "y" : 1
           },
           "summary" : "Engine-defined boot point for the New Bark traversal slice."
+        },
+        {
+          "facing" : "down",
+          "id" : "ENTRY_FROM_ELMS_LAB_1F",
+          "localPosition" : {
+            "x" : 8,
+            "y" : 3
+          },
+          "summary" : "Exterior arrival tile reserved for Elm's Lab 1F return warp anchor 0."
+        },
+        {
+          "facing" : "down",
+          "id" : "ENTRY_FROM_PLAYER_HOUSE_1F",
+          "localPosition" : {
+            "x" : 19,
+            "y" : 6
+          },
+          "summary" : "Exterior arrival tile reserved for the player house 1F return warp anchor 0."
         }
       ],
       "header" : {
@@ -246,9 +264,179 @@
           "summary" : "Normalized warp to MAP_NEW_BARK_PLAYER_HOUSE_1F."
         }
       ]
+    },
+    {
+      "collision" : {
+        "impassableTiles" : [
+          {
+            "x" : 1,
+            "y" : 0
+          },
+          {
+            "x" : 2,
+            "y" : 0
+          },
+          {
+            "x" : 3,
+            "y" : 0
+          },
+          {
+            "x" : 4,
+            "y" : 0
+          }
+        ]
+      },
+      "displayName" : "Elm's Lab 1F (Entry Slice)",
+      "entryPoints" : [
+        {
+          "facing" : "up",
+          "id" : "ENTRY_FROM_NEW_BARK",
+          "localPosition" : {
+            "x" : 2,
+            "y" : 3
+          },
+          "summary" : "Synthetic arrival tile for New Bark door warp anchor 0."
+        }
+      ],
+      "header" : {
+        "areaDataBank" : 2,
+        "bikeAllowed" : false,
+        "cameraType" : 0,
+        "flyAllowed" : false,
+        "followMode" : "MAP_FOLLOWMODE_ALLOW",
+        "isKanto" : false,
+        "mapSection" : "MAPSEC_NEW_BARK_TOWN",
+        "mapType" : "MAP_TYPE_INTERIOR",
+        "moveModelBank" : 15,
+        "weather" : 0,
+        "wildEncounterBank" : "ENCDATA_NA",
+        "worldMapX" : 0,
+        "worldMapY" : 0
+      },
+      "layout" : {
+        "height" : 4,
+        "sourceOrigin" : {
+          "x" : 1000,
+          "y" : 0,
+          "z" : 1000
+        },
+        "width" : 6
+      },
+      "mapID" : "MAP_NEW_BARK_ELMS_LAB_1F",
+      "placements" : [
+
+      ],
+      "provenance" : {
+        "eventsBank" : "SYNTHETIC_INTERIOR_SLICE_PENDING_EXTRACT",
+        "mapHeaderSymbol" : "sMapHeaders[MAP_NEW_BARK_ELMS_LAB_1F]",
+        "matrixID" : "SYNTHETIC_INTERIOR_SLICE_PENDING_EXTRACT",
+        "upstreamMapID" : "MAP_NEW_BARK_ELMS_LAB_1F"
+      },
+      "warps" : [
+        {
+          "destinationAnchor" : 0,
+          "destinationMapID" : "MAP_NEW_BARK",
+          "id" : "WARP_TO_NEW_BARK",
+          "localPosition" : {
+            "x" : 2,
+            "y" : 3
+          },
+          "sourcePosition" : {
+            "x" : 1002,
+            "y" : 0,
+            "z" : 1003
+          },
+          "summary" : "Return door from Elm's Lab 1F to New Bark."
+        }
+      ]
+    },
+    {
+      "collision" : {
+        "impassableTiles" : [
+          {
+            "x" : 0,
+            "y" : 0
+          },
+          {
+            "x" : 1,
+            "y" : 0
+          },
+          {
+            "x" : 3,
+            "y" : 0
+          },
+          {
+            "x" : 4,
+            "y" : 0
+          }
+        ]
+      },
+      "displayName" : "Player House 1F (Entry Slice)",
+      "entryPoints" : [
+        {
+          "facing" : "up",
+          "id" : "ENTRY_FROM_NEW_BARK",
+          "localPosition" : {
+            "x" : 2,
+            "y" : 3
+          },
+          "summary" : "Synthetic arrival tile for New Bark door warp anchor 0."
+        }
+      ],
+      "header" : {
+        "areaDataBank" : 2,
+        "bikeAllowed" : false,
+        "cameraType" : 0,
+        "flyAllowed" : false,
+        "followMode" : "MAP_FOLLOWMODE_ALLOW",
+        "isKanto" : false,
+        "mapSection" : "MAPSEC_NEW_BARK_TOWN",
+        "mapType" : "MAP_TYPE_INTERIOR",
+        "moveModelBank" : 15,
+        "weather" : 0,
+        "wildEncounterBank" : "ENCDATA_NA",
+        "worldMapX" : 0,
+        "worldMapY" : 0
+      },
+      "layout" : {
+        "height" : 4,
+        "sourceOrigin" : {
+          "x" : 1100,
+          "y" : 0,
+          "z" : 1100
+        },
+        "width" : 5
+      },
+      "mapID" : "MAP_NEW_BARK_PLAYER_HOUSE_1F",
+      "placements" : [
+
+      ],
+      "provenance" : {
+        "eventsBank" : "SYNTHETIC_INTERIOR_SLICE_PENDING_EXTRACT",
+        "mapHeaderSymbol" : "sMapHeaders[MAP_NEW_BARK_PLAYER_HOUSE_1F]",
+        "matrixID" : "SYNTHETIC_INTERIOR_SLICE_PENDING_EXTRACT",
+        "upstreamMapID" : "MAP_NEW_BARK_PLAYER_HOUSE_1F"
+      },
+      "warps" : [
+        {
+          "destinationAnchor" : 0,
+          "destinationMapID" : "MAP_NEW_BARK",
+          "id" : "WARP_TO_NEW_BARK",
+          "localPosition" : {
+            "x" : 2,
+            "y" : 3
+          },
+          "sourcePosition" : {
+            "x" : 1102,
+            "y" : 0,
+            "z" : 1103
+          },
+          "summary" : "Return door from the player house 1F to New Bark."
+        }
+      ]
     }
   ],
-  "notes" : "Checked-in normalized fixture for a New Bark Town traversal excerpt. Header and event provenance are aligned to pret/pokeheartgold, while collision remains a small checked-in stand-in for future extracted output.",
+  "notes" : "Checked-in normalized fixture for the first New Bark multi-map slice. MAP_NEW_BARK stays upstream-informed, while MAP_NEW_BARK_ELMS_LAB_1F and MAP_NEW_BARK_PLAYER_HOUSE_1F are tiny synthetic interior entrance slices that keep real destination map IDs without checked-in proprietary assets.",
   "pokemon" : [
     {
       "nationalDex" : 152,
