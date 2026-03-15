@@ -21,7 +21,7 @@ No package target should depend on app-shell code.
 ## Runtime Data Flow
 
 1. App or tests locate `DevContent/Stub/manifest.json`.
-2. `HGSSContent` decodes a normalized New Bark excerpt with upstream provenance.
+2. `HGSSContent` decodes a normalized New Bark-centered multi-map slice with upstream and synthetic fixture provenance.
 3. `HGSSCore` boots from `initialMapID` plus `initialEntryPointID`.
 4. The fixed-timestep loop advances authoritative state against normalized collision data.
 5. The app shell renders snapshots and never owns gameplay rules.

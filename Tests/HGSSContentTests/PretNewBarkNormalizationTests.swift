@@ -28,10 +28,13 @@ struct PretNewBarkNormalizationTests {
         let map = try #require(content.map(id: "MAP_NEW_BARK"))
 
         #expect(manifest.schemaVersion == 2)
+        #expect(content.maps.count == 3)
         #expect(map.provenance.eventsBank == "NARC_zone_event_057_T20_bin")
         #expect(map.provenance.matrixID == "NARC_map_matrix_map_matrix_0000_EVERYWHERE_bin")
         #expect(map.header.wildEncounterBank == "ENCDATA_T20")
         #expect(map.warps.count == 2)
+        #expect(content.map(id: "MAP_NEW_BARK_ELMS_LAB_1F") != nil)
+        #expect(content.map(id: "MAP_NEW_BARK_PLAYER_HOUSE_1F") != nil)
         #expect(map.placements.filter { $0.kind == .object }.count == 1)
         #expect(map.placements.filter { $0.kind == .coordinateTrigger }.count == 2)
         #expect(map.placements.filter { $0.kind == .backgroundEvent }.count == 2)

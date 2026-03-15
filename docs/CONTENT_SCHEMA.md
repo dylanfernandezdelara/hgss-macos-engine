@@ -1,6 +1,6 @@
 # Content Schema
 
-`DevContent/Stub/manifest.json` is a checked-in normalized fixture for one playable excerpt of `MAP_NEW_BARK`.
+`DevContent/Stub/manifest.json` is a checked-in normalized fixture for the first New Bark-centered multi-map slice.
 
 ## Manifest Shape (v2)
 
@@ -40,7 +40,9 @@
         {
           "id": "WARP_ELMS_LAB_1F",
           "localPosition": { "x": 8, "y": 2 },
-          "sourcePosition": { "x": 684, "z": 393, "y": 0 }
+          "sourcePosition": { "x": 684, "z": 393, "y": 0 },
+          "destinationMapID": "MAP_NEW_BARK_ELMS_LAB_1F",
+          "destinationAnchor": 0
         }
       ],
       "placements": [
@@ -58,6 +60,14 @@
 }
 ```
 
+The checked-in fixture currently includes three maps:
+
+- `MAP_NEW_BARK`: upstream-informed outdoor excerpt for the first traversal slice.
+- `MAP_NEW_BARK_ELMS_LAB_1F`: tiny synthetic entry-room slice that satisfies the first interior destination from New Bark.
+- `MAP_NEW_BARK_PLAYER_HOUSE_1F`: tiny synthetic entry-room slice that satisfies the second pret-backed New Bark interior destination.
+
+The two interior maps deliberately stop at the first room boundary. Their map IDs are real HGSS destinations, but their local bounds, collision, and source coordinates are small synthetic stand-ins until broader extractor coverage exists.
+
 ## Design Rules
 
 - `HGSSCore` consumes only normalized local coordinates.
@@ -66,6 +76,7 @@
 - `warps` and `placements` preserve upstream source coordinates for validation and debugging.
 - Collision in the current fixture is still checked-in stand-in data; long-term it should be derived offline from upstream map data into the same normalized contract.
 - The extractor may combine local profile fields such as excerpt bounds, entry points, and temporary collision with upstream-derived header/event data until full extraction is implemented.
+- The current fixture keeps only New Bark plus its first two pret-backed interior destinations; rival house, southwest house, and deeper interiors remain out of scope for this slice.
 
 ## Validation Rules
 

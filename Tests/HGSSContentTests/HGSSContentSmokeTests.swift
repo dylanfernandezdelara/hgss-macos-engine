@@ -19,6 +19,7 @@ struct HGSSContentSmokeTests {
 
         #expect(content.manifest.schemaVersion == 2)
         #expect(content.initialMapID == "MAP_NEW_BARK")
+        #expect(content.maps.count == 3)
         #expect(map.width == 25)
         #expect(map.height == 18)
         #expect(entryPoint.localPosition == NormalizedTileCoordinate(x: 1, y: 1))
@@ -47,5 +48,32 @@ struct HGSSContentSmokeTests {
         #expect(eastExit.localPosition == NormalizedTileCoordinate(x: 24, y: 7))
         #expect(eastExit.occupiedTiles.contains(NormalizedTileCoordinate(x: 24, y: 11)))
         #expect(map.placementTiles.contains(NormalizedTileCoordinate(x: 6, y: 0)))
+    }
+
+    @Test("Includes first interior destination maps for the New Bark slice")
+    func loadsInteriorDestinationMaps() throws {
+        let testFile = URL(fileURLWithPath: #filePath)
+        let repoRoot = testFile
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let stubPath = repoRoot.appendingPathComponent("DevContent/Stub", isDirectory: true)
+
+        let loader = StubContentLoader()
+        let content = try loader.loadPlayableContent(from: stubPath)
+        let newBark = content.initialMap
+        let newBarkDestinations = Set(newBark.warps.map(\.destinationMapID))
+
+        #expect(newBarkDestinations == ["MAP_NEW_BARK_ELMS_LAB_1F", "MAP_NEW_BARK_PLAYER_HOUSE_1F"])
+
+        let elmLab = try #require(content.map(id: "MAP_NEW_BARK_ELMS_LAB_1F"))
+        let playerHouse = try #require(content.map(id: "MAP_NEW_BARK_PLAYER_HOUSE_1F"))
+        let elmArrival = try #require(elmLab.entryPoint(id: "ENTRY_FROM_NEW_BARK"))
+        let playerArrival = try #require(playerHouse.entryPoint(id: "ENTRY_FROM_NEW_BARK"))
+
+        #expect(elmArrival.localPosition == NormalizedTileCoordinate(x: 2, y: 3))
+        #expect(playerArrival.localPosition == NormalizedTileCoordinate(x: 2, y: 3))
+        #expect(elmLab.warps.first?.destinationMapID == "MAP_NEW_BARK")
+        #expect(playerHouse.warps.first?.destinationMapID == "MAP_NEW_BARK")
     }
 }
