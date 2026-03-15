@@ -64,8 +64,9 @@
 - Upstream `MapHeader`, `map_matrix`, and `zone_event` details stay in provenance or extractor-facing fields.
 - `entryPoints` are engine-defined boot/arrival anchors.
 - `warps` and `placements` preserve upstream source coordinates for validation and debugging.
-- Collision in the current fixture is still checked-in stand-in data; long-term it should be derived offline from upstream map data into the same normalized contract.
-- The extractor may combine local profile fields such as excerpt bounds, entry points, and temporary collision with upstream-derived header/event data until full extraction is implemented.
+- The checked-in fixture still carries stand-in collision for offline-free local bootstrapping.
+- When `HGSSExtractCLI` runs with `--pret-root`, collision is derived offline from pret `map_matrix` and movement-permission inputs into the same normalized `impassableTiles` contract.
+- The extractor still combines local profile fields such as excerpt bounds and entry points with upstream-derived header, event, and collision data.
 
 ## Validation Rules
 

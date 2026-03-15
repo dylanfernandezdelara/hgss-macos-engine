@@ -9,6 +9,14 @@ public enum PretNormalizationError: LocalizedError {
     case invalidIntegerField(mapID: String, field: String, value: String)
     case invalidBooleanField(mapID: String, field: String, value: String)
     case eventDecodeFailed(underlying: Error)
+    case malformedMapMatrix(String)
+    case malformedCollisionArchive(String)
+    case missingCollisionModel(mapID: String, modelIndex: Int)
+    case invalidCollisionMatrixCell(mapID: String, cellX: Int, cellZ: Int)
+    case invalidCollisionModelReference(mapID: String, cellX: Int, cellZ: Int, modelIndex: Int)
+    case excerptCrossesCollisionModelBoundary(mapID: String, sourceX: Int, sourceZ: Int, width: Int, height: Int)
+    case invalidCollisionSourceTile(mapID: String, x: Int, z: Int, y: Int)
+    case invalidCollisionSourcePlane(mapID: String, expectedY: Int, actualY: Int)
 
     public var errorDescription: String? {
         switch self {
@@ -26,7 +34,166 @@ public enum PretNormalizationError: LocalizedError {
             return "Map header '\(mapID)' field '\(field)' is not a valid boolean token: \(value)."
         case let .eventDecodeFailed(underlying):
             return "Failed to decode zone event JSON: \(underlying.localizedDescription)"
+        case let .malformedMapMatrix(details):
+            return "Failed to parse pret map_matrix data: \(details)"
+        case let .malformedCollisionArchive(details):
+            return "Failed to parse pret collision archive: \(details)"
+        case let .missingCollisionModel(mapID, modelIndex):
+            return "Map '\(mapID)' references missing collision model \(modelIndex)."
+        case let .invalidCollisionMatrixCell(mapID, cellX, cellZ):
+            return "Map '\(mapID)' source origin resolves outside the pret map_matrix bounds at cell (\(cellX), \(cellZ))."
+        case let .invalidCollisionModelReference(mapID, cellX, cellZ, modelIndex):
+            return "Map '\(mapID)' has invalid collision model \(modelIndex) at matrix cell (\(cellX), \(cellZ))."
+        case let .excerptCrossesCollisionModelBoundary(mapID, sourceX, sourceZ, width, height):
+            return "Map '\(mapID)' excerpt starting at (\(sourceX), \(sourceZ)) with size \(width)x\(height) crosses a 32x32 pret collision model boundary."
+        case let .invalidCollisionSourceTile(mapID, x, z, y):
+            return "Map '\(mapID)' has extracted collision tile (\(x), \(z), \(y)) outside the normalized excerpt bounds."
+        case let .invalidCollisionSourcePlane(mapID, expectedY, actualY):
+            return "Map '\(mapID)' has extracted collision tile on source y-plane \(actualY), expected \(expectedY)."
         }
+    }
+}
+
+public struct PretExtractedCollisionInput: Equatable, Sendable {
+    public struct BlockedTile: Equatable, Sendable {
+        public let sourcePosition: HGSSManifest.SourcePoint
+
+        public init(sourcePosition: HGSSManifest.SourcePoint) {
+            self.sourcePosition = sourcePosition
+        }
+    }
+
+    public let blockedTiles: [BlockedTile]
+
+    public init(blockedTiles: [BlockedTile]) {
+        self.blockedTiles = blockedTiles
+    }
+}
+
+public struct PretExtractedCollisionAdapter {
+    public init() {}
+
+    public func collisionLayer(
+        from input: PretExtractedCollisionInput,
+        layout: HGSSManifest.MapLayout,
+        mapID: String
+    ) throws -> HGSSManifest.CollisionLayer {
+        var localTiles: Set<HGSSManifest.GridPoint> = []
+
+        for tile in input.blockedTiles {
+            guard tile.sourcePosition.y == layout.sourceOrigin.y else {
+                throw PretNormalizationError.invalidCollisionSourcePlane(
+                    mapID: mapID,
+                    expectedY: layout.sourceOrigin.y,
+                    actualY: tile.sourcePosition.y
+                )
+            }
+
+            let localTile = HGSSManifest.GridPoint(
+                x: tile.sourcePosition.x - layout.sourceOrigin.x,
+                y: tile.sourcePosition.z - layout.sourceOrigin.z
+            )
+
+            guard contains(localTile, layout: layout) else {
+                throw PretNormalizationError.invalidCollisionSourceTile(
+                    mapID: mapID,
+                    x: tile.sourcePosition.x,
+                    z: tile.sourcePosition.z,
+                    y: tile.sourcePosition.y
+                )
+            }
+
+            localTiles.insert(localTile)
+        }
+
+        let sortedTiles = localTiles.sorted { lhs, rhs in
+            if lhs.y == rhs.y {
+                return lhs.x < rhs.x
+            }
+            return lhs.y < rhs.y
+        }
+
+        return HGSSManifest.CollisionLayer(impassableTiles: sortedTiles)
+    }
+
+    private func contains(_ tile: HGSSManifest.GridPoint, layout: HGSSManifest.MapLayout) -> Bool {
+        tile.x >= 0 && tile.x < layout.width && tile.y >= 0 && tile.y < layout.height
+    }
+}
+
+private enum PretCollisionConstants {
+    static let collisionModelTileWidth = 32
+    static let collisionHeaderSize = 0x14
+    static let permissionSectionSize = collisionModelTileWidth * collisionModelTileWidth * 2
+    static let solidMovementPermission: UInt8 = 0x80
+}
+
+public struct PretNewBarkCollisionExtractor {
+    public init() {}
+
+    public func extractCollisionInput(
+        layout: HGSSManifest.MapLayout,
+        mapMatrixData: Data,
+        modelArchiveData: Data,
+        mapID: String = "MAP_NEW_BARK"
+    ) throws -> PretExtractedCollisionInput {
+        let mapMatrix = try PretMapMatrix(data: mapMatrixData)
+        let collisionArchive = try PretNARCArchive(data: modelArchiveData)
+
+        let sourceOrigin = layout.sourceOrigin
+        let cellX = sourceOrigin.x / PretCollisionConstants.collisionModelTileWidth
+        let cellZ = sourceOrigin.z / PretCollisionConstants.collisionModelTileWidth
+        let tileOffsetX = sourceOrigin.x % PretCollisionConstants.collisionModelTileWidth
+        let tileOffsetZ = sourceOrigin.z % PretCollisionConstants.collisionModelTileWidth
+
+        guard tileOffsetX + layout.width <= PretCollisionConstants.collisionModelTileWidth,
+              tileOffsetZ + layout.height <= PretCollisionConstants.collisionModelTileWidth else {
+            throw PretNormalizationError.excerptCrossesCollisionModelBoundary(
+                mapID: mapID,
+                sourceX: sourceOrigin.x,
+                sourceZ: sourceOrigin.z,
+                width: layout.width,
+                height: layout.height
+            )
+        }
+
+        let modelIndex = try mapMatrix.modelIndex(atCellX: cellX, cellZ: cellZ, mapID: mapID)
+        let collisionModel = try collisionArchive.member(at: modelIndex, mapID: mapID)
+        let permissions = try PretCollisionPermissionTable(data: collisionModel)
+
+        var blockedTiles: [PretExtractedCollisionInput.BlockedTile] = []
+
+        for localY in 0..<layout.height {
+            for localX in 0..<layout.width {
+                let modelTileX = tileOffsetX + localX
+                let modelTileZ = tileOffsetZ + localY
+                let permission = try permissions.permission(atMapTileX: modelTileX, mapTileZ: modelTileZ)
+                let movementPermission = UInt8((permission >> 8) & 0xFF)
+                guard movementPermission == 0x00
+                    || movementPermission == 0x04
+                    || movementPermission == 0x06
+                    || movementPermission == PretCollisionConstants.solidMovementPermission else {
+                    throw PretNormalizationError.malformedCollisionArchive(
+                        "Unsupported movement permission byte \(movementPermission) at model tile (\(modelTileX), \(modelTileZ))."
+                    )
+                }
+                guard movementPermission == PretCollisionConstants.solidMovementPermission else {
+                    continue
+                }
+
+                blockedTiles.append(
+                    PretExtractedCollisionInput.BlockedTile(
+                        sourcePosition: HGSSManifest.SourcePoint(
+                            x: sourceOrigin.x + localX,
+                            z: sourceOrigin.z + localY,
+                            y: sourceOrigin.y
+                        )
+                    )
+                )
+            }
+        }
+
+        return PretExtractedCollisionInput(blockedTiles: blockedTiles)
     }
 }
 
@@ -37,6 +204,7 @@ public struct PretNewBarkNormalizer {
         from profileManifest: HGSSManifest,
         mapHeadersText: String,
         zoneEventData: Data,
+        extractedCollision: PretExtractedCollisionInput? = nil,
         mapID: String = "MAP_NEW_BARK"
     ) throws -> HGSSManifest {
         guard let profileMap = profileManifest.maps.first(where: { $0.mapID == mapID }) else {
@@ -57,7 +225,12 @@ public struct PretNewBarkNormalizer {
             ),
             header: try buildMapHeader(from: headerFields, mapID: mapID),
             layout: profileMap.layout,
-            collision: profileMap.collision,
+            collision: try buildCollision(
+                extractedCollision: extractedCollision,
+                fallbackCollision: profileMap.collision,
+                layout: profileMap.layout,
+                mapID: mapID
+            ),
             entryPoints: profileMap.entryPoints,
             warps: buildWarps(from: zoneEvents.warps, layout: profileMap.layout),
             placements: buildPlacements(zoneEvents: zoneEvents, layout: profileMap.layout)
@@ -75,8 +248,39 @@ public struct PretNewBarkNormalizer {
             initialEntryPointID: profileManifest.initialEntryPointID,
             maps: maps,
             pokemon: profileManifest.pokemon,
-            notes: profileManifest.notes
+            notes: buildNotes(
+                fallbackNotes: profileManifest.notes,
+                extractedCollision: extractedCollision
+            )
         )
+    }
+
+    private func buildCollision(
+        extractedCollision: PretExtractedCollisionInput?,
+        fallbackCollision: HGSSManifest.CollisionLayer,
+        layout: HGSSManifest.MapLayout,
+        mapID: String
+    ) throws -> HGSSManifest.CollisionLayer {
+        guard let extractedCollision else {
+            return fallbackCollision
+        }
+
+        return try PretExtractedCollisionAdapter().collisionLayer(
+            from: extractedCollision,
+            layout: layout,
+            mapID: mapID
+        )
+    }
+
+    private func buildNotes(
+        fallbackNotes: String,
+        extractedCollision: PretExtractedCollisionInput?
+    ) -> String {
+        guard extractedCollision != nil else {
+            return fallbackNotes
+        }
+
+        return "Normalized New Bark excerpt manifest built from local profile excerpt bounds and entry points plus pret/pokeheartgold header, event, and collision inputs."
     }
 
     private func parseMapHeaderFields(mapHeadersText: String, mapID: String) throws -> [String: String] {
@@ -276,6 +480,205 @@ public struct PretNewBarkNormalizer {
         )
         return sanitized.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
     }
+}
+
+private struct PretMapMatrix {
+    let width: Int
+    let height: Int
+    let models: [Int]
+
+    init(data: Data) throws {
+        guard data.count >= 5 else {
+            throw PretNormalizationError.malformedMapMatrix("Expected at least 5 bytes, found \(data.count).")
+        }
+
+        width = Int(data[0])
+        height = Int(data[1])
+        let hasHeaders = data[2] != 0
+        let hasAltitudes = data[3] != 0
+        let nameLength = Int(data[4])
+        let cellCount = width * height
+        var offset = 5 + nameLength
+
+        let headerBytes = hasHeaders ? cellCount * 2 : 0
+        let altitudeBytes = hasAltitudes ? cellCount : 0
+        let modelBytes = cellCount * 2
+
+        guard width > 0, height > 0 else {
+            throw PretNormalizationError.malformedMapMatrix("Matrix dimensions must be positive, found \(width)x\(height).")
+        }
+        guard data.count >= offset + headerBytes + altitudeBytes + modelBytes else {
+            throw PretNormalizationError.malformedMapMatrix(
+                "Matrix payload is truncated for \(width)x\(height) cells."
+            )
+        }
+
+        offset += headerBytes + altitudeBytes
+        var models: [Int] = []
+        models.reserveCapacity(cellCount)
+
+        for cell in 0..<cellCount {
+            models.append(Int(readUInt16LE(from: data, at: offset + (cell * 2))))
+        }
+
+        self.models = models
+    }
+
+    func modelIndex(atCellX cellX: Int, cellZ: Int, mapID: String) throws -> Int {
+        guard cellX >= 0, cellX < width, cellZ >= 0, cellZ < height else {
+            throw PretNormalizationError.invalidCollisionMatrixCell(mapID: mapID, cellX: cellX, cellZ: cellZ)
+        }
+
+        let modelIndex = models[(cellZ * width) + cellX]
+        guard modelIndex != Int(UInt16.max) else {
+            throw PretNormalizationError.invalidCollisionModelReference(
+                mapID: mapID,
+                cellX: cellX,
+                cellZ: cellZ,
+                modelIndex: modelIndex
+            )
+        }
+
+        return modelIndex
+    }
+}
+
+private struct PretNARCArchive {
+    struct MemberRange {
+        let start: Int
+        let end: Int
+    }
+
+    let data: Data
+    let members: [MemberRange]
+    let memberDataStart: Int
+
+    init(data: Data) throws {
+        let headerSize = 16
+        guard data.count >= headerSize else {
+            throw PretNormalizationError.malformedCollisionArchive("File is smaller than the NARC header.")
+        }
+        guard asciiString(in: data, at: 0, length: 4) == "NARC" else {
+            throw PretNormalizationError.malformedCollisionArchive("Missing NARC header magic.")
+        }
+
+        let btafOffset = headerSize
+        guard asciiString(in: data, at: btafOffset, length: 4) == "BTAF" else {
+            throw PretNormalizationError.malformedCollisionArchive("Missing BTAF chunk.")
+        }
+
+        let btafSize = Int(readUInt32LE(from: data, at: btafOffset + 4))
+        let fileCount = Int(readUInt16LE(from: data, at: btafOffset + 8))
+        let btafEntriesOffset = btafOffset + 12
+        let btafEntriesSize = fileCount * 8
+        guard data.count >= btafEntriesOffset + btafEntriesSize else {
+            throw PretNormalizationError.malformedCollisionArchive("BTAF entries are truncated.")
+        }
+
+        let btnfOffset = btafOffset + btafSize
+        guard data.count >= btnfOffset + 8, asciiString(in: data, at: btnfOffset, length: 4) == "BTNF" else {
+            throw PretNormalizationError.malformedCollisionArchive("Missing BTNF chunk.")
+        }
+
+        let btnfSize = Int(readUInt32LE(from: data, at: btnfOffset + 4))
+        let gmifOffset = btnfOffset + btnfSize
+        guard data.count >= gmifOffset + 8, asciiString(in: data, at: gmifOffset, length: 4) == "GMIF" else {
+            throw PretNormalizationError.malformedCollisionArchive("Missing GMIF chunk.")
+        }
+
+        memberDataStart = gmifOffset + 8
+        guard data.count >= memberDataStart else {
+            throw PretNormalizationError.malformedCollisionArchive("GMIF payload is truncated.")
+        }
+
+        var members: [MemberRange] = []
+        members.reserveCapacity(fileCount)
+
+        for fileIndex in 0..<fileCount {
+            let entryOffset = btafEntriesOffset + (fileIndex * 8)
+            let start = Int(readUInt32LE(from: data, at: entryOffset))
+            let end = Int(readUInt32LE(from: data, at: entryOffset + 4))
+            guard start <= end else {
+                throw PretNormalizationError.malformedCollisionArchive(
+                    "BTAF entry \(fileIndex) has invalid byte range \(start)..<\(end)."
+                )
+            }
+            members.append(MemberRange(start: start, end: end))
+        }
+
+        self.data = data
+        self.members = members
+    }
+
+    func member(at index: Int, mapID: String) throws -> Data {
+        guard index >= 0, index < members.count else {
+            throw PretNormalizationError.missingCollisionModel(mapID: mapID, modelIndex: index)
+        }
+
+        let member = members[index]
+        guard data.count >= memberDataStart + member.end else {
+            throw PretNormalizationError.malformedCollisionArchive(
+                "Member \(index) exceeds the GMIF payload bounds."
+            )
+        }
+
+        return data.subdata(in: (memberDataStart + member.start)..<(memberDataStart + member.end))
+    }
+}
+
+private struct PretCollisionPermissionTable {
+    let permissionBytes: Data
+
+    init(data: Data) throws {
+        guard data.count >= PretCollisionConstants.collisionHeaderSize + PretCollisionConstants.permissionSectionSize else {
+            throw PretNormalizationError.malformedCollisionArchive(
+                "Collision model is too small for a 32x32 permission table."
+            )
+        }
+
+        let sectionSize = Int(readUInt32LE(from: data, at: 0))
+        guard sectionSize >= PretCollisionConstants.permissionSectionSize else {
+            throw PretNormalizationError.malformedCollisionArchive(
+                "Collision model permission section is \(sectionSize) bytes, expected at least \(PretCollisionConstants.permissionSectionSize)."
+            )
+        }
+
+        let permissionStart = PretCollisionConstants.collisionHeaderSize
+        let permissionEnd = permissionStart + PretCollisionConstants.permissionSectionSize
+        permissionBytes = data.subdata(in: permissionStart..<permissionEnd)
+    }
+
+    func permission(atMapTileX mapTileX: Int, mapTileZ: Int) throws -> UInt16 {
+        let size = PretCollisionConstants.collisionModelTileWidth
+        guard mapTileX >= 0, mapTileX < size, mapTileZ >= 0, mapTileZ < size else {
+            throw PretNormalizationError.malformedCollisionArchive(
+                "Collision tile request (\(mapTileX), \(mapTileZ)) is outside the 32x32 map model."
+            )
+        }
+
+        // HGSS stores each 32x32 permission plane bottom-to-top in the serialized map model.
+        let storedRow = (size - 1) - mapTileZ
+        let offset = ((storedRow * size) + mapTileX) * 2
+        return readUInt16LE(from: permissionBytes, at: offset)
+    }
+}
+
+private func asciiString(in data: Data, at offset: Int, length: Int) -> String {
+    guard data.count >= offset + length else {
+        return ""
+    }
+    return String(decoding: data[offset..<(offset + length)], as: UTF8.self)
+}
+
+private func readUInt16LE(from data: Data, at offset: Int) -> UInt16 {
+    UInt16(data[offset]) | (UInt16(data[offset + 1]) << 8)
+}
+
+private func readUInt32LE(from data: Data, at offset: Int) -> UInt32 {
+    UInt32(data[offset])
+        | (UInt32(data[offset + 1]) << 8)
+        | (UInt32(data[offset + 2]) << 16)
+        | (UInt32(data[offset + 3]) << 24)
 }
 
 private struct PretZoneEvents: Codable {

@@ -36,7 +36,7 @@ private func usage() {
 
     Notes:
       - Without --pret-root, the extractor copies the checked-in normalized fixture.
-      - With --pret-root, it rebuilds the New Bark manifest from local pret/pokeheartgold files plus the local profile.
+      - With --pret-root, it rebuilds the New Bark manifest from local pret/pokeheartgold header, event, matrix, and collision inputs plus the local profile excerpt bounds.
     """)
 }
 
@@ -87,11 +87,17 @@ private func loadPretManifest(
     profileManifest: HGSSManifest,
     pretRoot: URL
 ) throws -> HGSSManifest {
+    let mapID = "MAP_NEW_BARK"
     let mapHeadersURL = pretRoot.appendingPathComponent("src/data/map_headers.h", isDirectory: false)
     let zoneEventURL = pretRoot.appendingPathComponent(
         "files/fielddata/eventdata/zone_event/057_T20.json",
         isDirectory: false
     )
+    let mapMatrixURL = pretRoot.appendingPathComponent(
+        "files/fielddata/mapmatrix/map_matrix/map_matrix_0000_EVERYWHERE.bin",
+        isDirectory: false
+    )
+    let collisionArchiveURL = pretRoot.appendingPathComponent("files/a/0/6/5", isDirectory: false)
 
     guard FileManager.default.fileExists(atPath: mapHeadersURL.path()) else {
         throw ExtractCLIError.missingPretFile(path: mapHeadersURL.path())
@@ -99,14 +105,34 @@ private func loadPretManifest(
     guard FileManager.default.fileExists(atPath: zoneEventURL.path()) else {
         throw ExtractCLIError.missingPretFile(path: zoneEventURL.path())
     }
+    guard FileManager.default.fileExists(atPath: mapMatrixURL.path()) else {
+        throw ExtractCLIError.missingPretFile(path: mapMatrixURL.path())
+    }
+    guard FileManager.default.fileExists(atPath: collisionArchiveURL.path()) else {
+        throw ExtractCLIError.missingPretFile(path: collisionArchiveURL.path())
+    }
+
+    guard let profileMap = profileManifest.maps.first(where: { $0.mapID == mapID }) else {
+        throw PretNormalizationError.missingProfileMap(mapID)
+    }
 
     let mapHeadersText = try String(contentsOf: mapHeadersURL, encoding: .utf8)
     let zoneEventData = try Data(contentsOf: zoneEventURL)
+    let mapMatrixData = try Data(contentsOf: mapMatrixURL)
+    let collisionArchiveData = try Data(contentsOf: collisionArchiveURL)
+    let extractedCollision = try PretNewBarkCollisionExtractor().extractCollisionInput(
+        layout: profileMap.layout,
+        mapMatrixData: mapMatrixData,
+        modelArchiveData: collisionArchiveData,
+        mapID: mapID
+    )
     let normalizer = PretNewBarkNormalizer()
     return try normalizer.buildManifest(
         from: profileManifest,
         mapHeadersText: mapHeadersText,
-        zoneEventData: zoneEventData
+        zoneEventData: zoneEventData,
+        extractedCollision: extractedCollision,
+        mapID: mapID
     )
 }
 
@@ -134,6 +160,7 @@ private func writeReport(
     Maps: \(mapCount)
     Initial map: \(manifest.initialMapID)
     Initial entry point: \(manifest.initialEntryPointID)
+    Initial blocked tiles: \(initialMap?.collision.impassableTiles.count ?? 0)
     Initial warps: \(initialMap?.warps.count ?? 0)
     Initial placements: \(initialMap?.placements.count ?? 0)
     Pret root: \(pretRoot?.path() ?? "not provided")

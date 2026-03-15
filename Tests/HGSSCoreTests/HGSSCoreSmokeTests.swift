@@ -1,6 +1,8 @@
 import Foundation
 import Testing
 import HGSSCore
+import HGSSContent
+import HGSSDataModel
 
 struct HGSSCoreSmokeTests {
     @Test("Boots runtime at declared entry point")
@@ -50,6 +52,28 @@ struct HGSSCoreSmokeTests {
         await runtime.stop()
     }
 
+    @Test("Extracted collision blocks movement without runtime API changes")
+    func blocksMovementFromExtractedCollisionManifest() async throws {
+        let (runtime, tempRoot) = try await makeRuntimeWithExtractedCollision(
+            blockedTiles: [
+                PretExtractedCollisionInput.BlockedTile(
+                    sourcePosition: HGSSManifest.SourcePoint(x: 678, z: 392, y: 0)
+                )
+            ]
+        )
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        await runtime.setHeldDirection(.right)
+        let snapshot = await runtime.advanceOneTick()
+
+        #expect(snapshot.playerPosition == TilePosition(x: 1, y: 1))
+        #expect(snapshot.tick == 1)
+        #expect(snapshot.blockedTiles.contains(TilePosition(x: 2, y: 1)))
+        let counters = await runtime.telemetryCounters()
+        #expect(counters["movement.blocked"] == 1)
+        await runtime.stop()
+    }
+
     @Test("Out-of-bounds movement is blocked")
     func blocksMovementOutOfBounds() async throws {
         let runtime = try await makeRuntime()
@@ -72,14 +96,29 @@ struct HGSSCoreSmokeTests {
     }
 
     private func makeRuntime() async throws -> HGSSCoreRuntime {
-        let testFile = URL(fileURLWithPath: #filePath)
-        let repoRoot = testFile
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let stubPath = repoRoot.appendingPathComponent("DevContent/Stub", isDirectory: true)
+        try await HGSSCoreRuntime.bootWithStubContent(stubRoot: stubRootURL())
+    }
 
-        return try await HGSSCoreRuntime.bootWithStubContent(stubRoot: stubPath)
+    private func makeRuntimeWithExtractedCollision(
+        blockedTiles: [PretExtractedCollisionInput.BlockedTile]
+    ) async throws -> (runtime: HGSSCoreRuntime, tempRoot: URL) {
+        let fixtures = try loadPretFixtures()
+        let manifest = try PretNewBarkNormalizer().buildManifest(
+            from: fixtures.profileManifest,
+            mapHeadersText: fixtures.mapHeadersText,
+            zoneEventData: fixtures.zoneEventData,
+            extractedCollision: PretExtractedCollisionInput(blockedTiles: blockedTiles)
+        )
+
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let manifestData = try encoder.encode(manifest)
+        try manifestData.write(to: tempRoot.appendingPathComponent("manifest.json", isDirectory: false))
+
+        return (try await HGSSCoreRuntime.bootWithStubContent(stubRoot: tempRoot), tempRoot)
     }
 
     private func runSequence(_ directions: [MovementDirection?]) async throws -> CoreSnapshot {
@@ -93,5 +132,30 @@ struct HGSSCoreSmokeTests {
 
         await runtime.stop()
         return lastSnapshot
+    }
+
+    private func repoRootURL() -> URL {
+        let testFile = URL(fileURLWithPath: #filePath)
+        return testFile
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private func stubRootURL() -> URL {
+        repoRootURL().appendingPathComponent("DevContent/Stub", isDirectory: true)
+    }
+
+    private func loadPretFixtures() throws -> (profileManifest: HGSSManifest, mapHeadersText: String, zoneEventData: Data) {
+        let loader = StubContentLoader()
+        let fixturesRoot = repoRootURL().appendingPathComponent("Tests/Fixtures/PretNewBark", isDirectory: true)
+        let profileManifest = try loader.loadManifest(from: stubRootURL())
+        let mapHeadersText = try String(
+            contentsOf: fixturesRoot.appendingPathComponent("map_headers_new_bark.h", isDirectory: false),
+            encoding: .utf8
+        )
+        let zoneEventData = try Data(contentsOf: fixturesRoot.appendingPathComponent("057_T20.json", isDirectory: false))
+
+        return (profileManifest, mapHeadersText, zoneEventData)
     }
 }

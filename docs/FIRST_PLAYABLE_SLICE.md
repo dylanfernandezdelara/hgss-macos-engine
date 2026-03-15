@@ -35,4 +35,4 @@ This proves the engine shape against upstream-informed data without committing t
 
 ## Next Slice
 
-The next chunk should replace more hand-authored stand-in collision/layout data with extractor-produced normalized output for the same map contract. After that, map transitions and arrival entry points can be implemented on top of the same model.
+The next chunk should replace more hand-authored layout stand-ins and add map transitions on top of the same normalized model. Collision for the New Bark excerpt is now expected to flow through the pret-backed extractor path while preserving the existing runtime contract.
