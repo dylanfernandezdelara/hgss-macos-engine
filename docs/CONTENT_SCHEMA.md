@@ -76,6 +76,7 @@
 - `sourcePosition` must normalize to the declared `localPosition`.
 - `placements` must have positive extents and remain inside bounds.
 - `Tests/Fixtures/PretNewBark/generated_new_bark_map.json` is the committed extractor parity contract for generated header provenance, warps, and placements using fixture-only upstream inputs.
+- `PretNewBarkNormalizationTests` composes that map fixture with `DevContent/Stub/manifest.json` to assert full generated-manifest parity from committed inputs in CI.
 
 ## Evolution Policy
 

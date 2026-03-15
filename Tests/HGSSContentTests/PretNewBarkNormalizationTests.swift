@@ -4,6 +4,10 @@ import HGSSDataModel
 import XCTest
 
 final class PretNewBarkNormalizationTests: XCTestCase {
+    func testRegressesGeneratedManifestAgainstCommittedContract() throws {
+        XCTAssertEqual(try generatedManifest(), try expectedGeneratedManifest())
+    }
+
     func testRegressesHeaderAndProvenance() throws {
         let manifest = try generatedManifest()
         let actualMap = try generatedMap(from: manifest)
@@ -89,6 +93,26 @@ final class PretNewBarkNormalizationTests: XCTestCase {
 
     private func expectedGeneratedMap() throws -> HGSSManifest.MapEntry {
         try loadFixture(named: "generated_new_bark_map.json", as: HGSSManifest.MapEntry.self)
+    }
+
+    private func expectedGeneratedManifest() throws -> HGSSManifest {
+        let loader = StubContentLoader()
+        let profileManifest = try loader.loadManifest(from: repoRootURL().appendingPathComponent("DevContent/Stub", isDirectory: true))
+        let expectedMap = try expectedGeneratedMap()
+        let maps = profileManifest.maps.map { map in
+            map.mapID == expectedMap.mapID ? expectedMap : map
+        }
+
+        return HGSSManifest(
+            schemaVersion: profileManifest.schemaVersion,
+            title: profileManifest.title,
+            build: profileManifest.build,
+            initialMapID: profileManifest.initialMapID,
+            initialEntryPointID: profileManifest.initialEntryPointID,
+            maps: maps,
+            pokemon: profileManifest.pokemon,
+            notes: profileManifest.notes
+        )
     }
 
     private func loadFixture<T: Decodable>(named fileName: String, as _: T.Type) throws -> T {
