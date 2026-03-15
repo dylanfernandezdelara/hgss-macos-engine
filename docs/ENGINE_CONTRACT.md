@@ -32,7 +32,7 @@ This document covers all three because a proposal can be additive at one layer a
 
 | Field | Meaning today |
 | --- | --- |
-| `schemaVersion` | Schema compatibility marker for normalized content. Breaking manifest changes must bump this. |
+| `schemaVersion` | Schema compatibility marker carried in normalized content. The current loader preserves it but does not enforce version gating yet. Breaking manifest changes must still bump this so future loaders and tools can distinguish incompatible bundles. |
 | `title` | Human-readable content bundle title. Surfaced in `CoreSnapshot`. |
 | `build` | Human-readable content build identifier. Surfaced in `CoreSnapshot`. |
 | `initialMapID` | Map loaded when the runtime boots. Must match a defined map. |
@@ -96,6 +96,8 @@ The current normalized records are:
 | `Warp` | `id`, `localPosition`, `sourcePosition`, `destinationMapID`, `destinationAnchor`, `summary` |
 | `Placement` | `id`, `kind`, `localPosition`, `sourcePosition`, `width`, `height`, `scriptReference`, `summary` |
 
+`Warp.destinationAnchor` is currently just the preserved integer anchor token from normalized content. It is not the same identifier space as `EntryPoint.id`.
+
 `Placement.kind` is currently a closed enum with exactly these cases:
 
 - `object`
@@ -122,7 +124,7 @@ The current normalized records are:
 The loader does not currently guarantee all possible cross-record invariants. In particular:
 
 - `destinationMapID` is preserved but not validated against the manifest
-- `destinationAnchor` is preserved but not resolved to an entry point
+- `destinationAnchor` is preserved as an integer anchor token, not an `EntryPoint.id`, and is not resolved by the loader
 - `facing` is preserved but not interpreted
 - overlap between blocked tiles, warps, and placements is allowed
 - overlap between warps and placements is allowed and exists in the stub fixture
@@ -215,7 +217,8 @@ This reducer outcome is the only explicit movement-result classification today. 
 `HGSSCoreRuntime` currently supports two stepping styles:
 
 - `send(command:)` applies one explicit command immediately
-- `setHeldDirection(_:)` plus `advanceOneTick()` or `start()` applies the held direction on each tick until changed
+- `setHeldDirection(_:)` records the command used by future `advanceOneTick()` or `start()` ticks and does not step the reducer by itself
+- passing `nil` to `setHeldDirection(_:)` restores held input to `.idle`
 
 The fixed-timestep loop uses `CoreLoopConfiguration.gameplay` by default:
 
@@ -242,6 +245,8 @@ If the loop falls behind by more than the catch-up budget, it clamps the accumul
 | `playerPosition` | Current player tile. |
 
 `statusLine` is a convenience presentation string derived from other fields. Its exact wording is not a compatibility promise.
+
+`snapshot()` returns the latest cached `CoreSnapshot` without advancing `tick`, re-running the reducer, or mutating held input state.
 
 ### Telemetry
 
@@ -318,6 +323,7 @@ A change is breaking when existing manifests need rewriting, existing fields cha
 Current examples of breaking changes:
 
 - removing, renaming, or changing the meaning of any existing manifest field
+- adding a new required manifest field without a default or migration path, because older manifests would fail to decode under the current synthesized `Codable` contract
 - changing the local coordinate frame or the source-to-local normalization rule
 - changing how `tick` advances for `.idle`, successful movement, or blocked movement
 - changing movement so existing `blockedTiles` no longer mean "cannot enter this tile"
