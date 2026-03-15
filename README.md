@@ -15,6 +15,8 @@ Native macOS Pokemon HeartGold/SoulSilver engine scaffold (Swift + SPM), with a 
 
 ## Quick Start
 
+Requires a Swift 6 toolchain with Swift Testing support (`swift-tools-version: 6.0` in the root package).
+
 ```bash
 ./scripts/bootstrap.sh
 ./scripts/test.sh
