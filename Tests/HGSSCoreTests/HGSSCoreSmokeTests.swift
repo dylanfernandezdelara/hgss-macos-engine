@@ -35,6 +35,17 @@ struct HGSSCoreSmokeTests {
         await runtime.stop()
     }
 
+    @Test("Tick results expose typed trigger event contract")
+    func exposesTickResultContract() async throws {
+        let runtime = try await makeRuntime()
+        let result = await runtime.sendStep(command: .move(.right))
+
+        #expect(result.snapshot.playerPosition == TilePosition(x: 2, y: 1))
+        #expect(result.outcome == .moved(.right))
+        #expect(result.triggerEvents.isEmpty)
+        await runtime.stop()
+    }
+
     @Test("Blocked movement leaves player in place")
     func blocksMovementIntoObstacle() async throws {
         let runtime = try await makeRuntime()
@@ -103,6 +114,36 @@ struct HGSSCoreSmokeTests {
         let second = try await runSequence([.right, .down, .down, .left, .up, nil])
 
         #expect(first == second)
+    }
+
+    @Test("TriggerEvent schema carries map context and trigger identity")
+    func triggerEventSchema() {
+        let event = TriggerEvent(
+            tick: 7,
+            playerPosition: TilePosition(x: 24, y: 9),
+            map: TriggerEvent.MapContext(
+                mapID: "MAP_NEW_BARK",
+                mapName: "New Bark Town (Excerpt)",
+                upstreamMapID: "MAP_NEW_BARK",
+                eventsBank: "NARC_zone_event_057_T20_bin"
+            ),
+            trigger: TriggerEvent.Identity(
+                id: "coord_T20_east_exit",
+                kind: .coordinateTrigger,
+                localPosition: TilePosition(x: 24, y: 7),
+                width: 1,
+                height: 5,
+                scriptReference: "script:20002"
+            )
+        )
+
+        #expect(event.tick == 7)
+        #expect(event.map.mapID == "MAP_NEW_BARK")
+        #expect(event.map.eventsBank == "NARC_zone_event_057_T20_bin")
+        #expect(event.trigger.id == "coord_T20_east_exit")
+        #expect(event.trigger.kind == .coordinateTrigger)
+        #expect(event.trigger.height == 5)
+        #expect(event.trigger.scriptReference == "script:20002")
     }
 
     private func makeRuntime() async throws -> HGSSCoreRuntime {

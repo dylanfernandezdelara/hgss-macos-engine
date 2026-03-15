@@ -24,7 +24,8 @@ No package target should depend on app-shell code.
 2. `HGSSContent` decodes a normalized New Bark excerpt with upstream provenance.
 3. `HGSSCore` boots from `initialMapID` plus `initialEntryPointID`.
 4. The fixed-timestep loop advances authoritative state against normalized collision data.
-5. The app shell renders snapshots and never owns gameplay rules.
+5. `HGSSCore` tick results can emit typed `TriggerEvent` envelopes keyed by map context and trigger identity.
+6. The app shell renders snapshots and never owns gameplay rules.
 
 ## Normalization Boundary
 

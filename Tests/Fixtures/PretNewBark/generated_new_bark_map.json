@@ -1,0 +1,135 @@
+{
+  "mapID": "MAP_NEW_BARK",
+  "displayName": "New Bark Town (Excerpt)",
+  "provenance": {
+    "upstreamMapID": "MAP_NEW_BARK",
+    "mapHeaderSymbol": "sMapHeaders[MAP_NEW_BARK]",
+    "matrixID": "NARC_map_matrix_map_matrix_0000_EVERYWHERE_bin",
+    "eventsBank": "NARC_zone_event_057_T20_bin"
+  },
+  "header": {
+    "wildEncounterBank": "ENCDATA_T20",
+    "areaDataBank": 2,
+    "moveModelBank": 15,
+    "worldMapX": 0,
+    "worldMapY": 0,
+    "mapSection": "MAPSEC_NEW_BARK_TOWN",
+    "mapType": "MAP_TYPE_CITY_TOWN",
+    "followMode": "MAP_FOLLOWMODE_ALLOW",
+    "bikeAllowed": true,
+    "flyAllowed": true,
+    "isKanto": false,
+    "weather": 0,
+    "cameraType": 0
+  },
+  "layout": {
+    "width": 25,
+    "height": 18,
+    "sourceOrigin": {
+      "x": 676,
+      "z": 391,
+      "y": 0
+    }
+  },
+  "collision": {
+    "impassableTiles": [
+      { "x": 3, "y": 1 },
+      { "x": 3, "y": 2 },
+      { "x": 3, "y": 3 },
+      { "x": 4, "y": 3 },
+      { "x": 5, "y": 3 },
+      { "x": 1, "y": 4 },
+      { "x": 6, "y": 5 },
+      { "x": 6, "y": 6 },
+      { "x": 16, "y": 4 },
+      { "x": 17, "y": 4 },
+      { "x": 18, "y": 4 },
+      { "x": 16, "y": 5 },
+      { "x": 18, "y": 5 },
+      { "x": 2, "y": 13 },
+      { "x": 3, "y": 13 },
+      { "x": 4, "y": 13 },
+      { "x": 13, "y": 15 },
+      { "x": 14, "y": 15 },
+      { "x": 15, "y": 15 }
+    ]
+  },
+  "entryPoints": [
+    {
+      "id": "ENTRY_BOOT_DEFAULT",
+      "localPosition": { "x": 1, "y": 1 },
+      "facing": "down",
+      "summary": "Engine-defined boot point for the New Bark traversal slice."
+    }
+  ],
+  "warps": [
+    {
+      "id": "WARP_MAP_NEW_BARK_ELMS_LAB_1F",
+      "localPosition": { "x": 8, "y": 2 },
+      "sourcePosition": { "x": 684, "z": 393, "y": 0 },
+      "destinationMapID": "MAP_NEW_BARK_ELMS_LAB_1F",
+      "destinationAnchor": 0,
+      "summary": "Normalized warp to MAP_NEW_BARK_ELMS_LAB_1F."
+    },
+    {
+      "id": "WARP_MAP_NEW_BARK_PLAYER_HOUSE_1F",
+      "localPosition": { "x": 19, "y": 5 },
+      "sourcePosition": { "x": 695, "z": 396, "y": 0 },
+      "destinationMapID": "MAP_NEW_BARK_PLAYER_HOUSE_1F",
+      "destinationAnchor": 0,
+      "summary": "Normalized warp to MAP_NEW_BARK_PLAYER_HOUSE_1F."
+    }
+  ],
+  "placements": [
+    {
+      "id": "obj_T20_gswoman1",
+      "kind": "object",
+      "localPosition": { "x": 7, "y": 8 },
+      "sourcePosition": { "x": 683, "z": 399, "y": 0 },
+      "width": 1,
+      "height": 1,
+      "scriptReference": "_EV_scr_seq_T20_001 + 1",
+      "summary": "Normalized upstream object event obj_T20_gswoman1."
+    },
+    {
+      "id": "coord_0_VAR_SCENE_NEW_BARK_WEST_EXIT",
+      "kind": "coordinateTrigger",
+      "localPosition": { "x": 0, "y": 5 },
+      "sourcePosition": { "x": 676, "z": 396, "y": 0 },
+      "width": 1,
+      "height": 7,
+      "scriptReference": "_EV_scr_seq_T20_002 + 1",
+      "summary": "Normalized upstream coordinate event for VAR_SCENE_NEW_BARK_WEST_EXIT."
+    },
+    {
+      "id": "coord_1_VAR_SCENE_NEW_BARK_EAST_EXIT",
+      "kind": "coordinateTrigger",
+      "localPosition": { "x": 24, "y": 7 },
+      "sourcePosition": { "x": 700, "z": 398, "y": 0 },
+      "width": 1,
+      "height": 5,
+      "scriptReference": "_EV_scr_seq_T20_011 + 1",
+      "summary": "Normalized upstream coordinate event for VAR_SCENE_NEW_BARK_EAST_EXIT."
+    },
+    {
+      "id": "bg_0_EV_scr_seq_T20_013_1",
+      "kind": "backgroundEvent",
+      "localPosition": { "x": 6, "y": 2 },
+      "sourcePosition": { "x": 682, "z": 393, "y": 0 },
+      "width": 1,
+      "height": 1,
+      "scriptReference": "_EV_scr_seq_T20_013 + 1",
+      "summary": "Normalized upstream background event type 1."
+    },
+    {
+      "id": "bg_1_std_hiddenitem_t20_potion",
+      "kind": "backgroundEvent",
+      "localPosition": { "x": 6, "y": 0 },
+      "sourcePosition": { "x": 682, "z": 391, "y": 0 },
+      "width": 1,
+      "height": 1,
+      "scriptReference": "std_hiddenitem_t20_potion",
+      "summary": "Normalized upstream background event type 2."
+    }
+  ]
+}

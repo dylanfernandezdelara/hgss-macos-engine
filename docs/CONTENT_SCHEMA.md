@@ -28,6 +28,18 @@ The runtime-facing normalization boundary is still the same:
 - warps and placements keep `sourcePosition` for validation and debugging
 - the current extractor flow may still combine local profile data with upstream-derived fields
 
+Current validation and extractor-parity expectations include:
+
+- `initialMapID` must exist.
+- `initialEntryPointID` must exist on the initial map.
+- `layout.width` and `layout.height` must be positive.
+- `entryPoints`, `warps`, and `placements` must be inside local bounds.
+- `sourcePosition` must normalize to the declared `localPosition`.
+- `placements` must have positive extents and remain inside bounds.
+- `Tests/Fixtures/PretNewBark/generated_new_bark_map.json` is the committed extractor parity contract for generated header provenance, warps, and placements using fixture-only upstream inputs.
+- `Tests/Fixtures/PretNewBark/generated_new_bark_manifest.json` is the full generated-manifest snapshot emitted from the committed pret-style fixtures.
+- `PretNewBarkNormalizationTests` asserts the normalizer output matches that manifest snapshot exactly, while also pinning the generated map slice and normalization invariants.
+
 ## Compatibility Rule
 
 Treat `docs/ENGINE_CONTRACT.md` as the contributor-facing policy document for deciding whether a schema or runtime proposal is additive or breaking. Breaking normalized manifest changes must bump `schemaVersion`.
