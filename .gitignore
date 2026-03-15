@@ -36,3 +36,6 @@ baserom*
 # Runtime/output logs
 *.log
 *.tmp
+
+# Local Symphony configuration (contains project slug and optional local overrides)
+.symphony.local.env

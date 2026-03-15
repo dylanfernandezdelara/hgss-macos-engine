@@ -45,3 +45,17 @@ See `docs/LEGAL_AND_ASSET_HYGIENE.md`.
 - Keep game logic in `Sources/`, not in `Apps/HGSSMac`.
 
 See `WORKFLOW.md`, `AGENTS.md`, and `.github/pull_request_template.md`.
+
+## Symphony
+
+This repo is configured with a Symphony workflow template at `Symphony/WORKFLOW.md`.
+
+Use the helper script to bootstrap and run the upstream Symphony reference implementation:
+
+```bash
+cp .symphony.local.env.example .symphony.local.env
+# edit .symphony.local.env and set SYMPHONY_LINEAR_PROJECT_SLUG
+./scripts/run_symphony.sh --port 4000
+```
+
+See `docs/SYMPHONY_SETUP.md` for full setup and customization options.
