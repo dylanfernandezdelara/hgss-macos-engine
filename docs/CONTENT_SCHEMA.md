@@ -88,6 +88,9 @@ The two interior maps deliberately stop at the first room boundary. Their map ID
 - Each `warps.destinationMapID` must reference a defined map in the same manifest.
 - `sourcePosition` must normalize to the declared `localPosition`.
 - `placements` must have positive extents and remain inside bounds.
+- `Tests/Fixtures/PretNewBark/generated_new_bark_map.json` is the committed extractor parity contract for generated header provenance, warps, and placements using fixture-only upstream inputs.
+- `Tests/Fixtures/PretNewBark/generated_new_bark_manifest.json` is the full generated-manifest snapshot emitted from the committed pret-style fixtures.
+- `PretNewBarkNormalizationTests` asserts the normalizer output matches that manifest snapshot exactly, while also pinning the generated map slice and normalization invariants.
 
 ## Evolution Policy
 

@@ -11,6 +11,7 @@ Included:
 - local collision and bounds checks
 - normalized warps across three checked-in maps
 - normalized placement references for objects, coordinate triggers, and background events
+- typed trigger event envelopes for future script hookup
 - thin macOS grid renderer
 
 Not included:
