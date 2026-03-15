@@ -1,9 +1,10 @@
 import Foundation
+import Testing
 import HGSSCore
-import XCTest
 
-final class HGSSCoreSmokeTests: XCTestCase {
-    func testBootsCoreWithStubContent() async throws {
+struct HGSSCoreSmokeTests {
+    @Test("Boots runtime at declared entry point")
+    func bootsCoreWithStubContent() async throws {
         let testFile = URL(fileURLWithPath: #filePath)
         let repoRoot = testFile
             .deletingLastPathComponent()
@@ -14,56 +15,60 @@ final class HGSSCoreSmokeTests: XCTestCase {
         let runtime = try await HGSSCoreRuntime.bootWithStubContent(stubRoot: stubPath)
         let snapshot = await runtime.snapshot()
 
-        XCTAssertEqual(snapshot.mapID, "MAP_NEW_BARK")
-        XCTAssertEqual(snapshot.mapWidth, 25)
-        XCTAssertEqual(snapshot.mapHeight, 18)
-        XCTAssertEqual(snapshot.playerPosition, TilePosition(x: 1, y: 1))
-        XCTAssertTrue(snapshot.warpTiles.contains(TilePosition(x: 8, y: 2)))
-        XCTAssertTrue(snapshot.placementTiles.contains(TilePosition(x: 24, y: 11)))
+        #expect(snapshot.mapID == "MAP_NEW_BARK")
+        #expect(snapshot.mapWidth == 25)
+        #expect(snapshot.mapHeight == 18)
+        #expect(snapshot.playerPosition == TilePosition(x: 1, y: 1))
+        #expect(snapshot.warpTiles.contains(TilePosition(x: 8, y: 2)))
+        #expect(snapshot.placementTiles.contains(TilePosition(x: 24, y: 11)))
         await runtime.stop()
     }
 
-    func testMovesIntoOpenTile() async throws {
+    @Test("Moves into an open tile")
+    func movesIntoOpenTile() async throws {
         let runtime = try await makeRuntime()
         await runtime.setHeldDirection(.right)
         let snapshot = await runtime.advanceOneTick()
 
-        XCTAssertEqual(snapshot.playerPosition, TilePosition(x: 2, y: 1))
-        XCTAssertEqual(snapshot.tick, 1)
+        #expect(snapshot.playerPosition == TilePosition(x: 2, y: 1))
+        #expect(snapshot.tick == 1)
         await runtime.stop()
     }
 
-    func testBlocksMovementIntoObstacle() async throws {
+    @Test("Blocked movement leaves player in place")
+    func blocksMovementIntoObstacle() async throws {
         let runtime = try await makeRuntime()
         await runtime.setHeldDirection(.right)
         _ = await runtime.advanceOneTick()
         await runtime.setHeldDirection(.right)
         let snapshot = await runtime.advanceOneTick()
 
-        XCTAssertEqual(snapshot.playerPosition, TilePosition(x: 2, y: 1))
-        XCTAssertEqual(snapshot.tick, 2)
+        #expect(snapshot.playerPosition == TilePosition(x: 2, y: 1))
+        #expect(snapshot.tick == 2)
         let counters = await runtime.telemetryCounters()
-        XCTAssertEqual(counters["movement.blocked"], 1)
+        #expect(counters["movement.blocked"] == 1)
         await runtime.stop()
     }
 
-    func testBlocksMovementOutOfBounds() async throws {
+    @Test("Out-of-bounds movement is blocked")
+    func blocksMovementOutOfBounds() async throws {
         let runtime = try await makeRuntime()
         await runtime.setHeldDirection(.left)
         _ = await runtime.advanceOneTick()
         await runtime.setHeldDirection(.left)
         let snapshot = await runtime.advanceOneTick()
 
-        XCTAssertEqual(snapshot.playerPosition, TilePosition(x: 0, y: 1))
-        XCTAssertEqual(snapshot.tick, 2)
+        #expect(snapshot.playerPosition == TilePosition(x: 0, y: 1))
+        #expect(snapshot.tick == 2)
         await runtime.stop()
     }
 
-    func testDeterministicSequence() async throws {
+    @Test("Same command sequence yields same final state")
+    func deterministicSequence() async throws {
         let first = try await runSequence([.right, .down, .down, .left, .up, nil])
         let second = try await runSequence([.right, .down, .down, .left, .up, nil])
 
-        XCTAssertEqual(first, second)
+        #expect(first == second)
     }
 
     private func makeRuntime() async throws -> HGSSCoreRuntime {
