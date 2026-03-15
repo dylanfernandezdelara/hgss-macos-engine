@@ -28,6 +28,13 @@ At minimum include:
 - App run confirmation for shell changes
 - Extractor run confirmation for content/tooling changes
 
+## Contract Changes
+
+- Check `docs/ENGINE_CONTRACT.md` before changing normalized content fields or runtime semantics.
+- Classify proposed engine changes as additive or breaking in the PR description.
+- Bump `schemaVersion` for breaking normalized manifest changes.
+- Update contract docs and tests in the same change when behavior meaning shifts.
+
 ## Agent Operating Rules
 
 - Treat Symphony and Linear as workflow tooling, not runtime dependencies.

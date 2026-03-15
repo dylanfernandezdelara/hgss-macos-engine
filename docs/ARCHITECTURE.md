@@ -54,3 +54,5 @@ Extraction stays offline and explicit:
 - Runtime: load the normalized schema version that `HGSSCore` already understands.
 
 The current checked-in fixture exists to prove the engine contract before broad extraction work begins.
+
+For the current content/runtime contract and change policy, see `docs/ENGINE_CONTRACT.md`.

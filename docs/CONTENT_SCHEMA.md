@@ -1,83 +1,28 @@
 # Content Schema
 
-`DevContent/Stub/manifest.json` is a checked-in normalized fixture for one playable excerpt of `MAP_NEW_BARK`.
+The checked-in normalized fixture still lives at `DevContent/Stub/manifest.json`, but the exact contract is defined by the current code and summarized in `docs/ENGINE_CONTRACT.md`.
 
-## Manifest Shape (v2)
+Use these files as the source of truth for schema shape:
 
-```json
-{
-  "schemaVersion": 2,
-  "initialMapID": "MAP_NEW_BARK",
-  "initialEntryPointID": "ENTRY_BOOT_DEFAULT",
-  "maps": [
-    {
-      "mapID": "MAP_NEW_BARK",
-      "provenance": {
-        "upstreamMapID": "MAP_NEW_BARK",
-        "mapHeaderSymbol": "sMapHeaders[MAP_NEW_BARK]",
-        "matrixID": "NARC_map_matrix_map_matrix_0000_EVERYWHERE_bin",
-        "eventsBank": "NARC_zone_event_057_T20_bin"
-      },
-      "header": {
-        "mapSection": "MAPSEC_NEW_BARK_TOWN",
-        "mapType": "MAP_TYPE_CITY_TOWN"
-      },
-      "layout": {
-        "width": 25,
-        "height": 18,
-        "sourceOrigin": { "x": 676, "z": 391, "y": 0 }
-      },
-      "collision": {
-        "impassableTiles": [{ "x": 3, "y": 1 }]
-      },
-      "entryPoints": [
-        {
-          "id": "ENTRY_BOOT_DEFAULT",
-          "localPosition": { "x": 1, "y": 1 }
-        }
-      ],
-      "warps": [
-        {
-          "id": "WARP_ELMS_LAB_1F",
-          "localPosition": { "x": 8, "y": 2 },
-          "sourcePosition": { "x": 684, "z": 393, "y": 0 }
-        }
-      ],
-      "placements": [
-        {
-          "id": "coord_T20_east_exit",
-          "kind": "coordinateTrigger",
-          "localPosition": { "x": 24, "y": 7 },
-          "sourcePosition": { "x": 700, "z": 398, "y": 0 },
-          "width": 1,
-          "height": 5
-        }
-      ]
-    }
-  ]
-}
-```
+- `Sources/HGSSDataModel/HGSSManifest.swift` for the manifest records
+- `Sources/HGSSContent/StubWorldContent.swift` for loader validation and normalized runtime-facing content
+- `docs/ENGINE_CONTRACT.md` for compatibility rules, unstable areas, and additive-vs-breaking guidance
 
-## Design Rules
+## Current Shape Summary
 
-- `HGSSCore` consumes only normalized local coordinates.
-- Upstream `MapHeader`, `map_matrix`, and `zone_event` details stay in provenance or extractor-facing fields.
-- `entryPoints` are engine-defined boot/arrival anchors.
-- `warps` and `placements` preserve upstream source coordinates for validation and debugging.
-- Collision in the current fixture is still checked-in stand-in data; long-term it should be derived offline from upstream map data into the same normalized contract.
-- The extractor may combine local profile fields such as excerpt bounds, entry points, and temporary collision with upstream-derived header/event data until full extraction is implemented.
+The manifest is broader than the original slice doc. In addition to boot map fields, it currently includes:
 
-## Validation Rules
+- bundle metadata: `schemaVersion`, `title`, `build`, `pokemon`, `notes`
+- per-map metadata: `mapID`, `displayName`, `provenance`, `header`, `layout`, `collision`
+- normalized traversal references: `entryPoints`, `warps`, `placements`
 
-- `initialMapID` must exist.
-- `initialEntryPointID` must exist on the initial map.
-- `layout.width` and `layout.height` must be positive.
-- `entryPoints`, `warps`, and `placements` must be inside local bounds.
-- `sourcePosition` must normalize to the declared `localPosition`.
-- `placements` must have positive extents and remain inside bounds.
+The runtime-facing normalization boundary is still the same:
 
-## Evolution Policy
+- `HGSSCore` consumes normalized local tile coordinates
+- upstream references stay in provenance and preserved metadata fields
+- warps and placements keep `sourcePosition` for validation and debugging
+- the current extractor flow may still combine local profile data with upstream-derived fields
 
-- Increment `schemaVersion` for breaking changes.
-- Prefer extending the normalized contract over exposing raw upstream formats to `HGSSCore`.
-- Add new extractor output only after the runtime needs it.
+## Compatibility Rule
+
+Treat `docs/ENGINE_CONTRACT.md` as the contributor-facing policy document for deciding whether a schema or runtime proposal is additive or breaking. Breaking normalized manifest changes must bump `schemaVersion`.
