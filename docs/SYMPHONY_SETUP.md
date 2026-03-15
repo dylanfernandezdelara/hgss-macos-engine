@@ -67,9 +67,15 @@ Notes:
 ./scripts/run_symphony.sh
 ```
 
-The launcher automatically adds Symphony's required preview acknowledgment flag.
+The launcher automatically adds Symphony's required preview acknowledgment flag and always enables the observability UI.
 
-With dashboard port enabled:
+Default dashboard URL:
+
+```text
+http://localhost:4000/
+```
+
+Override the dashboard port if needed:
 
 ```bash
 ./scripts/run_symphony.sh --port 4000
