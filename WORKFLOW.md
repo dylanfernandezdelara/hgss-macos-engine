@@ -31,7 +31,7 @@ At minimum include:
 ## Contract Changes
 
 - Check `docs/ENGINE_CONTRACT.md` before changing normalized content fields or runtime semantics.
-- Classify proposed engine changes as additive or breaking in the PR description.
+- Record `Contract impact: additive` or `Contract impact: breaking` in the PR description.
 - Bump `schemaVersion` for breaking normalized manifest changes.
 - Update contract docs and tests in the same change when behavior meaning shifts.
 

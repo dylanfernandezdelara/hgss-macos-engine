@@ -14,6 +14,16 @@ The source of truth for the shapes below is the current code in:
 
 The goal is to let contributors extend the engine without accidentally changing existing content or runtime meaning.
 
+## Contract Layers
+
+The current engine contract has three distinct layers:
+
+- serialized bundle shape in `HGSSManifest` and `DevContent/Stub/manifest.json`
+- validated in-memory normalized content exposed by `NormalizedWorldContent` and `NormalizedPlayableMap`
+- runtime command/state/snapshot semantics exposed by `HGSSCore`
+
+This document covers all three because a proposal can be additive at one layer and breaking at another. The current contract is whatever those layers mean today, not what future traversal or trigger work is expected to need.
+
 ## Normalized Content Contract
 
 ### Manifest shape
@@ -116,6 +126,26 @@ The loader does not currently guarantee all possible cross-record invariants. In
 - `facing` is preserved but not interpreted
 - overlap between blocked tiles, warps, and placements is allowed
 - overlap between warps and placements is allowed and exists in the stub fixture
+
+### Normalized loader surfaces
+
+After validation, `HGSSContent` exposes the following in-memory contract to runtime callers:
+
+| Type | Fields and meaning today |
+| --- | --- |
+| `NormalizedWorldContent` | `manifest`, `maps`, `initialMapID`, `initialEntryPointID` plus derived accessors `initialMap`, `initialEntryPoint`, and `map(id:)`. |
+| `NormalizedPlayableMap` | `id`, `displayName`, `provenance`, `header`, `width`, `height`, `sourceOrigin`, `blockedTiles`, `entryPoints`, `warps`, `placements`, `warpTiles`, `placementTiles`. |
+| `NormalizedMapEntryPoint` | `id`, `localPosition`, `facing`, `summary`. |
+| `NormalizedMapWarp` | `id`, `localPosition`, `sourcePosition`, `destinationMapID`, `destinationAnchor`, `summary`. |
+| `NormalizedMapPlacement` | `id`, `kind`, `localPosition`, `sourcePosition`, `width`, `height`, `scriptReference`, `summary`, and derived `occupiedTiles`. |
+
+The derived normalized tile sets have stable meaning today:
+
+- `warpTiles` is the set of every warp `localPosition` on the map
+- `placementTiles` is the union of every placement `occupiedTiles`
+- `contains(_:)`, `isBlocked(_:)`, and `entryPoint(id:)` are lookup conveniences over the validated map data, not separate data sources
+
+Changing how those derived sets or lookup helpers interpret the same normalized records is a contract-sensitive change even if the serialized manifest shape stays the same.
 
 ## Runtime Contract
 
@@ -257,6 +287,17 @@ The manifest can contain multiple maps, but the current runtime does not travers
 ## Additive vs Breaking Changes
 
 Use this section when evaluating proposals.
+
+### Classification checklist
+
+Treat a proposal as additive only if all of the following stay true:
+
+1. Existing manifests still decode and load without rewrite.
+2. Existing normalized content records keep the same meaning after validation.
+3. Running the same command sequence against the same normalized content preserves the meaning of existing `GameState`, `GameStepOutcome`, and `CoreSnapshot` fields.
+4. Any new behavior is exposed through a new field or new runtime surface instead of silently repurposing an old one.
+
+If any answer is "no" or "not sure", treat the change as breaking until the migration path is documented.
 
 ### Additive changes
 

@@ -10,6 +10,11 @@ Use these files as the source of truth for schema shape:
 
 ## Current Shape Summary
 
+The current content contract has two layers:
+
+- the serialized manifest checked into `DevContent/Stub/manifest.json`
+- the validated in-memory normalized content exposed by `NormalizedWorldContent` and `NormalizedPlayableMap`
+
 The manifest is broader than the original slice doc. In addition to boot map fields, it currently includes:
 
 - bundle metadata: `schemaVersion`, `title`, `build`, `pokemon`, `notes`
