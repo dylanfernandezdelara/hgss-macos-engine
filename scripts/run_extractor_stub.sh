@@ -17,6 +17,6 @@ if [[ -n "${POKEHEARTGOLD_ROOT:-}" ]]; then
   echo "Running extractor against local pret/pokeheartgold clone..."
   "${SWIFT[@]}" run HGSSExtractCLI --input "$INPUT_PATH" --output "$OUTPUT_PATH" --pret-root "$POKEHEARTGOLD_ROOT"
 else
-  echo "Running extractor with checked-in normalized profile..."
+  echo "Running extractor against committed pret-style fixtures..."
   "${SWIFT[@]}" run HGSSExtractCLI --input "$INPUT_PATH" --output "$OUTPUT_PATH"
 fi

@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "HGSSContent", targets: ["HGSSContent"]),
         .library(name: "HGSSTelemetry", targets: ["HGSSTelemetry"]),
         .library(name: "HGSSCore", targets: ["HGSSCore"]),
+        .library(name: "HGSSExtractSupport", targets: ["HGSSExtractSupport"]),
         .executable(name: "HGSSExtractCLI", targets: ["HGSSExtractCLI"])
     ],
     targets: [
@@ -33,9 +34,14 @@ let package = Package(
             dependencies: ["HGSSContent", "HGSSDataModel", "HGSSTelemetry"],
             path: "Sources/HGSSCore"
         ),
+        .target(
+            name: "HGSSExtractSupport",
+            dependencies: ["HGSSContent", "HGSSDataModel"],
+            path: "Sources/HGSSExtractSupport"
+        ),
         .executableTarget(
             name: "HGSSExtractCLI",
-            dependencies: ["HGSSContent", "HGSSDataModel"],
+            dependencies: ["HGSSDataModel", "HGSSExtractSupport"],
             path: "Sources/HGSSExtractCLI"
         ),
         .testTarget(
@@ -47,6 +53,11 @@ let package = Package(
             name: "HGSSCoreTests",
             dependencies: ["HGSSCore"],
             path: "Tests/HGSSCoreTests"
+        ),
+        .testTarget(
+            name: "HGSSExtractCLITests",
+            dependencies: ["HGSSExtractSupport", "HGSSDataModel"],
+            path: "Tests/HGSSExtractCLITests"
         )
     ]
 )

@@ -1,31 +1,7 @@
 import Foundation
-import HGSSContent
 import HGSSDataModel
+import HGSSExtractSupport
 import Darwin
-
-struct ExtractConfiguration {
-    let input: URL
-    let output: URL
-    let pretRoot: URL?
-    let dryRun: Bool
-}
-
-enum ExtractCLIError: Error, LocalizedError {
-    case missingValue(flag: String)
-    case unsupportedFlag(String)
-    case missingPretFile(path: String)
-
-    var errorDescription: String? {
-        switch self {
-        case let .missingValue(flag):
-            return "Missing value for \(flag)."
-        case let .unsupportedFlag(flag):
-            return "Unsupported flag: \(flag)."
-        case let .missingPretFile(path):
-            return "Required pret/pokeheartgold file not found: \(path)."
-        }
-    }
-}
 
 private func usage() {
     print("""
@@ -35,8 +11,9 @@ private func usage() {
       swift run HGSSExtractCLI --input <path> --output <path> [--pret-root <path>] [--dry-run]
 
     Notes:
-      - Without --pret-root, the extractor copies the checked-in normalized fixture.
-      - With --pret-root, it rebuilds the New Bark manifest from local pret/pokeheartgold files plus the local profile.
+      - The extractor always rebuilds the New Bark manifest through the pret normalizer.
+      - Without --pret-root, it uses committed pret-style fixture inputs under Tests/Fixtures/PretNewBark.
+      - With --pret-root, it uses local pret/pokeheartgold files plus the local profile manifest.
     """)
 }
 
@@ -83,33 +60,6 @@ private func parseArguments(_ args: [String]) throws -> ExtractConfiguration {
     return ExtractConfiguration(input: input, output: output, pretRoot: pretRoot, dryRun: dryRun)
 }
 
-private func loadPretManifest(
-    profileManifest: HGSSManifest,
-    pretRoot: URL
-) throws -> HGSSManifest {
-    let mapHeadersURL = pretRoot.appendingPathComponent("src/data/map_headers.h", isDirectory: false)
-    let zoneEventURL = pretRoot.appendingPathComponent(
-        "files/fielddata/eventdata/zone_event/057_T20.json",
-        isDirectory: false
-    )
-
-    guard FileManager.default.fileExists(atPath: mapHeadersURL.path()) else {
-        throw ExtractCLIError.missingPretFile(path: mapHeadersURL.path())
-    }
-    guard FileManager.default.fileExists(atPath: zoneEventURL.path()) else {
-        throw ExtractCLIError.missingPretFile(path: zoneEventURL.path())
-    }
-
-    let mapHeadersText = try String(contentsOf: mapHeadersURL, encoding: .utf8)
-    let zoneEventData = try Data(contentsOf: zoneEventURL)
-    let normalizer = PretNewBarkNormalizer()
-    return try normalizer.buildManifest(
-        from: profileManifest,
-        mapHeadersText: mapHeadersText,
-        zoneEventData: zoneEventData
-    )
-}
-
 private func writeManifest(_ manifest: HGSSManifest, to output: URL) throws {
     let manifestURL = output.appendingPathComponent("manifest.json", isDirectory: false)
     let encoder = JSONEncoder()
@@ -122,7 +72,7 @@ private func writeReport(
     mode: String,
     manifest: HGSSManifest,
     output: URL,
-    pretRoot: URL?
+    upstreamRoot: URL
 ) throws {
     let reportURL = output.appendingPathComponent("extract_report.txt", isDirectory: false)
     let mapCount = manifest.maps.count
@@ -136,7 +86,7 @@ private func writeReport(
     Initial entry point: \(manifest.initialEntryPointID)
     Initial warps: \(initialMap?.warps.count ?? 0)
     Initial placements: \(initialMap?.placements.count ?? 0)
-    Pret root: \(pretRoot?.path() ?? "not provided")
+    Upstream root: \(upstreamRoot.path())
     """
     try summary.appending("\n").write(to: reportURL, atomically: true, encoding: .utf8)
 }
@@ -152,38 +102,30 @@ struct HGSSExtractCLI {
 
         do {
             let config = try parseArguments(rawArgs)
-            let loader = StubContentLoader()
-            let profileManifest = try loader.loadManifest(from: config.input)
-
-            let mode: String
-            let extractedManifest: HGSSManifest
-            if let pretRoot = config.pretRoot {
-                mode = "pret-new-bark"
-                extractedManifest = try loadPretManifest(profileManifest: profileManifest, pretRoot: pretRoot)
-            } else {
-                mode = "profile-copy"
-                extractedManifest = profileManifest
-            }
+            let result = try extractManifest(config: config, workingDirectory: defaultWorkingDirectory())
 
             if !config.dryRun {
                 try FileManager.default.createDirectory(at: config.output, withIntermediateDirectories: true)
-                try writeManifest(extractedManifest, to: config.output)
-                try writeReport(mode: mode, manifest: extractedManifest, output: config.output, pretRoot: config.pretRoot)
+                try writeManifest(result.manifest, to: config.output)
+                try writeReport(
+                    mode: result.mode,
+                    manifest: result.manifest,
+                    output: config.output,
+                    upstreamRoot: result.upstreamRoot
+                )
             }
 
-            let initialMap = extractedManifest.maps.first(where: { $0.mapID == extractedManifest.initialMapID })
+            let initialMap = result.manifest.maps.first(where: { $0.mapID == result.manifest.initialMapID })
 
             print("Extractor complete.")
-            print("Mode: \(mode)")
+            print("Mode: \(result.mode)")
             print("Input profile: \(config.input.path())")
             print("Output: \(config.output.path())")
             print("Dry run: \(config.dryRun ? "yes" : "no")")
-            print("Initial map: \(extractedManifest.initialMapID)")
+            print("Initial map: \(result.manifest.initialMapID)")
             print("Initial warps: \(initialMap?.warps.count ?? 0)")
             print("Initial placements: \(initialMap?.placements.count ?? 0)")
-            if let pretRoot = config.pretRoot {
-                print("Pret root: \(pretRoot.path())")
-            }
+            print("Upstream root: \(result.upstreamRoot.path())")
         } catch {
             fputs("HGSSExtractCLI error: \(error.localizedDescription)\n", stderr)
             usage()

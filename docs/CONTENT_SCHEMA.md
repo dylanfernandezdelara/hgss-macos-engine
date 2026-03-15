@@ -66,6 +66,7 @@
 - `warps` and `placements` preserve upstream source coordinates for validation and debugging.
 - Collision in the current fixture is still checked-in stand-in data; long-term it should be derived offline from upstream map data into the same normalized contract.
 - The extractor may combine local profile fields such as excerpt bounds, entry points, and temporary collision with upstream-derived header/event data until full extraction is implemented.
+- The default extractor path rebuilds New Bark from committed pret-style fixtures; `--pret-root` swaps those fixture inputs for a local `pokeheartgold` checkout without changing the normalized manifest contract.
 
 ## Validation Rules
 

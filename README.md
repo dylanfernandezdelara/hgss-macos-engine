@@ -23,7 +23,7 @@ Native macOS Pokemon HeartGold/SoulSilver engine scaffold (Swift + SPM), with a 
 ./scripts/check_repo.sh
 ```
 
-Optional upstream-informed extractor run:
+Extractor runs against committed pret-style fixtures by default. To switch to a local pret clone:
 
 ```bash
 POKEHEARTGOLD_ROOT=/path/to/pokeheartgold ./scripts/run_extractor_stub.sh
