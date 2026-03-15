@@ -1,64 +1,19 @@
 # Content Schema
 
-`DevContent/Stub/manifest.json` is a checked-in normalized fixture for the first New Bark-centered multi-map slice.
+The checked-in normalized fixture still lives at `DevContent/Stub/manifest.json`. It currently represents the first New Bark-centered multi-map slice, but the exact contract is defined by the current code and summarized in `docs/ENGINE_CONTRACT.md`.
 
-## Manifest Shape (v2)
+Use these files as the source of truth for schema shape:
 
-```json
-{
-  "schemaVersion": 2,
-  "initialMapID": "MAP_NEW_BARK",
-  "initialEntryPointID": "ENTRY_BOOT_DEFAULT",
-  "maps": [
-    {
-      "mapID": "MAP_NEW_BARK",
-      "provenance": {
-        "upstreamMapID": "MAP_NEW_BARK",
-        "mapHeaderSymbol": "sMapHeaders[MAP_NEW_BARK]",
-        "matrixID": "NARC_map_matrix_map_matrix_0000_EVERYWHERE_bin",
-        "eventsBank": "NARC_zone_event_057_T20_bin"
-      },
-      "header": {
-        "mapSection": "MAPSEC_NEW_BARK_TOWN",
-        "mapType": "MAP_TYPE_CITY_TOWN"
-      },
-      "layout": {
-        "width": 25,
-        "height": 18,
-        "sourceOrigin": { "x": 676, "z": 391, "y": 0 }
-      },
-      "collision": {
-        "impassableTiles": [{ "x": 3, "y": 1 }]
-      },
-      "entryPoints": [
-        {
-          "id": "ENTRY_BOOT_DEFAULT",
-          "localPosition": { "x": 1, "y": 1 }
-        }
-      ],
-      "warps": [
-        {
-          "id": "WARP_ELMS_LAB_1F",
-          "localPosition": { "x": 8, "y": 2 },
-          "sourcePosition": { "x": 684, "z": 393, "y": 0 },
-          "destinationMapID": "MAP_NEW_BARK_ELMS_LAB_1F",
-          "destinationAnchor": 0
-        }
-      ],
-      "placements": [
-        {
-          "id": "coord_T20_east_exit",
-          "kind": "coordinateTrigger",
-          "localPosition": { "x": 24, "y": 7 },
-          "sourcePosition": { "x": 700, "z": 398, "y": 0 },
-          "width": 1,
-          "height": 5
-        }
-      ]
-    }
-  ]
-}
-```
+- `Sources/HGSSDataModel/HGSSManifest.swift` for the manifest records
+- `Sources/HGSSContent/StubWorldContent.swift` for loader validation and normalized runtime-facing content
+- `docs/ENGINE_CONTRACT.md` for compatibility rules, unstable areas, and additive-vs-breaking guidance
+
+## Current Shape Summary
+
+The current content contract has two layers:
+
+- the serialized manifest checked into `DevContent/Stub/manifest.json`
+- the validated in-memory normalized content exposed by `NormalizedWorldContent` and `NormalizedPlayableMap`
 
 The checked-in fixture currently includes three maps:
 
@@ -68,18 +23,23 @@ The checked-in fixture currently includes three maps:
 
 The two interior maps deliberately stop at the first room boundary. Their map IDs are real HGSS destinations, but their local bounds, collision, and source coordinates are small synthetic stand-ins until broader extractor coverage exists.
 
-## Design Rules
+The manifest is broader than the original slice doc. In addition to boot map fields, it currently includes:
 
-- `HGSSCore` consumes only normalized local coordinates.
-- Upstream `MapHeader`, `map_matrix`, and `zone_event` details stay in provenance or extractor-facing fields.
-- `entryPoints` are engine-defined boot/arrival anchors.
-- `warps.destinationMapID` must point at another normalized map record even while arrival-anchor semantics remain deferred.
-- `warps` and `placements` preserve upstream source coordinates for validation and debugging.
-- Collision in the current fixture is still checked-in stand-in data; long-term it should be derived offline from upstream map data into the same normalized contract.
-- The extractor may combine local profile fields such as excerpt bounds, entry points, and temporary collision with upstream-derived header/event data until full extraction is implemented.
-- The current fixture keeps only New Bark plus its first two pret-backed interior destinations; rival house, southwest house, and deeper interiors remain out of scope for this slice.
+- bundle metadata: `schemaVersion`, `title`, `build`, `pokemon`, `notes`
+- per-map metadata: `mapID`, `displayName`, `provenance`, `header`, `layout`, `collision`
+- normalized traversal references: `entryPoints`, `warps`, `placements`
 
-## Validation Rules
+The runtime-facing normalization boundary is still the same:
+
+- `HGSSCore` consumes normalized local tile coordinates
+- upstream references stay in provenance and preserved metadata fields
+- `entryPoints` remain engine-defined boot and arrival anchors
+- `warps.destinationMapID` must point at another normalized map record even while arrival-anchor semantics remain deferred
+- warps and placements keep `sourcePosition` for validation and debugging
+- the current extractor flow may still combine local profile data with upstream-derived fields
+- the current fixture keeps only New Bark plus its first two pret-backed interior destinations; rival house, southwest house, and deeper interiors remain out of scope for this slice
+
+Current validation and extractor-parity expectations include:
 
 - `initialMapID` must exist.
 - `initialEntryPointID` must exist on the initial map.
@@ -92,8 +52,6 @@ The two interior maps deliberately stop at the first room boundary. Their map ID
 - `Tests/Fixtures/PretNewBark/generated_new_bark_manifest.json` is the full generated-manifest snapshot emitted from the committed pret-style fixtures.
 - `PretNewBarkNormalizationTests` asserts the normalizer output matches that manifest snapshot exactly, while also pinning the generated map slice and normalization invariants.
 
-## Evolution Policy
+## Compatibility Rule
 
-- Increment `schemaVersion` for breaking changes.
-- Prefer extending the normalized contract over exposing raw upstream formats to `HGSSCore`.
-- Add new extractor output only after the runtime needs it.
+Treat `docs/ENGINE_CONTRACT.md` as the contributor-facing policy document for deciding whether a schema or runtime proposal is additive or breaking. Breaking normalized manifest changes must bump `schemaVersion`.

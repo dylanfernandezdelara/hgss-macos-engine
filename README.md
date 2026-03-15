@@ -44,7 +44,7 @@ See `docs/LEGAL_AND_ASSET_HYGIENE.md`.
 - Include proof-of-work in PRs.
 - Keep game logic in `Sources/`, not in `Apps/HGSSMac`.
 
-See `WORKFLOW.md`, `AGENTS.md`, and `.github/pull_request_template.md`.
+See `docs/ENGINE_CONTRACT.md`, `WORKFLOW.md`, `AGENTS.md`, and `.github/pull_request_template.md`.
 
 ## Symphony
 

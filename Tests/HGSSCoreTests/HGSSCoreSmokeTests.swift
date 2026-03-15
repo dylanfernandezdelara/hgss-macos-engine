@@ -74,6 +74,40 @@ struct HGSSCoreSmokeTests {
         await runtime.stop()
     }
 
+    @Test("Snapshot reads current state without advancing a tick")
+    func snapshotDoesNotMutateState() async throws {
+        let runtime = try await makeRuntime()
+        let initial = await runtime.snapshot()
+
+        await runtime.setHeldDirection(.right)
+        let afterInput = await runtime.snapshot()
+
+        #expect(afterInput == initial)
+        #expect(afterInput.tick == 0)
+        #expect(afterInput.playerPosition == TilePosition(x: 1, y: 1))
+        await runtime.stop()
+    }
+
+    @Test("Held direction only affects future tick advances")
+    func heldDirectionAffectsFutureTicksOnly() async throws {
+        let runtime = try await makeRuntime()
+
+        await runtime.setHeldDirection(.right)
+        let beforeAdvance = await runtime.snapshot()
+        #expect(beforeAdvance.tick == 0)
+        #expect(beforeAdvance.playerPosition == TilePosition(x: 1, y: 1))
+
+        let moved = await runtime.advanceOneTick()
+        #expect(moved.tick == 1)
+        #expect(moved.playerPosition == TilePosition(x: 2, y: 1))
+
+        await runtime.setHeldDirection(nil)
+        let idleTick = await runtime.advanceOneTick()
+        #expect(idleTick.tick == 2)
+        #expect(idleTick.playerPosition == TilePosition(x: 2, y: 1))
+        await runtime.stop()
+    }
+
     @Test("Same command sequence yields same final state")
     func deterministicSequence() async throws {
         let first = try await runSequence([.right, .down, .down, .left, .up, nil])

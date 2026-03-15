@@ -6,6 +6,13 @@
 
 Describe what changed and why.
 
+## Contract Impact
+
+- [ ] `Contract impact: additive`
+- [ ] `Contract impact: breaking`
+
+Explain the classification briefly. If breaking, describe the migration path and any `schemaVersion` bump.
+
 ## Proof of Work
 
 - [ ] `./scripts/check_repo.sh`
