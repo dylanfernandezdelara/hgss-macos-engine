@@ -1,0 +1,268 @@
+{
+  "build" : "0.2.0-normalized",
+  "initialEntryPointID" : "ENTRY_BOOT_DEFAULT",
+  "initialMapID" : "MAP_NEW_BARK",
+  "maps" : [
+    {
+      "collision" : {
+        "impassableTiles" : [
+          {
+            "x" : 3,
+            "y" : 1
+          },
+          {
+            "x" : 3,
+            "y" : 2
+          },
+          {
+            "x" : 3,
+            "y" : 3
+          },
+          {
+            "x" : 4,
+            "y" : 3
+          },
+          {
+            "x" : 5,
+            "y" : 3
+          },
+          {
+            "x" : 1,
+            "y" : 4
+          },
+          {
+            "x" : 6,
+            "y" : 5
+          },
+          {
+            "x" : 6,
+            "y" : 6
+          },
+          {
+            "x" : 16,
+            "y" : 4
+          },
+          {
+            "x" : 17,
+            "y" : 4
+          },
+          {
+            "x" : 18,
+            "y" : 4
+          },
+          {
+            "x" : 16,
+            "y" : 5
+          },
+          {
+            "x" : 18,
+            "y" : 5
+          },
+          {
+            "x" : 2,
+            "y" : 13
+          },
+          {
+            "x" : 3,
+            "y" : 13
+          },
+          {
+            "x" : 4,
+            "y" : 13
+          },
+          {
+            "x" : 13,
+            "y" : 15
+          },
+          {
+            "x" : 14,
+            "y" : 15
+          },
+          {
+            "x" : 15,
+            "y" : 15
+          }
+        ]
+      },
+      "displayName" : "New Bark Town (Excerpt)",
+      "entryPoints" : [
+        {
+          "facing" : "down",
+          "id" : "ENTRY_BOOT_DEFAULT",
+          "localPosition" : {
+            "x" : 1,
+            "y" : 1
+          },
+          "summary" : "Engine-defined boot point for the New Bark traversal slice."
+        }
+      ],
+      "header" : {
+        "areaDataBank" : 2,
+        "bikeAllowed" : true,
+        "cameraType" : 0,
+        "flyAllowed" : true,
+        "followMode" : "MAP_FOLLOWMODE_ALLOW",
+        "isKanto" : false,
+        "mapSection" : "MAPSEC_NEW_BARK_TOWN",
+        "mapType" : "MAP_TYPE_CITY_TOWN",
+        "moveModelBank" : 15,
+        "weather" : 0,
+        "wildEncounterBank" : "ENCDATA_T20",
+        "worldMapX" : 0,
+        "worldMapY" : 0
+      },
+      "layout" : {
+        "height" : 18,
+        "sourceOrigin" : {
+          "x" : 676,
+          "y" : 0,
+          "z" : 391
+        },
+        "width" : 25
+      },
+      "mapID" : "MAP_NEW_BARK",
+      "placements" : [
+        {
+          "height" : 1,
+          "id" : "obj_T20_gswoman1",
+          "kind" : "object",
+          "localPosition" : {
+            "x" : 7,
+            "y" : 8
+          },
+          "scriptReference" : "_EV_scr_seq_T20_001 + 1",
+          "sourcePosition" : {
+            "x" : 683,
+            "y" : 0,
+            "z" : 399
+          },
+          "summary" : "Normalized upstream object event obj_T20_gswoman1.",
+          "width" : 1
+        },
+        {
+          "height" : 7,
+          "id" : "coord_0_VAR_SCENE_NEW_BARK_WEST_EXIT",
+          "kind" : "coordinateTrigger",
+          "localPosition" : {
+            "x" : 0,
+            "y" : 5
+          },
+          "scriptReference" : "_EV_scr_seq_T20_002 + 1",
+          "sourcePosition" : {
+            "x" : 676,
+            "y" : 0,
+            "z" : 396
+          },
+          "summary" : "Normalized upstream coordinate event for VAR_SCENE_NEW_BARK_WEST_EXIT.",
+          "width" : 1
+        },
+        {
+          "height" : 5,
+          "id" : "coord_1_VAR_SCENE_NEW_BARK_EAST_EXIT",
+          "kind" : "coordinateTrigger",
+          "localPosition" : {
+            "x" : 24,
+            "y" : 7
+          },
+          "scriptReference" : "_EV_scr_seq_T20_011 + 1",
+          "sourcePosition" : {
+            "x" : 700,
+            "y" : 0,
+            "z" : 398
+          },
+          "summary" : "Normalized upstream coordinate event for VAR_SCENE_NEW_BARK_EAST_EXIT.",
+          "width" : 1
+        },
+        {
+          "height" : 1,
+          "id" : "bg_0_EV_scr_seq_T20_013_1",
+          "kind" : "backgroundEvent",
+          "localPosition" : {
+            "x" : 6,
+            "y" : 2
+          },
+          "scriptReference" : "_EV_scr_seq_T20_013 + 1",
+          "sourcePosition" : {
+            "x" : 682,
+            "y" : 0,
+            "z" : 393
+          },
+          "summary" : "Normalized upstream background event type 1.",
+          "width" : 1
+        },
+        {
+          "height" : 1,
+          "id" : "bg_1_std_hiddenitem_t20_potion",
+          "kind" : "backgroundEvent",
+          "localPosition" : {
+            "x" : 6,
+            "y" : 0
+          },
+          "scriptReference" : "std_hiddenitem_t20_potion",
+          "sourcePosition" : {
+            "x" : 682,
+            "y" : 0,
+            "z" : 391
+          },
+          "summary" : "Normalized upstream background event type 2.",
+          "width" : 1
+        }
+      ],
+      "provenance" : {
+        "eventsBank" : "NARC_zone_event_057_T20_bin",
+        "mapHeaderSymbol" : "sMapHeaders[MAP_NEW_BARK]",
+        "matrixID" : "NARC_map_matrix_map_matrix_0000_EVERYWHERE_bin",
+        "upstreamMapID" : "MAP_NEW_BARK"
+      },
+      "warps" : [
+        {
+          "destinationAnchor" : 0,
+          "destinationMapID" : "MAP_NEW_BARK_ELMS_LAB_1F",
+          "id" : "WARP_MAP_NEW_BARK_ELMS_LAB_1F",
+          "localPosition" : {
+            "x" : 8,
+            "y" : 2
+          },
+          "sourcePosition" : {
+            "x" : 684,
+            "y" : 0,
+            "z" : 393
+          },
+          "summary" : "Normalized warp to MAP_NEW_BARK_ELMS_LAB_1F."
+        },
+        {
+          "destinationAnchor" : 0,
+          "destinationMapID" : "MAP_NEW_BARK_PLAYER_HOUSE_1F",
+          "id" : "WARP_MAP_NEW_BARK_PLAYER_HOUSE_1F",
+          "localPosition" : {
+            "x" : 19,
+            "y" : 5
+          },
+          "sourcePosition" : {
+            "x" : 695,
+            "y" : 0,
+            "z" : 396
+          },
+          "summary" : "Normalized warp to MAP_NEW_BARK_PLAYER_HOUSE_1F."
+        }
+      ]
+    }
+  ],
+  "notes" : "Checked-in normalized fixture for a New Bark Town traversal excerpt. Header and event provenance are aligned to pret/pokeheartgold, while collision remains a small checked-in stand-in for future extracted output.",
+  "pokemon" : [
+    {
+      "nationalDex" : 152,
+      "species" : "Chikorita"
+    },
+    {
+      "nationalDex" : 155,
+      "species" : "Cyndaquil"
+    },
+    {
+      "nationalDex" : 158,
+      "species" : "Totodile"
+    }
+  ],
+  "schemaVersion" : 2,
+  "title" : "HGSS Normalized Stub Content"
+}
