@@ -58,10 +58,16 @@ public enum GameStepOutcome: Equatable, Sendable {
 public struct GameStepResult: Equatable, Sendable {
     public let state: GameState
     public let outcome: GameStepOutcome
+    public let triggerEvents: [TriggerEvent]
 
-    public init(state: GameState, outcome: GameStepOutcome) {
+    public init(
+        state: GameState,
+        outcome: GameStepOutcome,
+        triggerEvents: [TriggerEvent] = []
+    ) {
         self.state = state
         self.outcome = outcome
+        self.triggerEvents = triggerEvents
     }
 }
 
