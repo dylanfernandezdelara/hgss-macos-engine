@@ -15,7 +15,8 @@ public enum GameReducer {
                 state: GameState(
                     tick: advancedTick,
                     currentMapID: state.currentMapID,
-                    playerPosition: state.playerPosition
+                    playerPosition: state.playerPosition,
+                    playerFacing: state.playerFacing
                 ),
                 outcome: .idle
             )
@@ -29,7 +30,8 @@ public enum GameReducer {
                     state: GameState(
                         tick: advancedTick,
                         currentMapID: state.currentMapID,
-                        playerPosition: state.playerPosition
+                        playerPosition: state.playerPosition,
+                        playerFacing: direction
                     ),
                     outcome: .blocked(direction)
                 )
@@ -39,7 +41,8 @@ public enum GameReducer {
                 state: GameState(
                     tick: advancedTick,
                     currentMapID: state.currentMapID,
-                    playerPosition: proposed
+                    playerPosition: proposed,
+                    playerFacing: direction
                 ),
                 outcome: .moved(direction)
             )

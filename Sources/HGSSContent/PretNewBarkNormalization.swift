@@ -45,6 +45,7 @@ public struct PretNewBarkNormalizer {
 
         let headerFields = try parseMapHeaderFields(mapHeadersText: mapHeadersText, mapID: mapID)
         let zoneEvents = try decodeZoneEvents(data: zoneEventData)
+        let allowedDestinationMapIDs = Set(profileManifest.maps.map(\.mapID))
 
         let generatedMap = HGSSManifest.MapEntry(
             mapID: profileMap.mapID,
@@ -59,7 +60,11 @@ public struct PretNewBarkNormalizer {
             layout: profileMap.layout,
             collision: profileMap.collision,
             entryPoints: profileMap.entryPoints,
-            warps: buildWarps(from: zoneEvents.warps, layout: profileMap.layout),
+            warps: buildWarps(
+                from: zoneEvents.warps,
+                layout: profileMap.layout,
+                allowedDestinationMapIDs: allowedDestinationMapIDs
+            ),
             placements: buildPlacements(zoneEvents: zoneEvents, layout: profileMap.layout)
         )
 
@@ -163,9 +168,13 @@ public struct PretNewBarkNormalizer {
 
     private func buildWarps(
         from warps: [PretZoneEvents.WarpEvent],
-        layout: HGSSManifest.MapLayout
+        layout: HGSSManifest.MapLayout,
+        allowedDestinationMapIDs: Set<String>
     ) -> [HGSSManifest.Warp] {
-        let filtered = warps.filter { contains(sourceX: $0.x, sourceZ: $0.z, layout: layout) }
+        let filtered = warps.filter {
+            contains(sourceX: $0.x, sourceZ: $0.z, layout: layout) &&
+            allowedDestinationMapIDs.contains($0.header)
+        }
         var seenIDs: [String: Int] = [:]
 
         return filtered.map { warp in

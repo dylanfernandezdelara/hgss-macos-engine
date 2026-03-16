@@ -1,54 +1,67 @@
 import AppKit
 import Foundation
-import SwiftUI
 import HGSSCore
+import HGSSRender
+import SwiftUI
 
 @MainActor
 final class GameViewModel: ObservableObject {
+    struct ReadyState {
+        let loadedBundle: LoadedRenderBundle
+        let presentation: HGSSDualScreenPresentation
+    }
+
     enum Phase {
         case loading
-        case ready(CoreSnapshot)
+        case ready(ReadyState)
         case error(String)
     }
 
     @Published private(set) var phase: Phase = .loading
-    @Published private(set) var inputStatus = "Press an arrow key."
 
     private var runtime: HGSSCoreRuntime?
-    private var snapshotTask: Task<Void, Never>?
+    private var readyState: ReadyState?
+    private var showDeveloperOverlay = false
 
     func boot() {
         guard runtime == nil else {
             return
         }
 
-        let environment = ProcessInfo.processInfo.environment
-        let rootPath = environment["HGSS_REPO_ROOT"] ?? FileManager.default.currentDirectoryPath
-        let stubRoot = URL(fileURLWithPath: rootPath, isDirectory: true)
-            .appendingPathComponent("DevContent/Stub", isDirectory: true)
-
         phase = .loading
 
-        Task {
+        Task { @MainActor in
             do {
-                let runtime = try await HGSSCoreRuntime.bootWithStubContent(stubRoot: stubRoot)
-                await runtime.start()
+                let contentRoot = try resolveContentRoot()
+                let loadedBundle = try RenderBundleLoader().load(from: contentRoot)
+                let runtime = try await HGSSCoreRuntime.bootWithStubContent(stubRoot: contentRoot)
+                let snapshot = await runtime.snapshot()
+                let cameraOrigin = HGSSRenderCamera.clampedOrigin(
+                    for: HGSSRenderDisplayPoint(tile: snapshot.playerPosition),
+                    snapshot: snapshot,
+                    camera: loadedBundle.bundle.topScreen.camera
+                )
+
                 self.runtime = runtime
-                phase = .ready(await runtime.snapshot())
-                startSnapshotLoop()
+                self.readyState = ReadyState(
+                    loadedBundle: loadedBundle,
+                    presentation: HGSSDualScreenPresentation(
+                        snapshot: snapshot,
+                        cameraOrigin: cameraOrigin,
+                        showDeveloperOverlay: self.showDeveloperOverlay
+                    )
+                )
+                self.phase = .ready(self.readyState!)
             } catch {
-                phase = .error("Failed to boot stub map: \(error.localizedDescription)")
+                phase = .error(errorMessage(for: error))
             }
         }
     }
 
     func shutdown() {
-        snapshotTask?.cancel()
-        snapshotTask = nil
-
         let runtime = self.runtime
         self.runtime = nil
-        inputStatus = "Press an arrow key."
+        readyState = nil
 
         Task {
             await runtime?.stop()
@@ -56,83 +69,87 @@ final class GameViewModel: ObservableObject {
     }
 
     func handleKeyDown(_ keyCode: UInt16) {
-        guard let direction = MovementDirection(keyCode: keyCode) else {
+        if keyCode == 2 {
+            toggleDeveloperOverlay()
+        }
+    }
+
+    private func resolveContentRoot() throws -> URL {
+        let environment = ProcessInfo.processInfo.environment
+        let repoRoot = URL(
+            fileURLWithPath: environment["HGSS_REPO_ROOT"] ?? FileManager.default.currentDirectoryPath,
+            isDirectory: true
+        )
+
+        var candidates: [URL] = []
+        if let override = environment["HGSS_CONTENT_ROOT"], !override.isEmpty {
+            candidates.append(URL(fileURLWithPath: override, isDirectory: true))
+        }
+        candidates.append(repoRoot.appendingPathComponent("Content/Local/StubExtract", isDirectory: true))
+
+        for candidate in candidates {
+            if hasRenderableContent(at: candidate) {
+                return candidate
+            }
+        }
+
+        throw NSError(
+            domain: "HGSSMac",
+            code: 1,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "No renderable extracted content found. Run ./scripts/run_extractor_stub.sh before launching the app."
+            ]
+        )
+    }
+
+    private func hasRenderableContent(at root: URL) -> Bool {
+        let manifestURL = root.appendingPathComponent("manifest.json", isDirectory: false)
+        let renderBundleURL = root.appendingPathComponent("render_bundle.json", isDirectory: false)
+        return FileManager.default.fileExists(atPath: manifestURL.path()) &&
+            FileManager.default.fileExists(atPath: renderBundleURL.path())
+    }
+
+    private func toggleDeveloperOverlay() {
+        showDeveloperOverlay.toggle()
+        guard let current = readyState else {
             return
         }
 
-        inputStatus = "Input: \(direction.rawValue)"
-#if DEBUG
-        print("HGSSMac keyDown: \(direction.rawValue)")
-#endif
-        step(direction)
+        let updated = ReadyState(
+            loadedBundle: current.loadedBundle,
+            presentation: HGSSDualScreenPresentation(
+                snapshot: current.presentation.snapshot,
+                cameraOrigin: current.presentation.cameraOrigin,
+                showDeveloperOverlay: showDeveloperOverlay
+            )
+        )
+        readyState = updated
+        phase = .ready(updated)
     }
 
-    func handleKeyUp(_ keyCode: UInt16) {
-        guard MovementDirection(keyCode: keyCode) != nil else {
-            return
-        }
+    private func errorMessage(for error: Error) -> String {
+        let environment = ProcessInfo.processInfo.environment
+        let defaultPretRoot = URL(
+            fileURLWithPath: environment["HGSS_REPO_ROOT"] ?? FileManager.default.currentDirectoryPath,
+            isDirectory: true
+        )
+            .appendingPathComponent("External/pokeheartgold", isDirectory: true)
+            .path()
 
-        inputStatus = "Press an arrow key."
-    }
+        return """
+        Failed to boot the dual-screen shell: \(error.localizedDescription)
 
-    private func step(_ direction: MovementDirection) {
-        let runtime = self.runtime
-
-        Task {
-            guard let runtime else {
-                return
-            }
-
-            let snapshot = await runtime.send(command: .move(direction))
-            await MainActor.run {
-                phase = .ready(snapshot)
-            }
-#if DEBUG
-            print("HGSSMac player: \(snapshot.playerPosition.x),\(snapshot.playerPosition.y)")
-#endif
-        }
-    }
-
-    private func startSnapshotLoop() {
-        snapshotTask?.cancel()
-
-        snapshotTask = Task {
-            while !Task.isCancelled {
-                guard let runtime else {
-                    break
-                }
-
-                let snapshot = await runtime.snapshot()
-                await MainActor.run {
-                    phase = .ready(snapshot)
-                }
-
-                try? await Task.sleep(for: .milliseconds(16))
-            }
-        }
-    }
-}
-
-private extension MovementDirection {
-    init?(keyCode: UInt16) {
-        switch keyCode {
-        case 123:
-            self = .left
-        case 124:
-            self = .right
-        case 125:
-            self = .down
-        case 126:
-            self = .up
-        default:
-            return nil
-        }
+        Expected extracted content under Content/Local/StubExtract.
+        Run ./scripts/run_extractor_stub.sh first.
+        For pret-backed assets, ensure POKEHEARTGOLD_ROOT points to a local clone such as:
+        \(defaultPretRoot)
+        """
     }
 }
 
 private final class GameWindow: NSWindow {
-    var onArrowKeyDown: ((UInt16) -> Void)?
-    var onArrowKeyUp: ((UInt16) -> Void)?
+    var onKeyDownHandler: ((UInt16) -> Void)?
 
     override var canBecomeKey: Bool {
         true
@@ -143,163 +160,38 @@ private final class GameWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
-        if MovementDirection(keyCode: event.keyCode) != nil {
-            onArrowKeyDown?(event.keyCode)
+        if event.keyCode == 2 || [123, 124, 125, 126].contains(event.keyCode) {
+            onKeyDownHandler?(event.keyCode)
             return
         }
 
         super.keyDown(with: event)
     }
-
-    override func keyUp(with event: NSEvent) {
-        if MovementDirection(keyCode: event.keyCode) != nil {
-            onArrowKeyUp?(event.keyCode)
-            return
-        }
-
-        super.keyUp(with: event)
-    }
 }
 
-private struct TileCell: View {
-    enum Kind {
-        case open
-        case blocked
-        case warp
-        case placement
-        case player
-    }
-
-    let kind: Kind
-
+private struct LoadingView: View {
     var body: some View {
-        RoundedRectangle(cornerRadius: 6)
-            .fill(fillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(borderColor.opacity(0.75), lineWidth: 1)
-            )
-            .frame(width: 28, height: 28)
-    }
-
-    private var fillColor: Color {
-        switch kind {
-        case .open:
-            Color(red: 0.89, green: 0.92, blue: 0.87)
-        case .blocked:
-            Color(red: 0.31, green: 0.36, blue: 0.26)
-        case .warp:
-            Color(red: 0.37, green: 0.60, blue: 0.79)
-        case .placement:
-            Color(red: 0.86, green: 0.75, blue: 0.45)
-        case .player:
-            Color(red: 0.88, green: 0.43, blue: 0.22)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("HGSS Dual-Screen Shell")
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            ProgressView()
+                .tint(.white)
+            Text("Loading extracted New Bark parity assets and the deterministic core snapshot.")
+                .foregroundStyle(Color.white.opacity(0.82))
         }
-    }
-
-    private var borderColor: Color {
-        switch kind {
-        case .open:
-            Color(red: 0.58, green: 0.65, blue: 0.55)
-        case .blocked:
-            Color(red: 0.18, green: 0.21, blue: 0.15)
-        case .warp:
-            Color(red: 0.19, green: 0.38, blue: 0.54)
-        case .placement:
-            Color(red: 0.53, green: 0.42, blue: 0.15)
-        case .player:
-            Color(red: 0.56, green: 0.23, blue: 0.09)
-        }
-    }
-}
-
-private struct GameBoardView: View {
-    let snapshot: CoreSnapshot
-    let inputStatus: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(snapshot.title)
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
-                Text(snapshot.statusLine)
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color(red: 0.34, green: 0.37, blue: 0.31))
-                Text("Arrow keys move the player. Dark tiles block movement, blue tiles are warps, and amber tiles preserve upstream placements.")
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
-                    .foregroundStyle(.secondary)
-                Text(inputStatus)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color(red: 0.32, green: 0.36, blue: 0.30))
-            }
-
-            VStack(spacing: 4) {
-                ForEach(0..<snapshot.mapHeight, id: \.self) { y in
-                    HStack(spacing: 4) {
-                        ForEach(0..<snapshot.mapWidth, id: \.self) { x in
-                            TileCell(kind: tileKind(x: x, y: y))
-                        }
-                    }
-                }
-            }
-
-            HStack(spacing: 14) {
-                Label("Map: \(snapshot.mapName)", systemImage: "map")
-                Label("ID: \(snapshot.mapID)", systemImage: "number")
-                Label("Tick: \(snapshot.tick)", systemImage: "timer")
-                Label("Player: \(snapshot.playerPosition.x),\(snapshot.playerPosition.y)", systemImage: "figure.walk")
-            }
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundStyle(Color(red: 0.26, green: 0.30, blue: 0.25))
-        }
-        .padding(24)
-        .frame(minWidth: 520, minHeight: 460)
+        .padding(28)
+        .frame(minWidth: 420, minHeight: 220)
         .background(
             LinearGradient(
                 colors: [
-                    Color(red: 0.96, green: 0.95, blue: 0.90),
-                    Color(red: 0.87, green: 0.91, blue: 0.84)
+                    Color(red: 0.05, green: 0.12, blue: 0.17),
+                    Color(red: 0.10, green: 0.20, blue: 0.26)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
-    }
-
-    private func tileKind(x: Int, y: Int) -> TileCell.Kind {
-        let tile = TilePosition(x: x, y: y)
-        if tile == snapshot.playerPosition {
-            return .player
-        }
-
-        if snapshot.blockedTiles.contains(tile) {
-            return .blocked
-        }
-
-        if snapshot.warpTiles.contains(tile) {
-            return .warp
-        }
-
-        if snapshot.placementTiles.contains(tile) {
-            return .placement
-        }
-
-        return .open
-    }
-}
-
-private struct LoadingView: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("HGSS Mac Shell")
-                .font(.title2)
-                .bold()
-            ProgressView()
-            Text("Booting normalized New Bark content and deterministic core loop...")
-                .foregroundStyle(.secondary)
-        }
-        .padding(24)
-        .frame(minWidth: 420, minHeight: 180)
     }
 }
 
@@ -307,19 +199,25 @@ private struct ErrorView: View {
     let message: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("HGSS Mac Shell")
-                .font(.title2)
-                .bold()
+        VStack(alignment: .leading, spacing: 12) {
+            Text("HGSS Dual-Screen Shell")
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
             Text(message)
-                .foregroundStyle(.primary)
-            Text("Check stub content and runtime boot path.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.white.opacity(0.92))
         }
-        .padding(24)
-        .frame(minWidth: 420, minHeight: 180)
-        .background(Color.red.opacity(0.08))
+        .padding(28)
+        .frame(minWidth: 520, minHeight: 260)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.28, green: 0.08, blue: 0.08),
+                    Color(red: 0.20, green: 0.10, blue: 0.12)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
     }
 }
 
@@ -331,8 +229,12 @@ private struct RootView: View {
             switch viewModel.phase {
             case .loading:
                 LoadingView()
-            case let .ready(snapshot):
-                GameBoardView(snapshot: snapshot, inputStatus: viewModel.inputStatus)
+            case let .ready(state):
+                HGSSDualScreenView(
+                    loadedBundle: state.loadedBundle,
+                    presentation: state.presentation
+                )
+                .background(Color.black)
             case let .error(message):
                 ErrorView(message: message)
             }
@@ -347,7 +249,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let window = GameWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 700),
+            contentRect: NSRect(x: 0, y: 0, width: 820, height: 960),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -355,13 +257,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
         window.title = "HGSSMac"
         window.center()
+        window.minSize = NSSize(width: 360, height: 620)
         window.delegate = self
         window.isReleasedWhenClosed = false
-        window.onArrowKeyDown = { [weak self] keyCode in
+        window.onKeyDownHandler = { [weak self] keyCode in
             self?.viewModel.handleKeyDown(keyCode)
-        }
-        window.onArrowKeyUp = { [weak self] keyCode in
-            self?.viewModel.handleKeyUp(keyCode)
         }
         window.contentView = NSHostingView(rootView: RootView(viewModel: viewModel))
         window.makeKeyAndOrderFront(nil)

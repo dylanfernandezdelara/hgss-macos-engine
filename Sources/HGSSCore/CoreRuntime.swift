@@ -47,7 +47,8 @@ public actor HGSSCoreRuntime {
             playerPosition: TilePosition(
                 x: initialEntryPoint.localPosition.x,
                 y: initialEntryPoint.localPosition.y
-            )
+            ),
+            playerFacing: MovementDirection(facingToken: initialEntryPoint.facing) ?? .down
         )
 
         await telemetry.emit(event: "core.boot.stub")

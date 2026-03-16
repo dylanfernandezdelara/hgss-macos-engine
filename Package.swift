@@ -11,7 +11,11 @@ let package = Package(
         .library(name: "HGSSContent", targets: ["HGSSContent"]),
         .library(name: "HGSSTelemetry", targets: ["HGSSTelemetry"]),
         .library(name: "HGSSCore", targets: ["HGSSCore"]),
+        .library(name: "HGSSRender", targets: ["HGSSRender"]),
         .executable(name: "HGSSExtractCLI", targets: ["HGSSExtractCLI"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-testing.git", from: "0.9.0")
     ],
     targets: [
         .target(
@@ -33,6 +37,11 @@ let package = Package(
             dependencies: ["HGSSContent", "HGSSDataModel", "HGSSTelemetry"],
             path: "Sources/HGSSCore"
         ),
+        .target(
+            name: "HGSSRender",
+            dependencies: ["HGSSCore", "HGSSDataModel"],
+            path: "Sources/HGSSRender"
+        ),
         .executableTarget(
             name: "HGSSExtractCLI",
             dependencies: ["HGSSContent", "HGSSDataModel"],
@@ -40,13 +49,30 @@ let package = Package(
         ),
         .testTarget(
             name: "HGSSContentTests",
-            dependencies: ["HGSSContent", "HGSSDataModel"],
+            dependencies: [
+                "HGSSContent",
+                "HGSSDataModel",
+                .product(name: "Testing", package: "swift-testing")
+            ],
             path: "Tests/HGSSContentTests"
         ),
         .testTarget(
             name: "HGSSCoreTests",
-            dependencies: ["HGSSCore"],
+            dependencies: [
+                "HGSSCore",
+                .product(name: "Testing", package: "swift-testing")
+            ],
             path: "Tests/HGSSCoreTests"
+        ),
+        .testTarget(
+            name: "HGSSRenderTests",
+            dependencies: [
+                "HGSSRender",
+                "HGSSDataModel",
+                "HGSSCore",
+                .product(name: "Testing", package: "swift-testing")
+            ],
+            path: "Tests/HGSSRenderTests"
         )
     ]
 )

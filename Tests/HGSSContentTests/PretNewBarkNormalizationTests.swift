@@ -78,6 +78,39 @@ struct PretNewBarkNormalizationTests {
         }
     }
 
+    @Test("Filters pret warps to destinations present in the normalized slice")
+    func filtersWarpsToKnownSliceMaps() throws {
+        let loader = StubContentLoader()
+        let profileManifest = try loader.loadManifest(from: repoRootURL().appendingPathComponent("DevContent/Stub", isDirectory: true))
+        let normalizer = PretNewBarkNormalizer()
+        let zoneEventData = Data(
+            """
+            {
+              "warps": [
+                { "x": 684, "z": 393, "header": "MAP_NEW_BARK_ELMS_LAB_1F", "anchor": 0, "y": 0 },
+                { "x": 679, "z": 405, "header": "MAP_NEW_BARK_SOUTHWEST_HOUSE", "anchor": 0, "y": 0 }
+              ],
+              "objects": [],
+              "coords": [],
+              "bgs": []
+            }
+            """.utf8
+        )
+
+        let manifest = try normalizer.buildManifest(
+            from: profileManifest,
+            mapHeadersText: try String(
+                contentsOf: fixturesRootURL().appendingPathComponent("map_headers_new_bark.h", isDirectory: false),
+                encoding: .utf8
+            ),
+            zoneEventData: zoneEventData
+        )
+        let map = try #require(manifest.maps.first(where: { $0.mapID == "MAP_NEW_BARK" }))
+
+        #expect(map.warps.count == 1)
+        #expect(map.warps.first?.destinationMapID == "MAP_NEW_BARK_ELMS_LAB_1F")
+    }
+
     private func generatedManifest() throws -> HGSSManifest {
         let loader = StubContentLoader()
         let profileManifest = try loader.loadManifest(from: repoRootURL().appendingPathComponent("DevContent/Stub", isDirectory: true))

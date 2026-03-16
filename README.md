@@ -8,10 +8,19 @@ Native macOS Pokemon HeartGold/SoulSilver engine scaffold (Swift + SPM), with a 
 - `Sources/HGSSDataModel`: shared schema/domain types
 - `Sources/HGSSContent`: content loading
 - `Sources/HGSSCore`: headless runtime
+- `Sources/HGSSRender`: DS-style render contract loading and dual-screen presentation
 - `Sources/HGSSTelemetry`: telemetry/event sink
 - `Sources/HGSSExtractCLI`: offline extractor stub
 - `DevContent/Stub`: tiny checked-in synthetic content
 - `Content/Local`: local extracted content (ignored)
+
+The current render bundle is parity-oriented and emits fixed local-only assets:
+
+- `Content/Local/StubExtract/manifest.json`
+- `Content/Local/StubExtract/render_bundle.json`
+- `Content/Local/StubExtract/assets/top_boot_frame.png`
+- `Content/Local/StubExtract/assets/bottom_idle_overworld.png`
+- `Content/Local/StubExtract/assets/ethan_overworld.png`
 
 ## Quick Start
 
@@ -28,6 +37,10 @@ Optional upstream-informed extractor run:
 ```bash
 POKEHEARTGOLD_ROOT=/path/to/pokeheartgold ./scripts/run_extractor_stub.sh
 ```
+
+If `External/pokeheartgold` exists, the extractor and app scripts use it automatically so the dual-screen shell can load local-only visual assets.
+
+The macOS shell now boots in a static dual-screen parity mode by default. Press `D` to toggle developer overlays for collision, warps, placements, and entry points.
 
 ## Content and Legal Hygiene
 
