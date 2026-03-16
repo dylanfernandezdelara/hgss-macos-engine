@@ -10,5 +10,10 @@ fi
 
 SWIFT=(xcrun swift)
 
+echo "Refreshing local extracted content..."
+"$ROOT_DIR/scripts/run_extractor_stub.sh"
+
 echo "Launching HGSSMac app shell..."
-HGSS_REPO_ROOT="$ROOT_DIR" "${SWIFT[@]}" run --package-path Apps/HGSSMac HGSSMac
+HGSS_REPO_ROOT="$ROOT_DIR" \
+HGSS_CONTENT_ROOT="$ROOT_DIR/Content/Local/StubExtract" \
+"${SWIFT[@]}" run --package-path Apps/HGSSMac HGSSMac

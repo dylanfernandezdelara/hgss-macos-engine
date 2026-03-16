@@ -19,6 +19,8 @@ struct HGSSCoreSmokeTests {
         #expect(snapshot.mapWidth == 25)
         #expect(snapshot.mapHeight == 18)
         #expect(snapshot.playerPosition == TilePosition(x: 1, y: 1))
+        #expect(snapshot.playerFacing == .down)
+        #expect(snapshot.entryPointTiles.contains(TilePosition(x: 1, y: 1)))
         #expect(snapshot.warpTiles.contains(TilePosition(x: 8, y: 2)))
         #expect(snapshot.placementTiles.contains(TilePosition(x: 24, y: 11)))
         await runtime.stop()
@@ -31,6 +33,7 @@ struct HGSSCoreSmokeTests {
         let snapshot = await runtime.advanceOneTick()
 
         #expect(snapshot.playerPosition == TilePosition(x: 2, y: 1))
+        #expect(snapshot.playerFacing == .right)
         #expect(snapshot.tick == 1)
         await runtime.stop()
     }
@@ -55,6 +58,7 @@ struct HGSSCoreSmokeTests {
         let snapshot = await runtime.advanceOneTick()
 
         #expect(snapshot.playerPosition == TilePosition(x: 2, y: 1))
+        #expect(snapshot.playerFacing == .right)
         #expect(snapshot.tick == 2)
         let counters = await runtime.telemetryCounters()
         #expect(counters["movement.blocked"] == 1)

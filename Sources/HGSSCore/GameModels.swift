@@ -41,11 +41,18 @@ public struct GameState: Equatable, Sendable {
     public let tick: Int
     public let currentMapID: String
     public let playerPosition: TilePosition
+    public let playerFacing: MovementDirection
 
-    public init(tick: Int, currentMapID: String, playerPosition: TilePosition) {
+    public init(
+        tick: Int,
+        currentMapID: String,
+        playerPosition: TilePosition,
+        playerFacing: MovementDirection
+    ) {
         self.tick = tick
         self.currentMapID = currentMapID
         self.playerPosition = playerPosition
+        self.playerFacing = playerFacing
     }
 }
 
@@ -81,11 +88,13 @@ public struct CoreSnapshot: Equatable, Sendable {
     public let blockedTiles: Set<TilePosition>
     public let warpTiles: Set<TilePosition>
     public let placementTiles: Set<TilePosition>
+    public let entryPointTiles: Set<TilePosition>
     public let tick: Int
     public let playerPosition: TilePosition
+    public let playerFacing: MovementDirection
 
     public var statusLine: String {
-        "Tick \(tick) on \(mapName) at (\(playerPosition.x), \(playerPosition.y))."
+        "Tick \(tick) on \(mapName) at (\(playerPosition.x), \(playerPosition.y)) facing \(playerFacing.rawValue)."
     }
 
     static func make(manifest: HGSSManifest, map: NormalizedPlayableMap, state: GameState) -> CoreSnapshot {
@@ -99,8 +108,12 @@ public struct CoreSnapshot: Equatable, Sendable {
             blockedTiles: Set(map.blockedTiles.map { TilePosition(x: $0.x, y: $0.y) }),
             warpTiles: Set(map.warpTiles.map { TilePosition(x: $0.x, y: $0.y) }),
             placementTiles: Set(map.placementTiles.map { TilePosition(x: $0.x, y: $0.y) }),
+            entryPointTiles: Set(map.entryPoints.map {
+                TilePosition(x: $0.localPosition.x, y: $0.localPosition.y)
+            }),
             tick: state.tick,
-            playerPosition: state.playerPosition
+            playerPosition: state.playerPosition,
+            playerFacing: state.playerFacing
         )
     }
 }
@@ -118,4 +131,15 @@ public struct CoreLoopConfiguration: Equatable, Sendable {
         tickDuration: .nanoseconds(16_666_667),
         maximumCatchUpTicks: 5
     )
+}
+
+extension MovementDirection {
+    init?(facingToken: String?) {
+        guard let normalizedFacing = facingToken?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() else {
+            return nil
+        }
+        self.init(rawValue: normalizedFacing)
+    }
 }

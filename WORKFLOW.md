@@ -25,7 +25,8 @@ At minimum include:
 
 - `./scripts/check_repo.sh` output summary
 - `./scripts/test.sh` output summary
-- App run confirmation for shell changes
+- `./scripts/run_extractor_stub.sh` output summary when content or render-bundle generation changes
+- App run confirmation for shell changes via `./scripts/run_app.sh`
 - Extractor run confirmation for content/tooling changes
 
 ## Contract Changes
@@ -40,6 +41,7 @@ At minimum include:
 - Treat Symphony and Linear as workflow tooling, not runtime dependencies.
 - Keep engine logic in package modules under `Sources/`.
 - Keep app shell in `Apps/HGSSMac` thin and declarative.
+- Keep DS layout/render helpers in `Sources/HGSSRender`, not in the app shell.
 - Never commit ROMs, extracted proprietary assets, saves, or dumps.
 
 ## Definition of Done
