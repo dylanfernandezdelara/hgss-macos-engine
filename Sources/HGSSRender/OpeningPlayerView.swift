@@ -79,8 +79,8 @@ public struct HGSSOpeningPlayerView: View {
         size: HGSSOpeningBundle.NativeScreen
     ) -> some View {
         let currentProgramScene = controller.currentProgramScene
-        let programSceneID = currentProgramScene?.id
-        if programSceneID == .checkSave || programSceneID == .mainMenu {
+        if let currentProgramScene,
+           currentProgramScene.id != .titleScreen {
             postTitleProgramScreenView(screen: screen, size: size)
         } else {
             let scene = controller.currentScene

@@ -72,6 +72,11 @@ struct PokeheartgoldOpeningIRLowerer {
             kind: "FunctionDecl",
             in: titleScreen
         )
+        let titleExit = try context.topLevelNode(
+            named: "TitleScreen_Exit",
+            kind: "FunctionDecl",
+            in: titleScreen
+        )
         let titleStateEnum = try context.topLevelNode(
             named: "TitleScreenMainState",
             kind: "EnumDecl",
@@ -111,9 +116,20 @@ struct PokeheartgoldOpeningIRLowerer {
         )
         let titleScene = try lowerTitleScene(
             mainNode: titleMain,
+            exitNode: titleExit,
             stateEnumNode: titleStateEnum,
             animRunNode: titleAnimRun,
             context: context
+        )
+        let deleteSaveScene = lowerTerminalTitleExitScene(
+            id: .deleteSave,
+            stateID: "delete_save_handoff",
+            provenance: context.provenance(for: titleExit, symbolOverride: "TitleScreen_Exit")
+        )
+        let micTestScene = lowerTerminalTitleExitScene(
+            id: .micTest,
+            stateID: "mic_test_handoff",
+            provenance: context.provenance(for: titleExit, symbolOverride: "TitleScreen_Exit")
         )
         let checkSaveScene = try lowerCheckSaveScene(
             stateEnumNode: checkSaveStateEnum,
@@ -130,7 +146,7 @@ struct PokeheartgoldOpeningIRLowerer {
             schemaVersion: 1,
             entrySceneID: .scene1,
             sourceFiles: validation.translationUnits.map { context.relativePath(for: $0.sourceFile) },
-            scenes: introScenes + [titleScene, checkSaveScene, mainMenuScene]
+            scenes: introScenes + [titleScene, deleteSaveScene, micTestScene, checkSaveScene, mainMenuScene]
         )
         try program.validate()
         return program
@@ -211,6 +227,7 @@ struct PokeheartgoldOpeningIRLowerer {
 
     private func lowerTitleScene(
         mainNode: ClangASTNode,
+        exitNode: ClangASTNode,
         stateEnumNode: ClangASTNode,
         animRunNode: ClangASTNode,
         context: OpeningIRLoweringContext
@@ -247,6 +264,10 @@ struct PokeheartgoldOpeningIRLowerer {
         )
         let playCaseNode = try caseNode(named: "TITLESCREEN_MAIN_PLAY", from: caseNodes)
         let playCaseText = try context.snippet(for: playCaseNode)
+        let exitRoutes = try titleExitRoutes(
+            from: exitNode,
+            context: context
+        )
         let fadeOutDuration = try context.requiredInt(
             #"BeginNormalPaletteFade\([^\n]*RGB_BLACK,\s*([0-9]+)\s*,\s*1\s*,\s*(?:data->heapID|HEAP_ID_TITLE_SCREEN)\s*\)"#,
             in: playCaseText,
@@ -322,12 +343,12 @@ struct PokeheartgoldOpeningIRLowerer {
                         ),
                         .init(
                             trigger: .flagEquals(name: "title_clear_save_requested", value: 1),
-                            targetStateID: titleStateID(for: "TITLESCREEN_MAIN_FADEOUT"),
+                            targetStateID: titleFadeoutStateID(for: "TITLESCREEN_EXIT_CLEARSAVE"),
                             provenance: provenance
                         ),
                         .init(
                             trigger: .flagEquals(name: "title_mic_test_requested", value: 1),
-                            targetStateID: titleStateID(for: "TITLESCREEN_MAIN_FADEOUT"),
+                            targetStateID: titleFadeoutStateID(for: "TITLESCREEN_EXIT_MIC_TEST"),
                             provenance: provenance
                         ),
                         .init(
@@ -372,7 +393,7 @@ struct PokeheartgoldOpeningIRLowerer {
                     transitions: [
                         .init(
                             trigger: .stateCompleted,
-                            targetStateID: titleStateID(for: "TITLESCREEN_MAIN_FADEOUT"),
+                            targetStateID: titleFadeoutStateID(for: "TITLESCREEN_EXIT_MENU"),
                             provenance: provenance
                         )
                     ],
@@ -386,40 +407,19 @@ struct PokeheartgoldOpeningIRLowerer {
                     transitions: [
                         .init(
                             trigger: .stateCompleted,
-                            targetStateID: titleStateID(for: "TITLESCREEN_MAIN_FADEOUT"),
+                            targetStateID: titleFadeoutStateID(for: "TITLESCREEN_EXIT_TIMEOUT"),
                             provenance: provenance
                         )
                     ],
                     provenance: provenance
                 )
             case "TITLESCREEN_MAIN_FADEOUT":
-                return .init(
-                    id: titleStateID(for: stateName),
-                    duration: .fixedFrames(fadeOutDuration),
-                    commands: [
-                        hiddenPromptCommand,
-                        .dispatchAudio(
-                            .init(action: .stopBGM, cueName: titleBGM, provenance: provenance)
-                        ),
-                        .fade(
-                            .init(
-                                target: .palette,
-                                startLevel: 0,
-                                endLevel: 31,
-                                durationFrames: fadeOutDuration,
-                                colorHex: "#000000",
-                                provenance: provenance
-                            )
-                        )
-                    ],
-                    transitions: [
-                        .init(
-                            trigger: .stateCompleted,
-                            targetSceneID: .checkSave,
-                            targetStateID: "check_save_route",
-                            provenance: provenance
-                        )
-                    ],
+                return try makeTitleFadeoutState(
+                    id: titleFadeoutStateID(for: "TITLESCREEN_EXIT_MENU"),
+                    includeStopBGM: true,
+                    titleBGM: titleBGM,
+                    fadeOutDuration: fadeOutDuration,
+                    target: route(for: "TITLESCREEN_EXIT_MENU", in: exitRoutes),
                     provenance: provenance
                 )
             default:
@@ -448,6 +448,30 @@ struct PokeheartgoldOpeningIRLowerer {
             ],
             provenance: playDelayProvenance
         )
+        let clearSaveFadeout = try makeTitleFadeoutState(
+            id: titleFadeoutStateID(for: "TITLESCREEN_EXIT_CLEARSAVE"),
+            includeStopBGM: false,
+            titleBGM: titleBGM,
+            fadeOutDuration: fadeOutDuration,
+            target: route(for: "TITLESCREEN_EXIT_CLEARSAVE", in: exitRoutes),
+            provenance: context.provenance(for: playCaseNode, symbolOverride: "TITLESCREEN_EXIT_CLEARSAVE")
+        )
+        let timeoutFadeout = try makeTitleFadeoutState(
+            id: titleFadeoutStateID(for: "TITLESCREEN_EXIT_TIMEOUT"),
+            includeStopBGM: true,
+            titleBGM: titleBGM,
+            fadeOutDuration: fadeOutDuration,
+            target: route(for: "TITLESCREEN_EXIT_TIMEOUT", in: exitRoutes),
+            provenance: context.provenance(for: playCaseNode, symbolOverride: "TITLESCREEN_EXIT_TIMEOUT")
+        )
+        let micTestFadeout = try makeTitleFadeoutState(
+            id: titleFadeoutStateID(for: "TITLESCREEN_EXIT_MIC_TEST"),
+            includeStopBGM: false,
+            titleBGM: titleBGM,
+            fadeOutDuration: fadeOutDuration,
+            target: route(for: "TITLESCREEN_EXIT_MIC_TEST", in: exitRoutes),
+            provenance: context.provenance(for: playCaseNode, symbolOverride: "TITLESCREEN_EXIT_MIC_TEST")
+        )
 
         let orderedStates = [
             try state(named: titleStateID(for: "TITLESCREEN_MAIN_WAIT_FADE"), in: states),
@@ -457,7 +481,10 @@ struct PokeheartgoldOpeningIRLowerer {
             try state(named: titleStateID(for: "TITLESCREEN_MAIN_PROCEED_FLASH"), in: states),
             try state(named: titleStateID(for: "TITLESCREEN_MAIN_PROCEED_FLASH_2"), in: states),
             try state(named: titleStateID(for: "TITLESCREEN_MAIN_PROCEED_NOFLASH"), in: states),
-            try state(named: titleStateID(for: "TITLESCREEN_MAIN_FADEOUT"), in: states),
+            try state(named: titleFadeoutStateID(for: "TITLESCREEN_EXIT_MENU"), in: states),
+            clearSaveFadeout,
+            timeoutFadeout,
+            micTestFadeout,
         ]
 
         return HGSSOpeningProgramIR.Scene(
@@ -704,6 +731,153 @@ struct PokeheartgoldOpeningIRLowerer {
         )
     }
 
+    private func lowerTerminalTitleExitScene(
+        id: HGSSOpeningProgramIR.SceneID,
+        stateID: String,
+        provenance: HGSSOpeningProgramIR.Provenance
+    ) -> HGSSOpeningProgramIR.Scene {
+        HGSSOpeningProgramIR.Scene(
+            id: id,
+            initialStateID: stateID,
+            states: [
+                .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: "#000000", provenance: provenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: "#000000", provenance: provenance)
+                        )
+                    ],
+                    transitions: [],
+                    provenance: provenance
+                )
+            ],
+            provenance: provenance
+        )
+    }
+
+    private func makeTitleFadeoutState(
+        id: String,
+        includeStopBGM: Bool,
+        titleBGM: String,
+        fadeOutDuration: Int,
+        target: TitleExitRoute,
+        provenance: HGSSOpeningProgramIR.Provenance
+    ) throws -> HGSSOpeningProgramIR.State {
+        var commands: [HGSSOpeningProgramIR.Command] = [
+            .setLayerVisibility(
+                .init(layerID: "start_prompt", visible: false, provenance: provenance)
+            ),
+            .fade(
+                .init(
+                    target: .palette,
+                    startLevel: 0,
+                    endLevel: 31,
+                    durationFrames: fadeOutDuration,
+                    colorHex: "#000000",
+                    provenance: provenance
+                )
+            )
+        ]
+        if includeStopBGM {
+            commands.insert(
+                .dispatchAudio(
+                    .init(action: .stopBGM, cueName: titleBGM, provenance: provenance)
+                ),
+                at: 1
+            )
+        }
+
+        return .init(
+            id: id,
+            duration: .fixedFrames(fadeOutDuration),
+            commands: commands,
+            transitions: [
+                .init(
+                    trigger: .stateCompleted,
+                    targetSceneID: target.sceneID,
+                    targetStateID: target.stateID,
+                    provenance: provenance
+                )
+            ],
+            provenance: provenance
+        )
+    }
+
+    private func titleExitRoutes(
+        from exitNode: ClangASTNode,
+        context: OpeningIRLoweringContext
+    ) throws -> [String: TitleExitRoute] {
+        let exitText = try context.snippet(for: exitNode)
+        return [
+            "TITLESCREEN_EXIT_MENU": try route(
+                for: "TITLESCREEN_EXIT_MENU",
+                overlaySymbol: "gApplication_CheckSave",
+                defaultRoute: .init(sceneID: .checkSave, stateID: "check_save_route"),
+                exitText: exitText,
+                sourceFile: context.relativePath(for: exitNode.location?.file ?? "src/title_screen.c"),
+                context: context
+            ),
+            "TITLESCREEN_EXIT_CLEARSAVE": try route(
+                for: "TITLESCREEN_EXIT_CLEARSAVE",
+                overlaySymbol: "gApplication_DeleteSave",
+                defaultRoute: .init(sceneID: .deleteSave, stateID: "delete_save_handoff"),
+                exitText: exitText,
+                sourceFile: context.relativePath(for: exitNode.location?.file ?? "src/title_screen.c"),
+                context: context
+            ),
+            "TITLESCREEN_EXIT_TIMEOUT": try route(
+                for: "TITLESCREEN_EXIT_TIMEOUT",
+                overlaySymbol: "gApplication_IntroMovie",
+                defaultRoute: .init(sceneID: .scene1, stateID: "scene1_run"),
+                exitText: exitText,
+                sourceFile: context.relativePath(for: exitNode.location?.file ?? "src/title_screen.c"),
+                context: context
+            ),
+            "TITLESCREEN_EXIT_MIC_TEST": try route(
+                for: "TITLESCREEN_EXIT_MIC_TEST",
+                overlaySymbol: "gApplication_MicTest",
+                defaultRoute: .init(sceneID: .micTest, stateID: "mic_test_handoff"),
+                exitText: exitText,
+                sourceFile: context.relativePath(for: exitNode.location?.file ?? "src/title_screen.c"),
+                context: context
+            ),
+        ]
+    }
+
+    private func route(
+        for exitMode: String,
+        in routes: [String: TitleExitRoute]
+    ) throws -> TitleExitRoute {
+        guard let route = routes[exitMode] else {
+            throw OpeningIRLoweringError.missingCaseNode(exitMode)
+        }
+        return route
+    }
+
+    private func route(
+        for exitMode: String,
+        overlaySymbol: String,
+        defaultRoute: TitleExitRoute,
+        exitText: String,
+        sourceFile: String,
+        context: OpeningIRLoweringContext
+    ) throws -> TitleExitRoute {
+        guard try context.optionalMatch(
+            #"(case\s+\#(exitMode)\s*:[\s\S]*?RegisterMainOverlay\([^\n]*&\#(overlaySymbol)\))"#,
+            in: exitText
+        ) != nil else {
+            throw OpeningIRLoweringError.missingPattern(
+                sourceFile: sourceFile,
+                description: "\(exitMode) overlay handoff"
+            )
+        }
+        return defaultRoute
+    }
+
     private func lowerPromptFlash(
         animRunNode: ClangASTNode,
         titleSourceFile: String,
@@ -862,6 +1036,16 @@ struct PokeheartgoldOpeningIRLowerer {
         let trimmed = stateName.replacingOccurrences(of: "TITLESCREEN_MAIN_", with: "")
         return "title_" + trimmed.lowercased()
     }
+
+    private func titleFadeoutStateID(for exitMode: String) -> String {
+        let trimmed = exitMode.replacingOccurrences(of: "TITLESCREEN_EXIT_", with: "")
+        return "title_fadeout_" + trimmed.lowercased()
+    }
+}
+
+private struct TitleExitRoute {
+    let sceneID: HGSSOpeningProgramIR.SceneID
+    let stateID: String
 }
 
 private struct OpeningIRLoweringContext {

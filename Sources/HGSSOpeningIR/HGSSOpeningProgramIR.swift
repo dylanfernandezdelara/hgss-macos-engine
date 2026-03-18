@@ -10,6 +10,8 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         case scene5
         case titleHandoff = "title_handoff"
         case titleScreen = "title_screen"
+        case deleteSave = "delete_save"
+        case micTest = "mic_test"
         case checkSave = "check_save"
         case mainMenu = "main_menu"
     }

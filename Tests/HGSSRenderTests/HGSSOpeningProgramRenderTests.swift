@@ -123,6 +123,75 @@ struct HGSSOpeningProgramRenderTests {
         #expect(controller.lastConfirmedMenuSelectionID == "new_game")
     }
 
+    @Test("Playback controller restarts the opening bundle on title timeout exit")
+    @MainActor
+    func playbackControllerRestartsOpeningBundleOnTitleTimeoutExit() throws {
+        let root = try makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeAsset(at: root, relativePath: "assets/title_handoff/top.png")
+        try writeAsset(at: root, relativePath: "audio/title_handoff/theme.wav")
+        try writeBundle(makeBundle(), to: root)
+        try writeProgram(makeTimeoutExitProgram(), to: root)
+
+        let loadedBundle = try OpeningBundleLoader().load(from: root)
+        let loadedProgram = try OpeningProgramLoader().load(from: root)
+        let controller = HGSSOpeningPlaybackController(
+            loadedBundle: loadedBundle,
+            loadedProgram: loadedProgram
+        )
+
+        controller.requestSkip()
+        #expect(controller.currentProgramState?.id == "title_play")
+
+        controller.advanceFrame()
+        #expect(controller.currentProgramState?.id == "title_fadeout_timeout")
+
+        controller.advanceFrame()
+        #expect(controller.currentScene.id == .scene1)
+        #expect(controller.currentProgramScene == nil)
+        #expect(controller.state.hasReachedTitleHandoff == false)
+    }
+
+    @Test("Playback controller supports clear-save and mic-test title exits")
+    @MainActor
+    func playbackControllerSupportsAlternateTitleExitRequests() throws {
+        let root = try makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeAsset(at: root, relativePath: "assets/title_handoff/top.png")
+        try writeAsset(at: root, relativePath: "audio/title_handoff/theme.wav")
+        try writeBundle(makeBundle(), to: root)
+        try writeProgram(makeAlternateExitProgram(), to: root)
+
+        let loadedBundle = try OpeningBundleLoader().load(from: root)
+        let loadedProgram = try OpeningProgramLoader().load(from: root)
+
+        let clearSaveController = HGSSOpeningPlaybackController(
+            loadedBundle: loadedBundle,
+            loadedProgram: loadedProgram
+        )
+        clearSaveController.requestSkip()
+        clearSaveController.requestTitleClearSaveExit()
+        clearSaveController.advanceFrame()
+        #expect(clearSaveController.currentProgramState?.id == "title_fadeout_clearsave")
+        clearSaveController.advanceFrame()
+        #expect(clearSaveController.currentProgramScene?.id == .deleteSave)
+        #expect(clearSaveController.currentProgramState?.id == "delete_save_handoff")
+
+        let micTestController = HGSSOpeningPlaybackController(
+            loadedBundle: loadedBundle,
+            loadedProgram: loadedProgram
+        )
+        micTestController.requestSkip()
+        micTestController.requestTitleMicTestExit()
+        micTestController.advanceFrame()
+        #expect(micTestController.currentProgramState?.id == "title_fadeout_mic_test")
+        micTestController.advanceFrame()
+        #expect(micTestController.currentProgramScene?.id == .micTest)
+        #expect(micTestController.currentProgramState?.id == "mic_test_handoff")
+    }
+
     private func makeTemporaryRoot() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("hgss-opening-program-render-tests-\(UUID().uuidString)", isDirectory: true)
@@ -521,6 +590,161 @@ struct HGSSOpeningProgramRenderTests {
             entrySceneID: baseProgram.entrySceneID,
             sourceFiles: baseProgram.sourceFiles,
             scenes: Array(baseProgram.scenes.dropLast()) + [interactiveMainMenu]
+        )
+    }
+
+    private func makeTimeoutExitProgram() -> HGSSOpeningProgramIR {
+        let provenance = HGSSOpeningProgramIR.Provenance(
+            sourceFile: "src/title_screen.c",
+            symbol: "TitleScreen_Main"
+        )
+
+        return HGSSOpeningProgramIR(
+            schemaVersion: 1,
+            entrySceneID: .titleScreen,
+            sourceFiles: ["src/title_screen.c"],
+            scenes: [
+                .init(
+                    id: .scene1,
+                    initialStateID: "scene1_run",
+                    states: [
+                        .init(
+                            id: "scene1_run",
+                            duration: .indefinite,
+                            commands: [],
+                            transitions: [],
+                            provenance: provenance
+                        )
+                    ],
+                    provenance: provenance
+                ),
+                .init(
+                    id: .titleScreen,
+                    initialStateID: "title_play",
+                    states: [
+                        .init(
+                            id: "title_play",
+                            duration: .fixedFrames(1),
+                            commands: [],
+                            transitions: [
+                                .init(trigger: .stateCompleted, targetStateID: "title_fadeout_timeout", provenance: provenance)
+                            ],
+                            provenance: provenance
+                        ),
+                        .init(
+                            id: "title_fadeout_timeout",
+                            duration: .fixedFrames(1),
+                            commands: [],
+                            transitions: [
+                                .init(
+                                    trigger: .stateCompleted,
+                                    targetSceneID: .scene1,
+                                    targetStateID: "scene1_run",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        )
+                    ],
+                    provenance: provenance
+                )
+            ]
+        )
+    }
+
+    private func makeAlternateExitProgram() -> HGSSOpeningProgramIR {
+        let provenance = HGSSOpeningProgramIR.Provenance(
+            sourceFile: "src/title_screen.c",
+            symbol: "TitleScreen_Main"
+        )
+
+        return HGSSOpeningProgramIR(
+            schemaVersion: 1,
+            entrySceneID: .titleScreen,
+            sourceFiles: ["src/title_screen.c"],
+            scenes: [
+                .init(
+                    id: .titleScreen,
+                    initialStateID: "title_play",
+                    states: [
+                        .init(
+                            id: "title_play",
+                            duration: .indefinite,
+                            commands: [],
+                            transitions: [
+                                .init(
+                                    trigger: .flagEquals(name: "title_clear_save_requested", value: 1),
+                                    targetStateID: "title_fadeout_clearsave",
+                                    provenance: provenance
+                                ),
+                                .init(
+                                    trigger: .flagEquals(name: "title_mic_test_requested", value: 1),
+                                    targetStateID: "title_fadeout_mic_test",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                        .init(
+                            id: "title_fadeout_clearsave",
+                            duration: .fixedFrames(1),
+                            commands: [],
+                            transitions: [
+                                .init(
+                                    trigger: .stateCompleted,
+                                    targetSceneID: .deleteSave,
+                                    targetStateID: "delete_save_handoff",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                        .init(
+                            id: "title_fadeout_mic_test",
+                            duration: .fixedFrames(1),
+                            commands: [],
+                            transitions: [
+                                .init(
+                                    trigger: .stateCompleted,
+                                    targetSceneID: .micTest,
+                                    targetStateID: "mic_test_handoff",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                    ],
+                    provenance: provenance
+                ),
+                .init(
+                    id: .deleteSave,
+                    initialStateID: "delete_save_handoff",
+                    states: [
+                        .init(
+                            id: "delete_save_handoff",
+                            duration: .indefinite,
+                            commands: [],
+                            transitions: [],
+                            provenance: provenance
+                        )
+                    ],
+                    provenance: provenance
+                ),
+                .init(
+                    id: .micTest,
+                    initialStateID: "mic_test_handoff",
+                    states: [
+                        .init(
+                            id: "mic_test_handoff",
+                            duration: .indefinite,
+                            commands: [],
+                            transitions: [],
+                            provenance: provenance
+                        )
+                    ],
+                    provenance: provenance
+                )
+            ]
         )
     }
 }

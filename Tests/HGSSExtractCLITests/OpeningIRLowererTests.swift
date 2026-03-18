@@ -28,7 +28,18 @@ struct OpeningIRLowererTests {
         try program.validate()
         #expect(program.entrySceneID == .scene1)
         #expect(program.sourceFiles == PokeheartgoldClangConfiguration.openingSourceRelativePaths)
-        #expect(program.scenes.map(\.id) == [.scene1, .scene2, .scene3, .scene4, .scene5, .titleScreen, .checkSave, .mainMenu])
+        #expect(program.scenes.map(\.id) == [
+            .scene1,
+            .scene2,
+            .scene3,
+            .scene4,
+            .scene5,
+            .titleScreen,
+            .deleteSave,
+            .micTest,
+            .checkSave,
+            .mainMenu,
+        ])
 
         let scene1 = try #require(program.scenes.first(where: { $0.id == .scene1 }))
         let scene1State = try #require(scene1.states.first(where: { $0.id == "scene1_run" }))
@@ -57,7 +68,10 @@ struct OpeningIRLowererTests {
             "title_proceed_flash",
             "title_proceed_flash_2",
             "title_proceed_noflash",
-            "title_fadeout",
+            "title_fadeout_menu",
+            "title_fadeout_clearsave",
+            "title_fadeout_timeout",
+            "title_fadeout_mic_test",
         ])
 
         let titleStartMusic = try #require(titleScene.states.first(where: { $0.id == "title_start_music" }))
@@ -104,17 +118,40 @@ struct OpeningIRLowererTests {
         let proceedNoFlash = try #require(titleScene.states.first(where: { $0.id == "title_proceed_noflash" }))
         #expect(proceedNoFlash.duration == .fixedFrames(60))
 
-        let fadeOut = try #require(titleScene.states.first(where: { $0.id == "title_fadeout" }))
-        #expect(fadeOut.duration == .fixedFrames(6))
-        #expect(fadeOut.transitions.contains(where: {
+        let menuFadeout = try #require(titleScene.states.first(where: { $0.id == "title_fadeout_menu" }))
+        #expect(menuFadeout.duration == .fixedFrames(6))
+        #expect(menuFadeout.transitions.contains(where: {
             $0.trigger == .stateCompleted && $0.targetSceneID == .checkSave && $0.targetStateID == "check_save_route"
         }))
-        #expect(fadeOut.commands.contains(where: { command in
+        #expect(menuFadeout.commands.contains(where: { command in
             if case let .dispatchAudio(payload) = command {
                 return payload.action == .stopBGM && payload.cueName == "SEQ_GS_POKEMON_THEME"
             }
             return false
         }))
+        let clearSaveFadeout = try #require(titleScene.states.first(where: { $0.id == "title_fadeout_clearsave" }))
+        #expect(clearSaveFadeout.transitions.contains(where: {
+            $0.trigger == .stateCompleted && $0.targetSceneID == .deleteSave && $0.targetStateID == "delete_save_handoff"
+        }))
+        #expect(clearSaveFadeout.commands.contains(where: { command in
+            if case .dispatchAudio = command {
+                return true
+            }
+            return false
+        }) == false)
+        let timeoutFadeout = try #require(titleScene.states.first(where: { $0.id == "title_fadeout_timeout" }))
+        #expect(timeoutFadeout.transitions.contains(where: {
+            $0.trigger == .stateCompleted && $0.targetSceneID == .scene1 && $0.targetStateID == "scene1_run"
+        }))
+        let micTestFadeout = try #require(titleScene.states.first(where: { $0.id == "title_fadeout_mic_test" }))
+        #expect(micTestFadeout.transitions.contains(where: {
+            $0.trigger == .stateCompleted && $0.targetSceneID == .micTest && $0.targetStateID == "mic_test_handoff"
+        }))
+
+        let deleteSaveScene = try #require(program.scenes.first(where: { $0.id == .deleteSave }))
+        #expect(deleteSaveScene.initialStateID == "delete_save_handoff")
+        let micTestScene = try #require(program.scenes.first(where: { $0.id == .micTest }))
+        #expect(micTestScene.initialStateID == "mic_test_handoff")
 
         let checkSaveScene = try #require(program.scenes.first(where: { $0.id == .checkSave }))
         #expect(checkSaveScene.initialStateID == "check_save_route")

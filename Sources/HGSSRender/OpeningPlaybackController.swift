@@ -182,6 +182,24 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         enterBundleScene(sceneIndex: titleSceneIndex)
     }
 
+    public func requestTitleClearSaveExit() {
+        guard currentProgramScene?.id == .titleScreen,
+              currentProgramState?.id == "title_play" else {
+            return
+        }
+        programFlags["title_clear_save_requested"] = 1
+        programFlags["title_mic_test_requested"] = 0
+    }
+
+    public func requestTitleMicTestExit() {
+        guard currentProgramScene?.id == .titleScreen,
+              currentProgramState?.id == "title_play" else {
+            return
+        }
+        programFlags["title_mic_test_requested"] = 1
+        programFlags["title_clear_save_requested"] = 0
+    }
+
     public func moveCurrentMenuSelection(delta: Int) {
         guard delta != 0,
               let menu = activeMenu(screen: .bottom) ?? activeMenu(screen: .top) else {
@@ -415,6 +433,14 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         sceneFrame: Int? = nil
     ) {
         let nextSceneID = transition.targetSceneID ?? state.programSceneID ?? .titleScreen
+        if let bundleSceneIndex = bundleSceneIndex(for: nextSceneID) {
+            pendingTitleMenuRequest = false
+            currentMenuSelectionID = nil
+            lastConfirmedMenuSelectionID = nil
+            dispatchedCueKeys.removeAll()
+            enterBundleScene(sceneIndex: bundleSceneIndex)
+            return
+        }
         let nextSceneFrame = sceneFrame ?? state.frameInScene
         enterProgramState(
             sceneID: nextSceneID,
@@ -572,6 +598,28 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             }
             return false
         }
+    }
+
+    private func bundleSceneIndex(
+        for sceneID: HGSSOpeningProgramIR.SceneID
+    ) -> Int? {
+        let bundleSceneID: HGSSOpeningBundle.SceneID
+        switch sceneID {
+        case .scene1:
+            bundleSceneID = .scene1
+        case .scene2:
+            bundleSceneID = .scene2
+        case .scene3:
+            bundleSceneID = .scene3
+        case .scene4:
+            bundleSceneID = .scene4
+        case .scene5:
+            bundleSceneID = .scene5
+        case .titleHandoff, .titleScreen, .deleteSave, .micTest, .checkSave, .mainMenu:
+            return nil
+        }
+
+        return loadedBundle.bundle.scenes.firstIndex(where: { $0.id == bundleSceneID })
     }
 
     private static func defaultProgramFlags() -> [String: Int] {

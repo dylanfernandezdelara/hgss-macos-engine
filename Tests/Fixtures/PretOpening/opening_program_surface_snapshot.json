@@ -105,6 +105,8 @@
     "scene4",
     "scene5",
     "title_screen",
+    "delete_save",
+    "mic_test",
     "check_save",
     "main_menu"
   ],
@@ -131,7 +133,10 @@
       "title_proceed_flash",
       "title_proceed_flash_2",
       "title_proceed_noflash",
-      "title_fadeout"
+      "title_fadeout_menu",
+      "title_fadeout_clearsave",
+      "title_fadeout_timeout",
+      "title_fadeout_mic_test"
     ]
   },
   "titlePrompt": {

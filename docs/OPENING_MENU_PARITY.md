@@ -28,7 +28,7 @@ The target is parity with the official source-backed behavior, not a handcrafted
 - [ ] Lower `intro_movie_scene_1.c` through `intro_movie_scene_5.c` into concrete IR commands for fades, windows, scrolls, viewport masks, and scene-local timing.
 - [ ] Replace the remaining regex-only title extraction with AST-backed lowering for `TitleScreen_Main`, `TitleScreen_Exit`, and `TitleScreenAnim_Run`.
 - [x] Add byte-stable snapshot coverage for parser-derived `opening_program_ir.json` built from real parsed upstream inputs.
-- [ ] Expand title-screen IR to cover all exit modes explicitly: `TITLESCREEN_EXIT_MENU`, `TITLESCREEN_EXIT_TIMEOUT`, `TITLESCREEN_EXIT_CLEARSAVE`, and `TITLESCREEN_EXIT_MIC_TEST`.
+- [x] Expand title-screen IR to cover all exit modes explicitly: `TITLESCREEN_EXIT_MENU`, `TITLESCREEN_EXIT_TIMEOUT`, `TITLESCREEN_EXIT_CLEARSAVE`, and `TITLESCREEN_EXIT_MIC_TEST`.
 - [ ] Expand `CheckSave` IR from the current default route into full save-status routing for clean save, corrupted save, erased save, and battle hall/video error variants.
 - [ ] Expand `MainMenu` IR from the current core button subset into full source-backed availability routing for continue, new game, pokewalker, mystery gift, ranger, migrate AGB, connect to Wii, WFC, and Wii settings.
 
@@ -38,7 +38,7 @@ The target is parity with the official source-backed behavior, not a handcrafted
 - [ ] Extract and render the title prompt window with source-backed text layout and exact DS-style text output.
 - [ ] Reproduce title-screen palette fades, glow behavior, and screen-plane toggles without relying on ad hoc view logic.
 - [ ] Replace the current title SceneKit dependency with a source-backed native playback path or deterministic baked frames for the title subset.
-- [ ] Add input handling for all title exit paths, not just the menu request path.
+- [x] Add input handling for all title exit paths, not just the menu request path.
 
 ### Phase 3: Add Menu Handoff Runtime
 

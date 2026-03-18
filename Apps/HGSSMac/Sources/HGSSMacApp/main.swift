@@ -88,6 +88,10 @@ final class GameViewModel: ObservableObject {
         switch keyCode {
         case 0, 36, 76:
             readyState?.controller.requestSkip()
+        case 8:
+            readyState?.controller.requestTitleClearSaveExit()
+        case 46:
+            readyState?.controller.requestTitleMicTestExit()
         case 2:
             if developerOverlayEnabled {
                 showDeveloperOverlay.toggle()
@@ -184,7 +188,7 @@ private final class GameWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
-        if [0, 2, 36, 76, 125, 126].contains(event.keyCode) {
+        if [0, 2, 8, 36, 46, 76, 125, 126].contains(event.keyCode) {
             onKeyDownHandler?(event.keyCode)
             return
         }
