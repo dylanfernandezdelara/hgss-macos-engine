@@ -169,15 +169,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             return
         }
 
-        if let currentProgramScene {
-            if currentProgramScene.id == .titleScreen {
-                guard currentProgramState?.id == "title_play" else {
-                    return
-                }
-                setProgramFlag(name: "title_menu_requested", value: 1)
-                return
-            }
-
+        if currentProgramScene != nil {
             if requestProgramFlagTransition(flagName: "program_confirm_requested", value: 1) {
                 return
             }

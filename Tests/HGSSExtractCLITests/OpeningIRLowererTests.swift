@@ -262,6 +262,12 @@ struct OpeningIRLowererTests {
         #expect(promptFlash.screen == .top)
         #expect(promptFlash.rect == .init(x: 0, y: 144, width: 256, height: 16))
         #expect(promptFlash.text == "TOUCH TO START")
+        #expect(playState.transitions.contains(where: {
+            if case .flagEquals(name: "program_confirm_requested", value: 1) = $0.trigger {
+                return $0.targetStateID == "title_proceed_flash"
+            }
+            return false
+        }))
 
         let proceedFlash = try #require(titleScene.states.first(where: { $0.id == "title_proceed_flash" }))
         #expect(proceedFlash.duration == .fixedFrames(5))

@@ -434,7 +434,7 @@ struct HGSSOpeningProgramRenderTests {
                             ],
                             transitions: [
                                 .init(
-                                    trigger: .flagEquals(name: "title_menu_requested", value: 1),
+                                    trigger: .flagEquals(name: "program_confirm_requested", value: 1),
                                     targetStateID: "title_proceed_flash",
                                     provenance: provenance
                                 ),

@@ -418,7 +418,7 @@ struct PokeheartgoldOpeningIRLowerer {
                     ],
                     transitions: [
                         .init(
-                            trigger: .flagEquals(name: "title_menu_requested", value: 1),
+                            trigger: .flagEquals(name: "program_confirm_requested", value: 1),
                             targetStateID: titleStateID(for: "TITLESCREEN_MAIN_PROCEED_FLASH"),
                             provenance: provenance
                         ),
