@@ -536,6 +536,9 @@ func runProcess(
 }
 
 func loadImage(at url: URL) throws -> NSImage {
+    // ImageIO/AppKit image decoding crashes intermittently in the CLI unless AppKit
+    // has been initialized before the first image load.
+    _ = NSApplication.shared
     guard let image = NSImage(contentsOf: url) else {
         throw ExtractCLIError.missingPretRenderAsset(path: url.path())
     }
