@@ -4,11 +4,11 @@
 
 This is the active visual milestone for the repository.
 
-The app boots into the HeartGold opening movie path, plays scenes `scene1` through `scene5`, and stops on the first stable `title_handoff` frame. Interactive title-screen behavior remains out of scope for this milestone.
+The app now boots into the HeartGold opening movie path, plays scenes `scene1` through `scene5`, and enters a source-backed title-screen runtime driven by `opening_program_ir.json`. The current native endpoint is the title-to-menu handoff boundary; `CheckSave` and `MainMenu` remain the next milestone.
 
 ## Authority and Reference Model
 
-- [`pret/pokeheartgold`](https://github.com/pret/pokeheartgold) is the sole behavioral and content authority for opening scene order, frame timing, transitions, provenance, title handoff, and audio cue positions.
+- [`pret/pokeheartgold`](https://github.com/pret/pokeheartgold) is the sole behavioral and content authority for opening scene order, frame timing, transitions, provenance, title state flow, title handoff, and audio cue positions.
 - [`PokeSwift`](https://github.com/Dimillian/PokeSwift) is architectural reference only for the offline-extractor-plus-native-runtime pattern.
 - The implementation strategy is extraction, not direct porting. The extractor emits a deterministic `HGSSOpeningBundle`, and the Swift runtime plays that bundle.
 
@@ -40,6 +40,7 @@ The bundle currently carries:
 `HGSSExtractCLI --mode opening-heartgold` emits:
 
 - `Content/Local/Boot/HeartGold/opening_bundle.json`
+- `Content/Local/Boot/HeartGold/opening_program_ir.json`
 - `Content/Local/Boot/HeartGold/opening_provenance.json`
 - `Content/Local/Boot/HeartGold/opening_reference.json`
 - `Content/Local/Boot/HeartGold/opening_extract_report.json`
@@ -78,10 +79,12 @@ Responsibilities owned by `HGSSRender` for this milestone:
 - simple 3D model animation playback
 - circle wipes and viewport/window narrowing
 - frame-driven audio cue dispatch
+- source-backed title-screen state sequencing through the title-to-menu handoff boundary
 
 Responsibilities intentionally out of scope:
 
-- interactive title-screen loop
+- native `CheckSave` rendering
+- native `MainMenu` rendering
 - gameplay state boot from `HGSSCore`
 - overworld traversal or script execution
 - emulator-dependent validation
@@ -116,5 +119,5 @@ Renderer tests must cover:
 
 - scene order and frame durations
 - skip gating
-- title-handoff landing state
+- title-screen IR state progression through menu handoff
 - audio cue dispatch timing

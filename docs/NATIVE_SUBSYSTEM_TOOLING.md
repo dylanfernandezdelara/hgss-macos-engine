@@ -31,8 +31,9 @@ Current repo state:
 - `HGSSExtractCLI` now has a working `clang-c` parser path backed by Homebrew LLVM headers and `libclang`
 - the extractor now validates the upstream opening/title sources through that parser before continuing with the existing extraction flow
 - the extractor now emits a first `opening_program_ir.json` artifact with source-backed opening scene order plus the initial title-screen state machine and prompt-flash timing
+- `HGSSRender` now loads `opening_program_ir.json` and uses it to advance the native title-screen state machine instead of freezing at the first `title_handoff` frame
 - local parser-only support headers are generated under `Content/Local/Tooling/pokeheartgold_parse_support/`
-- remaining work is expanding that IR from high-level sequencing into per-scene directives and replacing the remaining regex-derived metadata
+- remaining work is expanding that IR from high-level sequencing into per-scene directives, replacing the remaining regex-derived metadata, and extending the path beyond title-screen handoff into `CheckSave` and `MainMenu`
 
 Required tools:
 
@@ -219,6 +220,7 @@ These remain useful, but they are not sufficient by themselves for exact parity.
 
 - `docs/PARITY_HARNESS.md`
 - `docs/OPENING_RUNTIME_IR.md`
+- `docs/OPENING_MENU_PARITY.md`
 
 ### Source modules or targets
 
@@ -237,18 +239,19 @@ These remain useful, but they are not sufficient by themselves for exact parity.
 ## Recommended Order
 
 1. Expand AST-to-IR lowering from scene sequencing into per-scene BG/window/scroll/fade directives for `intro_movie_scene_1.c` through `intro_movie_scene_5.c`, replacing the remaining regex-derived metadata.
-2. Start consuming `opening_program_ir.json` in extractor-side validation and runtime sequencing so title-state timing no longer depends on duplicated hand-authored logic.
-3. Extend the title target from a single frozen handoff frame to the real title-screen play state with flashing start prompt.
+2. Lower the post-title path into native contracts by modeling `TITLESCREEN_EXIT_MENU`, `gApplication_CheckSave`, and `gApp_MainMenu`.
+3. Extract and render the `CheckSave` and `MainMenu` assets so the native app reaches the real opening menu instead of stopping at the title fadeout boundary.
 4. Build the native audio core for the opening/title cue set.
 5. Replace parity-critical SceneKit usage with native 3D playback or deterministic baked frames.
 6. Finish the exact particle path for scene 4.
-7. Run the parity harness until visual and audio diffs are eliminated.
+7. Run the parity harness until visual and audio diffs are eliminated across opening, title, `CheckSave`, and `MainMenu`.
 
 ## Immediate Todos
 
 1. Lower `intro_movie_scene_1.c` through `intro_movie_scene_5.c` into concrete IR commands for fades, window masks, scrolls, and scene-local timings.
 2. Add extractor snapshot coverage for `opening_program_ir.json` so parser-driven scene/state output is byte-stable.
-3. Thread the emitted IR into the title/opening playback controller before replacing render/audio subsystems underneath it.
+3. Parse and extract the `CheckSave` and `MainMenu` source/asset path so the app can cross the title-screen exit boundary into the real opening menu flow.
+4. Replace the remaining title-screen approximations, especially text glyph rendering and SceneKit-backed title 3D, with exact native outputs.
 
 ## Non-Goals
 

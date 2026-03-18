@@ -30,7 +30,7 @@ There are now two active runtime tracks:
 
 1. `HGSSExtractCLI --mode opening-heartgold` emits `opening_bundle.json`, `opening_program_ir.json`, provenance, reports, and local-only assets under `Content/Local/Boot/HeartGold`.
 2. The dev-only reference harness reruns that extraction, writes `opening_reference.json`, and captures local trace artifacts for opening cue/timing validation without shipping emulator code in the app.
-3. `HGSSRender` loads `HGSSOpeningBundle`, advances a frame-driven playback controller, renders dual-screen layers, sprites, and models, and holds on the first stable HeartGold `title_handoff` frame.
+3. `HGSSRender` loads `HGSSOpeningBundle` plus `HGSSOpeningProgramIR`, advances a frame-driven playback controller, renders dual-screen layers, sprites, and models, and currently runs through the source-backed title-screen handoff boundary before `CheckSave` / `MainMenu`.
 4. `Apps/HGSSMac` boots directly into that opening player and owns only shell concerns such as windowing, skip-input routing, and dev-only overlays.
 5. The older normalized-content path remains in parallel: `HGSSContent` decodes the New Bark-centered fixture, `HGSSCore` owns authoritative traversal state, and the legacy dual-screen render helpers remain available for non-default tests and follow-on work.
 
