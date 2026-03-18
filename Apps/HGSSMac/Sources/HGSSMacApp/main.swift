@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import HGSSCore
 import HGSSRender
 import SwiftUI
 
@@ -35,9 +36,11 @@ final class GameViewModel: ObservableObject {
                 let contentRoot = try resolveContentRoot()
                 let loadedBundle = try OpeningBundleLoader().load(from: contentRoot)
                 let loadedProgram = try OpeningProgramLoader().load(from: contentRoot)
+                let bootstrapState = try HGSSOpeningBootstrapLoader().load(from: contentRoot)
                 let controller = HGSSOpeningPlaybackController(
                     loadedBundle: loadedBundle,
-                    loadedProgram: loadedProgram
+                    loadedProgram: loadedProgram,
+                    bootstrapState: bootstrapState
                 )
                 let audioPlayer = HGSSOpeningAudioPlayer(loadedBundle: loadedBundle)
                 controller.onAudioCue = { dispatchedCue in

@@ -19,6 +19,7 @@ The target is parity with the official source-backed behavior, not a handcrafted
 - [x] The runtime advances through the initial title-screen state machine, including prompt flash timing and title fade sequencing.
 - [x] The parser and IR include `application/check_savedata.c` and `application/main_menu/main_menu.c`.
 - [x] The runtime routes from title fadeout into source-backed `CheckSave` and `MainMenu` scenes using default post-title flags.
+- [x] The app can load post-title bootstrap flags from `opening_bootstrap_state.json` through `HGSSCore`.
 - [ ] The post-title visuals are still semantic SwiftUI stand-ins, not exact DS-rendered output.
 
 ## Parity Checklist

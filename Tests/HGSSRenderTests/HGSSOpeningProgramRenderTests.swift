@@ -104,6 +104,7 @@ struct HGSSOpeningProgramRenderTests {
         controller.advanceFrame()
         controller.advanceFrame()
         controller.advanceFrame()
+        controller.advanceFrame()
 
         #expect(controller.currentProgramScene?.id == .mainMenu)
         #expect(controller.currentProgramState?.id == "main_menu_continue")
@@ -228,6 +229,51 @@ struct HGSSOpeningProgramRenderTests {
         controller.advanceFrame()
         #expect(controller.currentProgramScene?.id == .mainMenu)
         #expect(controller.currentProgramState?.id == "main_menu_new_game")
+    }
+
+    @Test("Playback controller consumes bootstrap flags from core state")
+    @MainActor
+    func playbackControllerConsumesBootstrapFlags() throws {
+        let root = try makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeAsset(at: root, relativePath: "assets/title_handoff/top.png")
+        try writeAsset(at: root, relativePath: "audio/title_handoff/theme.wav")
+        try writeBundle(makeBundle(), to: root)
+        try writeProgram(makeProgram(), to: root)
+
+        let loadedBundle = try OpeningBundleLoader().load(from: root)
+        let loadedProgram = try OpeningProgramLoader().load(from: root)
+        let controller = HGSSOpeningPlaybackController(
+            loadedBundle: loadedBundle,
+            loadedProgram: loadedProgram,
+            bootstrapState: .init(
+                checkSaveStatusFlags: 0,
+                mainMenuHasSaveData: true,
+                mainMenuHasPokedex: true,
+                drawMysteryGift: true,
+                drawRanger: false,
+                drawConnectToWii: false,
+                connectedAgbGame: 1
+            )
+        )
+
+        controller.requestSkip()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.requestSkip()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
+
+        #expect(controller.currentProgramScene?.id == .mainMenu)
+        #expect(controller.currentProgramState?.id == "main_menu_continue")
+        let menu = try #require(controller.activeMenu(screen: .bottom))
+        #expect(menu.options.contains(where: { $0.id == "continue" }))
+        #expect(menu.options.contains(where: { $0.id == "mystery_gift" }))
+        #expect(menu.options.contains(where: { $0.id == "migrate_ruby" }))
     }
 
     private func makeTemporaryRoot() throws -> URL {
@@ -525,6 +571,11 @@ struct HGSSOpeningProgramRenderTests {
                             ],
                             transitions: [
                                 .init(
+                                    trigger: .flagEquals(name: "main_menu_has_save_data", value: 1),
+                                    targetStateID: "main_menu_continue",
+                                    provenance: provenance
+                                ),
+                                .init(
                                     trigger: .flagEquals(name: "main_menu_has_save_data", value: 0),
                                     targetStateID: "main_menu_new_game",
                                     provenance: provenance
@@ -549,6 +600,45 @@ struct HGSSOpeningProgramRenderTests {
                                             .init(id: "new_game", text: "NEW GAME")
                                         ],
                                         selectedOptionID: "new_game",
+                                        provenance: provenance
+                                    )
+                                )
+                            ],
+                            transitions: [],
+                            provenance: provenance
+                        ),
+                        .init(
+                            id: "main_menu_continue",
+                            duration: .indefinite,
+                            commands: [
+                                .setSolidFill(
+                                    .init(screen: .top, colorHex: "#6363FF", provenance: provenance)
+                                ),
+                                .setSolidFill(
+                                    .init(screen: .bottom, colorHex: "#6363FF", provenance: provenance)
+                                ),
+                                .setMenu(
+                                    .init(
+                                        screen: .bottom,
+                                        options: [
+                                            .init(id: "continue", text: "CONTINUE"),
+                                            .init(id: "new_game", text: "NEW GAME"),
+                                            .init(
+                                                id: "mystery_gift",
+                                                text: "MYSTERY GIFT",
+                                                requiredFlags: [
+                                                    .init(name: "main_menu_draw_mystery_gift", value: 1)
+                                                ]
+                                            ),
+                                            .init(
+                                                id: "migrate_ruby",
+                                                text: "MIGRATE",
+                                                requiredFlags: [
+                                                    .init(name: "main_menu_connected_agb_game", value: 1)
+                                                ]
+                                            )
+                                        ],
+                                        selectedOptionID: "continue",
                                         provenance: provenance
                                     )
                                 )

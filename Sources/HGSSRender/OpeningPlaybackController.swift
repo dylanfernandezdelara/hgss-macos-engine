@@ -1,4 +1,5 @@
 import Foundation
+import HGSSCore
 import HGSSDataModel
 import HGSSOpeningIR
 import SwiftUI
@@ -59,11 +60,13 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
 
     private var playbackTask: Task<Void, Never>?
     private var dispatchedCueKeys: Set<String>
+    private let bootstrapProgramFlags: [String: Int]
     private var programFlags: [String: Int]
 
     public init(
         loadedBundle: LoadedOpeningBundle,
-        loadedProgram: LoadedOpeningProgram? = nil
+        loadedProgram: LoadedOpeningProgram? = nil,
+        bootstrapState: HGSSOpeningBootstrapState = .noSave
     ) {
         self.loadedBundle = loadedBundle
         self.loadedProgram = loadedProgram
@@ -73,7 +76,8 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         self.lastConfirmedMenuSelectionID = nil
         self.lastConfirmedMenuDestinationID = nil
         self.dispatchedCueKeys = []
-        self.programFlags = Self.defaultProgramFlags()
+        self.bootstrapProgramFlags = bootstrapState.programFlags()
+        self.programFlags = Self.defaultProgramFlags(overrides: self.bootstrapProgramFlags)
         dispatchBundleAudioCuesForCurrentFrameIfNeeded()
     }
 
@@ -124,7 +128,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         currentMenuSelectionID = nil
         lastConfirmedMenuSelectionID = nil
         lastConfirmedMenuDestinationID = nil
-        programFlags = Self.defaultProgramFlags()
+        programFlags = Self.defaultProgramFlags(overrides: bootstrapProgramFlags)
         state = HGSSOpeningPlaybackState(sceneIndex: 0, frameInScene: 0, hasReachedTitleHandoff: false)
         dispatchBundleAudioCuesForCurrentFrameIfNeeded()
     }
@@ -704,7 +708,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         return loadedBundle.bundle.scenes.firstIndex(where: { $0.id == bundleSceneID })
     }
 
-    private static func defaultProgramFlags() -> [String: Int] {
+    private static func defaultProgramFlags(overrides: [String: Int] = [:]) -> [String: Int] {
         [
             "title_anim_initialized": 1,
             "check_save_status_flags": 0,
@@ -715,7 +719,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             "main_menu_draw_ranger": 0,
             "main_menu_draw_connect_to_wii": 0,
             "main_menu_connected_agb_game": 0,
-        ]
+        ].merging(overrides) { _, override in override }
     }
 }
 

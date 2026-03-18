@@ -3,6 +3,45 @@ import Testing
 import HGSSCore
 
 struct HGSSCoreSmokeTests {
+    @Test("Opening bootstrap loader falls back to no-save defaults")
+    func openingBootstrapLoaderFallsBackToNoSaveDefaults() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("hgss-opening-bootstrap-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let loaded = try HGSSOpeningBootstrapLoader().load(from: root)
+
+        #expect(loaded == .noSave)
+        #expect(loaded.programFlags()["main_menu_has_save_data"] == 0)
+    }
+
+    @Test("Opening bootstrap loader decodes explicit menu and save flags")
+    func openingBootstrapLoaderDecodesExplicitFlags() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("hgss-opening-bootstrap-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let expected = HGSSOpeningBootstrapState(
+            checkSaveStatusFlags: 3,
+            mainMenuHasSaveData: true,
+            mainMenuHasPokedex: true,
+            drawMysteryGift: true,
+            drawRanger: false,
+            drawConnectToWii: true,
+            connectedAgbGame: 2
+        )
+        let data = try JSONEncoder().encode(expected)
+        try data.write(to: root.appendingPathComponent("opening_bootstrap_state.json", isDirectory: false))
+
+        let loaded = try HGSSOpeningBootstrapLoader().load(from: root)
+
+        #expect(loaded == expected)
+        #expect(loaded.programFlags()["check_save_status_flags"] == 3)
+        #expect(loaded.programFlags()["main_menu_connected_agb_game"] == 2)
+    }
+
     @Test("Boots runtime at declared entry point")
     func bootsCoreWithStubContent() async throws {
         let testFile = URL(fileURLWithPath: #filePath)
