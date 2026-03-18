@@ -262,18 +262,12 @@ struct PokeheartgoldOpeningIRLowerer {
                 casePattern: #"INTRO_SCENE[0-9]+_[A-Z0-9_]+"#,
                 context: context
             )
-            let sceneStates = try enumStateNames.compactMap { stateName -> HGSSOpeningProgramIR.State? in
-                guard let caseNode = caseNodes[stateName] else {
-                    return nil
-                }
-                return .init(
-                    id: introSceneStateID(for: entry.id, stateName: stateName),
-                    duration: .indefinite,
-                    commands: [],
-                    transitions: [],
-                    provenance: context.provenance(for: caseNode, symbolOverride: stateName)
-                )
-            }
+            let sceneStates = try lowerIntroSceneStates(
+                sceneID: entry.id,
+                enumStateNames: enumStateNames,
+                caseNodes: caseNodes,
+                context: context
+            )
 
             let firstSceneStateID = sceneStates.first?.id ?? stateID
             let sceneRunState = HGSSOpeningProgramIR.State(
@@ -579,6 +573,232 @@ struct PokeheartgoldOpeningIRLowerer {
             initialStateID: titleStateID(for: "TITLESCREEN_MAIN_WAIT_FADE"),
             states: orderedStates,
             provenance: context.provenance(for: mainNode, symbolOverride: "TitleScreen_Main")
+        )
+    }
+
+    private func lowerIntroSceneStates(
+        sceneID: HGSSOpeningProgramIR.SceneID,
+        enumStateNames: [String],
+        caseNodes: [String: ClangASTNode],
+        context: OpeningIRLoweringContext
+    ) throws -> [HGSSOpeningProgramIR.State] {
+        switch sceneID {
+        case .scene1:
+            return try lowerScene1States(
+                sceneID: sceneID,
+                enumStateNames: enumStateNames,
+                caseNodes: caseNodes,
+                context: context
+            )
+        case .scene2, .scene3, .scene4, .scene5:
+            return enumStateNames.compactMap { stateName in
+                guard let caseNode = caseNodes[stateName] else {
+                    return nil
+                }
+                return makeIntroSkeletonState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    caseNode: caseNode,
+                    context: context
+                )
+            }
+        case .titleHandoff, .titleScreen, .deleteSave, .micTest, .checkSave, .mainMenu:
+            return []
+        }
+    }
+
+    private func lowerScene1States(
+        sceneID: HGSSOpeningProgramIR.SceneID,
+        enumStateNames: [String],
+        caseNodes: [String: ClangASTNode],
+        context: OpeningIRLoweringContext
+    ) throws -> [HGSSOpeningProgramIR.State] {
+        try enumStateNames.compactMap { stateName in
+            guard let caseNode = caseNodes[stateName] else {
+                return nil
+            }
+
+            let stateID = introSceneStateID(for: sceneID, stateName: stateName)
+            let provenance = context.provenance(for: caseNode, symbolOverride: stateName)
+
+            switch stateName {
+            case "INTRO_SCENE1_APPEAR_COPYRIGHT":
+                return .init(
+                    id: stateID,
+                    duration: .fixedFrames(1),
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "main_bg0", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "sub_bg0", visible: true, provenance: provenance)),
+                    ],
+                    transitions: [
+                        .init(trigger: .stateCompleted, targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_WAIT_COPYRIGHT"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_WAIT_COPYRIGHT":
+                return .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [],
+                    transitions: [
+                        .init(trigger: .frameAtLeast(30), targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_WAIT_FADEOUT_COPYRIGHT"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_WAIT_FADEOUT_COPYRIGHT":
+                return .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [
+                        .fade(
+                            .init(
+                                target: .alphaBlend,
+                                startLevel: 0,
+                                endLevel: 31,
+                                durationFrames: 60,
+                                provenance: provenance
+                            )
+                        )
+                    ],
+                    transitions: [
+                        .init(trigger: .frameAtLeast(60), targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_WAIT_APPEAR_GAMEFREAK"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_WAIT_APPEAR_GAMEFREAK":
+                return .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "sub_bg0", visible: false, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "sub_bg1", visible: true, provenance: provenance)),
+                    ],
+                    transitions: [
+                        .init(trigger: .frameAtLeast(20), targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_WAIT_GAMEFREAK"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_WAIT_GAMEFREAK":
+                return .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [],
+                    transitions: [
+                        .init(trigger: .frameAtLeast(110), targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_APPEAR_BG_IMAGE"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_APPEAR_BG_IMAGE":
+                return .init(
+                    id: stateID,
+                    duration: .fixedFrames(1),
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "main_bg1", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "main_bg2", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "main_bg3", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "sub_bg3", visible: true, provenance: provenance)),
+                    ],
+                    transitions: [
+                        .init(trigger: .stateCompleted, targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_WAIT_START_BG_SCROLL"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_WAIT_START_BG_SCROLL":
+                return .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [
+                        .fade(
+                            .init(
+                                target: .alphaBlend,
+                                startLevel: 0,
+                                endLevel: 30,
+                                durationFrames: 80,
+                                provenance: provenance
+                            )
+                        ),
+                        .scroll(.init(targetID: "main_bg1", deltaX: 0, deltaY: -0x20, durationFrames: 0xF0, provenance: provenance)),
+                        .scroll(.init(targetID: "main_bg2", deltaX: 0, deltaY: -0x10, durationFrames: 0xF0, provenance: provenance)),
+                    ],
+                    transitions: [
+                        .init(trigger: .frameAtLeast(1), targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_WAIT_BG_SCROLL"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_WAIT_BG_SCROLL":
+                return .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [],
+                    transitions: [
+                        .init(trigger: .frameAtLeast(0xF0), targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_WAIT_APPEAR_BIRD"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_WAIT_APPEAR_BIRD":
+                return .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene1_bird", visible: true, provenance: provenance))
+                    ],
+                    transitions: [
+                        .init(trigger: .frameAtLeast(128), targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_DELAY90_START_FADEOUT"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_DELAY90_START_FADEOUT":
+                return .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [],
+                    transitions: [
+                        .init(trigger: .frameAtLeast(90), targetStateID: introSceneStateID(for: sceneID, stateName: "INTRO_SCENE1_WAIT_FADEOUT"), provenance: provenance)
+                    ],
+                    provenance: provenance
+                )
+            case "INTRO_SCENE1_WAIT_FADEOUT":
+                return .init(
+                    id: stateID,
+                    duration: .indefinite,
+                    commands: [
+                        .fade(
+                            .init(
+                                target: .palette,
+                                startLevel: 0,
+                                endLevel: 31,
+                                durationFrames: 65,
+                                colorHex: "#FFFFFF",
+                                provenance: provenance
+                            )
+                        )
+                    ],
+                    transitions: [],
+                    provenance: provenance
+                )
+            default:
+                return makeIntroSkeletonState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    caseNode: caseNode,
+                    context: context
+                )
+            }
+        }
+    }
+
+    private func makeIntroSkeletonState(
+        sceneID: HGSSOpeningProgramIR.SceneID,
+        stateName: String,
+        caseNode: ClangASTNode,
+        context: OpeningIRLoweringContext
+    ) -> HGSSOpeningProgramIR.State {
+        .init(
+            id: introSceneStateID(for: sceneID, stateName: stateName),
+            duration: .indefinite,
+            commands: [],
+            transitions: [],
+            provenance: context.provenance(for: caseNode, symbolOverride: stateName)
         )
     }
 

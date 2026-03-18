@@ -79,6 +79,24 @@ struct OpeningIRLowererTests {
             }
             return false
         }))
+        let scene1FadeoutState = try #require(scene1.states.first(where: { $0.id == "scene1_wait_fadeout" }))
+        #expect(scene1FadeoutState.commands.contains(where: { command in
+            if case let .fade(payload) = command {
+                return payload.target == .palette
+                    && payload.colorHex == "#FFFFFF"
+                    && payload.durationFrames == 65
+            }
+            return false
+        }))
+        let scene1ScrollState = try #require(scene1.states.first(where: { $0.id == "scene1_wait_start_bg_scroll" }))
+        #expect(scene1ScrollState.commands.contains(where: { command in
+            if case let .scroll(payload) = command {
+                return payload.targetID == "main_bg1"
+                    && payload.deltaY == -0x20
+                    && payload.durationFrames == 0xF0
+            }
+            return false
+        }))
 
         let scene3 = try #require(program.scenes.first(where: { $0.id == .scene3 }))
         #expect(scene3.states.map(\.id).contains("scene3_wait_admins"))
