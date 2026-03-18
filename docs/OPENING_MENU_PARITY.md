@@ -20,6 +20,7 @@ The target is parity with the official source-backed behavior, not a handcrafted
 - [x] The parser and IR include `application/check_savedata.c` and `application/main_menu/main_menu.c`.
 - [x] The runtime routes from title fadeout into source-backed `CheckSave` and `MainMenu` scenes using default post-title flags.
 - [x] The app can load post-title bootstrap flags from `opening_bootstrap_state.json` through `HGSSCore`.
+- [x] Confirmed `MainMenu` selections now hand off into typed native app-shell stubs instead of only updating controller debug state.
 - [ ] The post-title visuals are still semantic SwiftUI stand-ins, not exact DS-rendered output.
 
 ## Parity Checklist
@@ -48,7 +49,7 @@ The target is parity with the official source-backed behavior, not a handcrafted
 - [ ] Replace the current semantic `MainMenu` stand-in with extracted graphics, button borders, arrow sprites, and source-backed scroll behavior.
 - [ ] Add runtime flag plumbing from real save data and feature availability into the `MainMenu` router.
 - [ ] Reach the first stable interactive menu state without relying on synthetic defaults.
-- [ ] Add native handling for menu navigation, confirmation, and overlay dispatch from the first interactive menu state.
+- [x] Add native handling for menu navigation, confirmation, and overlay dispatch from the first interactive menu state.
 
 ### Phase 4: Exact Subsystem Parity
 
@@ -139,9 +140,9 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [ ] `P3.5a` Start the post-title path with real save-derived flags in app boot.
 - [ ] `P3.5b` Verify the native app can transition title -> `CheckSave` -> `MainMenu` with no synthetic fallback state injection.
 - [x] `P3.5c` Keep the first interactive menu frame stable under repeated boot/reset cycles.
-- [ ] `P3.6` Route interactive menu confirmation into real overlay/application dispatch targets instead of debug-only selection capture.
+- [x] `P3.6` Route interactive menu confirmation into real overlay/application dispatch targets instead of debug-only selection capture.
 - [x] `P3.6a` Model post-menu destination dispatch in `HGSSCore` instead of only storing `lastConfirmedMenuDestinationID`.
-- [ ] `P3.6b` Add application handoff stubs for the first reachable menu overlays.
+- [x] `P3.6b` Add application handoff stubs for the first reachable menu overlays.
 - [x] `P3.6c` Verify confirmation dispatch per menu option with source-backed destination IDs.
 
 ### Phase 4 Todos

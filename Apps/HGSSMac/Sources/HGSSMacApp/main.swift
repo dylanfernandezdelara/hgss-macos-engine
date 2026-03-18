@@ -13,9 +13,15 @@ final class GameViewModel: ObservableObject {
         let audioPlayer: HGSSOpeningAudioPlayer
     }
 
+    struct HandoffState {
+        let dispatch: HGSSOpeningMenuDispatch
+        let destination: HGSSOpeningMenuDestination?
+    }
+
     enum Phase {
         case loading
         case ready(ReadyState)
+        case handoff(HandoffState)
         case error(String)
     }
 
@@ -46,6 +52,16 @@ final class GameViewModel: ObservableObject {
                 controller.onAudioCue = { dispatchedCue in
                     audioPlayer.handle(dispatchedCue)
                 }
+                controller.onMenuDispatch = { [weak self, weak controller] dispatchedMenu in
+                    audioPlayer.stopAll()
+                    controller?.stop()
+                    self?.phase = .handoff(
+                        HandoffState(
+                            dispatch: dispatchedMenu,
+                            destination: HGSSOpeningMenuDestination(destinationID: dispatchedMenu.destinationID)
+                        )
+                    )
+                }
                 for dispatchedCue in controller.audioCueLog {
                     audioPlayer.handle(dispatchedCue)
                 }
@@ -71,7 +87,27 @@ final class GameViewModel: ObservableObject {
         readyState = nil
     }
 
+    func rebootOpening() {
+        guard let readyState else {
+            return
+        }
+
+        readyState.audioPlayer.stopAll()
+        readyState.controller.reset()
+        readyState.controller.start()
+        phase = .ready(readyState)
+    }
+
     func handleKeyDown(_ keyCode: UInt16) {
+        if case .handoff = phase {
+            switch keyCode {
+            case 15, 53:
+                rebootOpening()
+            default:
+                return
+            }
+        }
+
         if let controller = readyState?.controller, controller.state.hasReachedOpeningMenuHandoff {
             switch keyCode {
             case 125:
@@ -191,7 +227,7 @@ private final class GameWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
-        if [0, 2, 8, 36, 46, 76, 125, 126].contains(event.keyCode) {
+        if [0, 2, 8, 15, 36, 46, 53, 76, 125, 126].contains(event.keyCode) {
             onKeyDownHandler?(event.keyCode)
             return
         }
@@ -268,10 +304,69 @@ private struct RootView: View {
                     onBottomScreenTap: viewModel.handleBottomScreenTap
                 )
                 .background(Color.black)
+            case let .handoff(state):
+                HandoffView(
+                    state: state,
+                    onReboot: viewModel.rebootOpening
+                )
             case let .error(message):
                 ErrorView(message: message)
             }
         }
+    }
+}
+
+private struct HandoffView: View {
+    let state: GameViewModel.HandoffState
+    let onReboot: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(state.destination?.title ?? "Menu Handoff")
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            Text(state.destination?.subtitle ?? "Stub handoff for an unmapped main-menu destination.")
+                .foregroundStyle(Color.white.opacity(0.82))
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("State: \(state.dispatch.menuStateID)")
+                Text("Selection: \(state.dispatch.selectionID)")
+                Text("Destination: \(state.dispatch.destinationID ?? "<none>")")
+            }
+            .font(.system(size: 13, weight: .medium, design: .monospaced))
+            .foregroundStyle(Color.white.opacity(0.9))
+            .padding(16)
+            .background(Color.black.opacity(0.22))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            Button(action: onReboot) {
+                Text("Restart Opening")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+
+            Text("Press R or Escape to return to the opening flow.")
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(Color.white.opacity(0.64))
+        }
+        .padding(28)
+        .frame(minWidth: 520, minHeight: 320, alignment: .topLeading)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.07, green: 0.08, blue: 0.12),
+                    Color(red: 0.17, green: 0.11, blue: 0.08)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
     }
 }
 
