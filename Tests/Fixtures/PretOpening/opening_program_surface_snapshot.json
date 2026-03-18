@@ -1,0 +1,150 @@
+{
+  "checkSaveRouting": {
+    "initialStateID": "check_save_route",
+    "messageTexts": {
+      "check_save_message_0": "The save file is corrupted.\\nThe previous save file will be loaded.",
+      "check_save_message_1": "The save file will be erased\\ndue to corruption or damage.",
+      "check_save_message_2": "The most recent Battle Video is\\ncorrupted.\\rThe previously saved Battle Video will\\nbe loaded instead.\\n",
+      "check_save_message_3": "A Battle Video appears to have been\\nerased.",
+      "check_save_message_4": "The most recent Battle Hall record\\nis corrupted.\\rThe previously saved record will be\\nloaded instead.\\n",
+      "check_save_message_5": "The Battle Hall record has been erased.\\n\\n"
+    },
+    "transitions": [
+      {
+        "flagName": "check_save_message_index",
+        "flagValue": -1,
+        "targetSceneID": "main_menu",
+        "targetStateID": "main_menu_route"
+      },
+      {
+        "flagName": "check_save_message_index",
+        "flagValue": 0,
+        "targetSceneID": null,
+        "targetStateID": "check_save_message_0"
+      },
+      {
+        "flagName": "check_save_message_index",
+        "flagValue": 1,
+        "targetSceneID": null,
+        "targetStateID": "check_save_message_1"
+      },
+      {
+        "flagName": "check_save_message_index",
+        "flagValue": 2,
+        "targetSceneID": null,
+        "targetStateID": "check_save_message_2"
+      },
+      {
+        "flagName": "check_save_message_index",
+        "flagValue": 3,
+        "targetSceneID": null,
+        "targetStateID": "check_save_message_3"
+      },
+      {
+        "flagName": "check_save_message_index",
+        "flagValue": 4,
+        "targetSceneID": null,
+        "targetStateID": "check_save_message_4"
+      },
+      {
+        "flagName": "check_save_message_index",
+        "flagValue": 5,
+        "targetSceneID": null,
+        "targetStateID": "check_save_message_5"
+      }
+    ]
+  },
+  "mainMenuRouting": {
+    "initialStateID": "main_menu_route",
+    "options": {
+      "main_menu_continue": {
+        "options": [
+          {
+            "enabled": true,
+            "id": "continue",
+            "text": "CONTINUE"
+          },
+          {
+            "enabled": true,
+            "id": "new_game",
+            "text": "NEW GAME"
+          }
+        ],
+        "selectedOptionID": "continue"
+      },
+      "main_menu_new_game": {
+        "options": [
+          {
+            "enabled": true,
+            "id": "new_game",
+            "text": "NEW GAME"
+          }
+        ],
+        "selectedOptionID": "new_game"
+      }
+    },
+    "transitions": [
+      {
+        "flagName": "main_menu_has_save_data",
+        "flagValue": 1,
+        "targetSceneID": null,
+        "targetStateID": "main_menu_continue"
+      },
+      {
+        "flagName": "main_menu_has_save_data",
+        "flagValue": 0,
+        "targetSceneID": null,
+        "targetStateID": "main_menu_new_game"
+      }
+    ]
+  },
+  "sceneOrder": [
+    "scene1",
+    "scene2",
+    "scene3",
+    "scene4",
+    "scene5",
+    "title_screen",
+    "check_save",
+    "main_menu"
+  ],
+  "stateOrder": {
+    "check_save": [
+      "check_save_route",
+      "check_save_message_0",
+      "check_save_message_1",
+      "check_save_message_2",
+      "check_save_message_3",
+      "check_save_message_4",
+      "check_save_message_5"
+    ],
+    "main_menu": [
+      "main_menu_route",
+      "main_menu_continue",
+      "main_menu_new_game"
+    ],
+    "title_screen": [
+      "title_wait_fade",
+      "title_start_music",
+      "title_play_delay",
+      "title_play",
+      "title_proceed_flash",
+      "title_proceed_flash_2",
+      "title_proceed_noflash",
+      "title_fadeout"
+    ]
+  },
+  "titlePrompt": {
+    "hiddenFrames": 15,
+    "initialPhase": "visible",
+    "rect": {
+      "height": 16,
+      "width": 256,
+      "x": 0,
+      "y": 144
+    },
+    "screen": "top",
+    "text": "TOUCH TO START",
+    "visibleFrames": 30
+  }
+}

@@ -249,8 +249,8 @@ These remain useful, but they are not sufficient by themselves for exact parity.
 ## Immediate Todos
 
 1. Lower `intro_movie_scene_1.c` through `intro_movie_scene_5.c` into concrete IR commands for fades, window masks, scrolls, and scene-local timings.
-2. Add extractor snapshot coverage for `opening_program_ir.json` so parser-driven scene/state output is byte-stable.
-3. Parse and extract the `CheckSave` and `MainMenu` source/asset path so the app can cross the title-screen exit boundary into the real opening menu flow.
+2. Expand the parser-backed title lowering so `TitleScreen_Exit` and all exit modes are explicit IR rather than partially regex-derived control flow.
+3. Replace the semantic `CheckSave` and `MainMenu` stand-ins with extracted assets, real save-flag plumbing, and native menu runtime behavior.
 4. Replace the remaining title-screen approximations, especially text glyph rendering and SceneKit-backed title 3D, with exact native outputs.
 
 ## Non-Goals
