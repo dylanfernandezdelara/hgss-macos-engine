@@ -88,8 +88,10 @@ private struct OpeningProgramSurfaceSnapshot: Codable, Equatable {
     }
 
     struct TransitionSnapshot: Codable, Equatable {
-        let flagName: String
-        let flagValue: Int
+        let triggerKind: String
+        let flagName: String?
+        let flagValue: Int?
+        let flagMask: Int?
         let targetSceneID: String?
         let targetStateID: String
     }
@@ -224,8 +226,15 @@ private extension OpeningProgramSurfaceSnapshot.TransitionSnapshot {
     init(_ transition: HGSSOpeningProgramIR.Transition) {
         switch transition.trigger {
         case let .flagEquals(name, value):
+            triggerKind = "flag_equals"
             flagName = name
             flagValue = value
+            flagMask = nil
+        case let .flagBitSet(name, mask):
+            triggerKind = "flag_bit_set"
+            flagName = name
+            flagValue = nil
+            flagMask = mask
         case .stateCompleted, .frameEquals, .frameAtLeast:
             fatalError("Unexpected non-flag trigger in routing snapshot.")
         }

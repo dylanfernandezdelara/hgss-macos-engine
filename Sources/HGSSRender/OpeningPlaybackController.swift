@@ -167,11 +167,18 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             return
         }
 
-        if currentProgramScene?.id == .titleScreen {
-            guard currentProgramState?.id == "title_play" else {
+        if let currentProgramScene {
+            if currentProgramScene.id == .titleScreen {
+                guard currentProgramState?.id == "title_play" else {
+                    return
+                }
+                pendingTitleMenuRequest = true
                 return
             }
-            pendingTitleMenuRequest = true
+
+            if requestProgramFlagTransition(flagName: "program_confirm_requested", value: 1) {
+                return
+            }
             return
         }
 
@@ -201,6 +208,16 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         }
         programFlags["title_mic_test_requested"] = 1
         programFlags["title_clear_save_requested"] = 0
+    }
+
+    public func setProgramFlag(name: String, value: Int) {
+        programFlags[name] = value
+        if currentProgramScene != nil,
+           let transition = automaticTransitionForCurrentProgramState() {
+            transitionToProgramState(transition)
+        } else {
+            syncMenuSelectionForCurrentProgramState()
+        }
     }
 
     public func moveCurrentMenuSelection(delta: Int) {
@@ -425,6 +442,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             hasReachedOpeningMenuHandoff: reachedOpeningMenu
         )
 
+        applyEntryFlagMutationsIfNeeded()
         dispatchProgramAudioCommandsIfNeeded()
         syncMenuSelectionForCurrentProgramState()
 
@@ -458,12 +476,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         guard let programState = currentProgramState else {
             return nil
         }
-        return programState.transitions.first(where: { transition in
-            if case let .flagEquals(name, value) = transition.trigger {
-                return programFlags[name] == value
-            }
-            return false
-        })
+        return programState.transitions.first(where: { evaluate(trigger: $0.trigger) })
     }
 
     private func syncMenuSelectionForCurrentProgramState() {
@@ -518,6 +531,55 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
     ) -> Bool {
         option.requiredFlags.allSatisfy { requirement in
             programFlags[requirement.name] == requirement.value
+        }
+    }
+
+    private func requestProgramFlagTransition(flagName: String, value: Int) -> Bool {
+        guard let programState = currentProgramState,
+              let transition = programState.transitions.first(where: {
+                  if case let .flagEquals(name, expectedValue) = $0.trigger {
+                      return name == flagName && expectedValue == value
+                  }
+                  return false
+              }) else {
+            return false
+        }
+
+        programFlags[flagName] = value
+        transitionToProgramState(transition)
+        return true
+    }
+
+    private func applyEntryFlagMutationsIfNeeded() {
+        guard let programState = currentProgramState else {
+            return
+        }
+
+        for command in programState.commands {
+            guard case let .mutateFlag(payload) = command else {
+                continue
+            }
+            switch payload.operation {
+            case .assign:
+                programFlags[payload.flagName] = payload.value
+            case .clearBits:
+                let currentValue = programFlags[payload.flagName] ?? 0
+                programFlags[payload.flagName] = currentValue & ~payload.value
+            case .xorBits:
+                let currentValue = programFlags[payload.flagName] ?? 0
+                programFlags[payload.flagName] = currentValue ^ payload.value
+            }
+        }
+    }
+
+    private func evaluate(trigger: HGSSOpeningProgramIR.Trigger) -> Bool {
+        switch trigger {
+        case .stateCompleted, .frameEquals, .frameAtLeast:
+            return false
+        case let .flagEquals(name, value):
+            return programFlags[name] == value
+        case let .flagBitSet(name, mask):
+            return ((programFlags[name] ?? 0) & mask) != 0
         }
     }
 
@@ -661,7 +723,8 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
     private static func defaultProgramFlags() -> [String: Int] {
         [
             "title_anim_initialized": 1,
-            "check_save_message_index": -1,
+            "check_save_status_flags": 0,
+            "program_confirm_requested": 0,
             "main_menu_has_save_data": 0,
             "main_menu_has_pokedex": 0,
             "main_menu_draw_mystery_gift": 0,

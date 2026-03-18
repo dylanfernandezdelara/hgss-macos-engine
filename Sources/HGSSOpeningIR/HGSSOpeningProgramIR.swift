@@ -171,12 +171,14 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         case frameEquals(Int)
         case frameAtLeast(Int)
         case flagEquals(name: String, value: Int)
+        case flagBitSet(name: String, mask: Int)
 
         private enum CodingKeys: String, CodingKey {
             case kind
             case frame
             case flagName
             case flagValue
+            case flagMask
         }
 
         private enum Kind: String, Codable {
@@ -184,6 +186,7 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case frameEquals = "frame_equals"
             case frameAtLeast = "frame_at_least"
             case flagEquals = "flag_equals"
+            case flagBitSet = "flag_bit_set"
         }
 
         public init(from decoder: Decoder) throws {
@@ -199,6 +202,11 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 self = .flagEquals(
                     name: try container.decode(String.self, forKey: .flagName),
                     value: try container.decode(Int.self, forKey: .flagValue)
+                )
+            case .flagBitSet:
+                self = .flagBitSet(
+                    name: try container.decode(String.self, forKey: .flagName),
+                    mask: try container.decode(Int.self, forKey: .flagMask)
                 )
             }
         }
@@ -218,7 +226,36 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 try container.encode(Kind.flagEquals, forKey: .kind)
                 try container.encode(name, forKey: .flagName)
                 try container.encode(value, forKey: .flagValue)
+            case let .flagBitSet(name, mask):
+                try container.encode(Kind.flagBitSet, forKey: .kind)
+                try container.encode(name, forKey: .flagName)
+                try container.encode(mask, forKey: .flagMask)
             }
+        }
+    }
+
+    public struct FlagMutationCommand: Codable, Equatable, Sendable {
+        public enum Operation: String, Codable, Equatable, Sendable {
+            case assign
+            case clearBits = "clear_bits"
+            case xorBits = "xor_bits"
+        }
+
+        public let flagName: String
+        public let operation: Operation
+        public let value: Int
+        public let provenance: Provenance
+
+        public init(
+            flagName: String,
+            operation: Operation,
+            value: Int,
+            provenance: Provenance
+        ) {
+            self.flagName = flagName
+            self.operation = operation
+            self.value = value
+            self.provenance = provenance
         }
     }
 
@@ -485,6 +522,7 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         case setPromptFlash(PromptFlashCommand)
         case setMessageBox(MessageBoxCommand)
         case setMenu(MenuCommand)
+        case mutateFlag(FlagMutationCommand)
 
         private enum CodingKeys: String, CodingKey {
             case kind
@@ -499,6 +537,7 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case promptFlash
             case messageBox
             case menu
+            case flagMutation
         }
 
         private enum Kind: String, Codable {
@@ -513,6 +552,7 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case setPromptFlash = "set_prompt_flash"
             case setMessageBox = "set_message_box"
             case setMenu = "set_menu"
+            case mutateFlag = "mutate_flag"
         }
 
         public init(from decoder: Decoder) throws {
@@ -542,6 +582,8 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 self = .setMessageBox(try container.decode(MessageBoxCommand.self, forKey: .messageBox))
             case .setMenu:
                 self = .setMenu(try container.decode(MenuCommand.self, forKey: .menu))
+            case .mutateFlag:
+                self = .mutateFlag(try container.decode(FlagMutationCommand.self, forKey: .flagMutation))
             }
         }
 
@@ -581,6 +623,9 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case let .setMenu(command):
                 try container.encode(Kind.setMenu, forKey: .kind)
                 try container.encode(command, forKey: .menu)
+            case let .mutateFlag(command):
+                try container.encode(Kind.mutateFlag, forKey: .kind)
+                try container.encode(command, forKey: .flagMutation)
             }
         }
     }
@@ -733,6 +778,13 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             guard name.isEmpty == false else {
                 throw HGSSOpeningIRValidationError.emptyTriggerFlagName(sceneID, stateID)
             }
+        case let .flagBitSet(name, mask):
+            guard name.isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyTriggerFlagName(sceneID, stateID)
+            }
+            guard mask > 0 else {
+                throw HGSSOpeningIRValidationError.invalidTriggerBitMask(sceneID, stateID, mask)
+            }
         }
     }
 
@@ -856,6 +908,19 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 throw HGSSOpeningIRValidationError.invalidMenuSelection(sceneID, stateID, payload.selectedOptionID)
             }
             try validate(provenance: payload.provenance)
+        case let .mutateFlag(payload):
+            guard payload.flagName.isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "flagMutation.flagName")
+            }
+            if payload.operation != .assign, payload.value <= 0 {
+                throw HGSSOpeningIRValidationError.invalidCommandDuration(
+                    sceneID,
+                    stateID,
+                    "flagMutation.value",
+                    payload.value
+                )
+            }
+            try validate(provenance: payload.provenance)
         }
     }
 
@@ -893,6 +958,7 @@ public enum HGSSOpeningIRValidationError: Error, LocalizedError, Equatable, Send
     case missingCrossSceneTransitionTarget(HGSSOpeningProgramIR.SceneID, String, HGSSOpeningProgramIR.SceneID, String)
     case negativeTriggerFrame(HGSSOpeningProgramIR.SceneID, String, Int)
     case emptyTriggerFlagName(HGSSOpeningProgramIR.SceneID, String)
+    case invalidTriggerBitMask(HGSSOpeningProgramIR.SceneID, String, Int)
     case emptyCommandIdentifier(HGSSOpeningProgramIR.SceneID, String, String)
     case invalidCommandDuration(HGSSOpeningProgramIR.SceneID, String, String, Int)
     case invalidWindowMaskRect(HGSSOpeningProgramIR.SceneID, String)
@@ -933,6 +999,8 @@ public enum HGSSOpeningIRValidationError: Error, LocalizedError, Equatable, Send
             return "Opening IR scene \(sceneID.rawValue) state \(stateID) uses negative trigger frame \(frame)."
         case let .emptyTriggerFlagName(sceneID, stateID):
             return "Opening IR scene \(sceneID.rawValue) state \(stateID) uses an empty trigger flag name."
+        case let .invalidTriggerBitMask(sceneID, stateID, mask):
+            return "Opening IR scene \(sceneID.rawValue) state \(stateID) uses invalid trigger bit mask \(mask)."
         case let .emptyCommandIdentifier(sceneID, stateID, field):
             return "Opening IR scene \(sceneID.rawValue) state \(stateID) uses an empty \(field) command field."
         case let .invalidCommandDuration(sceneID, stateID, kind, frames):

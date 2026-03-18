@@ -192,6 +192,45 @@ struct HGSSOpeningProgramRenderTests {
         #expect(micTestController.currentProgramState?.id == "mic_test_handoff")
     }
 
+    @Test("Playback controller routes through CheckSave message loops with confirm-gated exits")
+    @MainActor
+    func playbackControllerRoutesThroughCheckSaveMessages() throws {
+        let root = try makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeAsset(at: root, relativePath: "assets/title_handoff/top.png")
+        try writeAsset(at: root, relativePath: "audio/title_handoff/theme.wav")
+        try writeBundle(makeBundle(), to: root)
+        try writeProgram(makeCheckSaveLoopProgram(), to: root)
+
+        let loadedBundle = try OpeningBundleLoader().load(from: root)
+        let loadedProgram = try OpeningProgramLoader().load(from: root)
+        let controller = HGSSOpeningPlaybackController(
+            loadedBundle: loadedBundle,
+            loadedProgram: loadedProgram
+        )
+
+        controller.setProgramFlag(name: "check_save_status_flags", value: 1 << 0)
+        controller.requestSkip()
+        #expect(controller.currentProgramState?.id == "title_fadeout")
+
+        controller.advanceFrame()
+        #expect(controller.currentProgramScene?.id == .checkSave)
+        #expect(controller.currentProgramState?.id == "check_save_prepare")
+
+        controller.advanceFrame()
+        #expect(controller.currentProgramState?.id == "check_save_message")
+        let messageBox = try #require(controller.activeMessageBox(screen: .top))
+        #expect(messageBox.text == "The save file is corrupted.\\nThe previous save file will be loaded.")
+
+        controller.requestSkip()
+        #expect(controller.currentProgramState?.id == "check_save_fade_out")
+
+        controller.advanceFrame()
+        #expect(controller.currentProgramScene?.id == .mainMenu)
+        #expect(controller.currentProgramState?.id == "main_menu_new_game")
+    }
+
     private func makeTemporaryRoot() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("hgss-opening-program-render-tests-\(UUID().uuidString)", isDirectory: true)
@@ -459,7 +498,7 @@ struct HGSSOpeningProgramRenderTests {
                             ],
                             transitions: [
                                 .init(
-                                    trigger: .flagEquals(name: "check_save_message_index", value: -1),
+                                    trigger: .flagEquals(name: "check_save_status_flags", value: 0),
                                     targetSceneID: .mainMenu,
                                     targetStateID: "main_menu_route",
                                     provenance: provenance
@@ -648,6 +687,215 @@ struct HGSSOpeningProgramRenderTests {
                     ],
                     provenance: provenance
                 )
+            ]
+        )
+    }
+
+    private func makeCheckSaveLoopProgram() -> HGSSOpeningProgramIR {
+        let provenance = HGSSOpeningProgramIR.Provenance(
+            sourceFile: "src/application/check_savedata.c",
+            symbol: "CheckSavedataApp_DoMainTask"
+        )
+        let messageProvenance = HGSSOpeningProgramIR.Provenance(
+            sourceFile: "files/msgdata/msg/msg_0229.gmm",
+            symbol: "msg_0229_00000"
+        )
+
+        return HGSSOpeningProgramIR(
+            schemaVersion: 1,
+            entrySceneID: .titleScreen,
+            sourceFiles: [
+                "src/title_screen.c",
+                "src/application/check_savedata.c",
+                "src/application/main_menu/main_menu.c",
+            ],
+            scenes: [
+                .init(
+                    id: .titleScreen,
+                    initialStateID: "title_wait_fade",
+                    states: [
+                        .init(
+                            id: "title_wait_fade",
+                            duration: .indefinite,
+                            commands: [],
+                            transitions: [
+                                .init(
+                                    trigger: .flagEquals(name: "title_anim_initialized", value: 1),
+                                    targetStateID: "title_fadeout",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                        .init(
+                            id: "title_fadeout",
+                            duration: .fixedFrames(1),
+                            commands: [],
+                            transitions: [
+                                .init(
+                                    trigger: .stateCompleted,
+                                    targetSceneID: .checkSave,
+                                    targetStateID: "check_save_route",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                    ],
+                    provenance: provenance
+                ),
+                .init(
+                    id: .checkSave,
+                    initialStateID: "check_save_route",
+                    states: [
+                        .init(
+                            id: "check_save_route",
+                            duration: .indefinite,
+                            commands: [
+                                .setSolidFill(
+                                    .init(screen: .top, colorHex: "#000000", provenance: provenance)
+                                ),
+                                .setSolidFill(
+                                    .init(screen: .bottom, colorHex: "#000000", provenance: provenance)
+                                ),
+                                .mutateFlag(
+                                    .init(
+                                        flagName: "program_confirm_requested",
+                                        operation: .assign,
+                                        value: 0,
+                                        provenance: provenance
+                                    )
+                                )
+                            ],
+                            transitions: [
+                                .init(
+                                    trigger: .flagEquals(name: "check_save_status_flags", value: 0),
+                                    targetSceneID: .mainMenu,
+                                    targetStateID: "main_menu_route",
+                                    provenance: provenance
+                                ),
+                                .init(
+                                    trigger: .flagBitSet(name: "check_save_status_flags", mask: 1 << 0),
+                                    targetStateID: "check_save_prepare",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                        .init(
+                            id: "check_save_prepare",
+                            duration: .fixedFrames(1),
+                            commands: [
+                                .mutateFlag(
+                                    .init(
+                                        flagName: "check_save_status_flags",
+                                        operation: .clearBits,
+                                        value: 1 << 0,
+                                        provenance: provenance
+                                    )
+                                )
+                            ],
+                            transitions: [
+                                .init(
+                                    trigger: .stateCompleted,
+                                    targetStateID: "check_save_message",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                        .init(
+                            id: "check_save_message",
+                            duration: .indefinite,
+                            commands: [
+                                .setSolidFill(
+                                    .init(screen: .top, colorHex: "#01011B", provenance: provenance)
+                                ),
+                                .setSolidFill(
+                                    .init(screen: .bottom, colorHex: "#01011B", provenance: provenance)
+                                ),
+                                .setMessageBox(
+                                    .init(
+                                        id: "check_save_message",
+                                        screen: .top,
+                                        rect: .init(x: 16, y: 152, width: 216, height: 32),
+                                        text: "The save file is corrupted.\\nThe previous save file will be loaded.",
+                                        provenance: messageProvenance
+                                    )
+                                )
+                            ],
+                            transitions: [
+                                .init(
+                                    trigger: .flagEquals(name: "program_confirm_requested", value: 1),
+                                    targetStateID: "check_save_fade_out",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: messageProvenance
+                        ),
+                        .init(
+                            id: "check_save_fade_out",
+                            duration: .fixedFrames(1),
+                            commands: [
+                                .mutateFlag(
+                                    .init(
+                                        flagName: "program_confirm_requested",
+                                        operation: .assign,
+                                        value: 0,
+                                        provenance: provenance
+                                    )
+                                )
+                            ],
+                            transitions: [
+                                .init(
+                                    trigger: .stateCompleted,
+                                    targetStateID: "check_save_route",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                    ],
+                    provenance: provenance
+                ),
+                .init(
+                    id: .mainMenu,
+                    initialStateID: "main_menu_route",
+                    states: [
+                        .init(
+                            id: "main_menu_route",
+                            duration: .indefinite,
+                            commands: [],
+                            transitions: [
+                                .init(
+                                    trigger: .flagEquals(name: "main_menu_has_save_data", value: 0),
+                                    targetStateID: "main_menu_new_game",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                        .init(
+                            id: "main_menu_new_game",
+                            duration: .indefinite,
+                            commands: [
+                                .setMenu(
+                                    .init(
+                                        screen: .bottom,
+                                        options: [
+                                            .init(id: "new_game", text: "NEW GAME")
+                                        ],
+                                        selectedOptionID: "new_game",
+                                        provenance: provenance
+                                    )
+                                )
+                            ],
+                            transitions: [],
+                            provenance: provenance
+                        ),
+                    ],
+                    provenance: provenance
+                ),
             ]
         )
     }

@@ -2,55 +2,56 @@
   "checkSaveRouting": {
     "initialStateID": "check_save_route",
     "messageTexts": {
-      "check_save_message_0": "The save file is corrupted.\\nThe previous save file will be loaded.",
-      "check_save_message_1": "The save file will be erased\\ndue to corruption or damage.",
-      "check_save_message_2": "The most recent Battle Video is\\ncorrupted.\\rThe previously saved Battle Video will\\nbe loaded instead.\\n",
-      "check_save_message_3": "A Battle Video appears to have been\\nerased.",
-      "check_save_message_4": "The most recent Battle Hall record\\nis corrupted.\\rThe previously saved record will be\\nloaded instead.\\n",
-      "check_save_message_5": "The Battle Hall record has been erased.\\n\\n"
+      "check_save_message_battle_hall_corrupted": "The most recent Battle Hall record\\nis corrupted.\\rThe previously saved record will be\\nloaded instead.\\n",
+      "check_save_message_battle_hall_erased": "The Battle Hall record has been erased.\\n\\n",
+      "check_save_message_battle_video_corrupted": "The most recent Battle Video is\\ncorrupted.\\rThe previously saved Battle Video will\\nbe loaded instead.\\n",
+      "check_save_message_battle_video_erased": "A Battle Video appears to have been\\nerased.",
+      "check_save_message_save_corrupted": "The save file is corrupted.\\nThe previous save file will be loaded.",
+      "check_save_message_save_erase": "The save file will be erased\\ndue to corruption or damage."
     },
     "transitions": [
       {
-        "flagName": "check_save_message_index",
-        "flagValue": -1,
-        "targetSceneID": "main_menu",
-        "targetStateID": "main_menu_route"
-      },
-      {
-        "flagName": "check_save_message_index",
+        "flagName": "check_save_status_flags",
         "flagValue": 0,
-        "targetSceneID": null,
-        "targetStateID": "check_save_message_0"
+        "targetSceneID": "main_menu",
+        "targetStateID": "main_menu_route",
+        "triggerKind": "flag_equals"
       },
       {
-        "flagName": "check_save_message_index",
-        "flagValue": 1,
-        "targetSceneID": null,
-        "targetStateID": "check_save_message_1"
+        "flagMask": 2,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_save_erase",
+        "triggerKind": "flag_bit_set"
       },
       {
-        "flagName": "check_save_message_index",
-        "flagValue": 2,
-        "targetSceneID": null,
-        "targetStateID": "check_save_message_2"
+        "flagMask": 1,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_save_corrupted",
+        "triggerKind": "flag_bit_set"
       },
       {
-        "flagName": "check_save_message_index",
-        "flagValue": 3,
-        "targetSceneID": null,
-        "targetStateID": "check_save_message_3"
+        "flagMask": 8,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_battle_hall_erased",
+        "triggerKind": "flag_bit_set"
       },
       {
-        "flagName": "check_save_message_index",
-        "flagValue": 4,
-        "targetSceneID": null,
-        "targetStateID": "check_save_message_4"
+        "flagMask": 4,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_battle_hall_corrupted",
+        "triggerKind": "flag_bit_set"
       },
       {
-        "flagName": "check_save_message_index",
-        "flagValue": 5,
-        "targetSceneID": null,
-        "targetStateID": "check_save_message_5"
+        "flagMask": 32,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_battle_video_erased",
+        "triggerKind": "flag_bit_set"
+      },
+      {
+        "flagMask": 16,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_battle_video_corrupted",
+        "triggerKind": "flag_bit_set"
       }
     ]
   },
@@ -223,14 +224,14 @@
       {
         "flagName": "main_menu_has_save_data",
         "flagValue": 1,
-        "targetSceneID": null,
-        "targetStateID": "main_menu_continue"
+        "targetStateID": "main_menu_continue",
+        "triggerKind": "flag_equals"
       },
       {
         "flagName": "main_menu_has_save_data",
         "flagValue": 0,
-        "targetSceneID": null,
-        "targetStateID": "main_menu_new_game"
+        "targetStateID": "main_menu_new_game",
+        "triggerKind": "flag_equals"
       }
     ]
   },
@@ -249,12 +250,30 @@
   "stateOrder": {
     "check_save": [
       "check_save_route",
-      "check_save_message_0",
-      "check_save_message_1",
-      "check_save_message_2",
-      "check_save_message_3",
-      "check_save_message_4",
-      "check_save_message_5"
+      "check_save_prepare_save_erase",
+      "check_save_fade_in_save_erase",
+      "check_save_message_save_erase",
+      "check_save_fade_out_save_erase",
+      "check_save_prepare_save_corrupted",
+      "check_save_fade_in_save_corrupted",
+      "check_save_message_save_corrupted",
+      "check_save_fade_out_save_corrupted",
+      "check_save_prepare_battle_hall_erased",
+      "check_save_fade_in_battle_hall_erased",
+      "check_save_message_battle_hall_erased",
+      "check_save_fade_out_battle_hall_erased",
+      "check_save_prepare_battle_hall_corrupted",
+      "check_save_fade_in_battle_hall_corrupted",
+      "check_save_message_battle_hall_corrupted",
+      "check_save_fade_out_battle_hall_corrupted",
+      "check_save_prepare_battle_video_erased",
+      "check_save_fade_in_battle_video_erased",
+      "check_save_message_battle_video_erased",
+      "check_save_fade_out_battle_video_erased",
+      "check_save_prepare_battle_video_corrupted",
+      "check_save_fade_in_battle_video_corrupted",
+      "check_save_message_battle_video_corrupted",
+      "check_save_fade_out_battle_video_corrupted"
     ],
     "main_menu": [
       "main_menu_route",

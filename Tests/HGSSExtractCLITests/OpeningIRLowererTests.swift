@@ -157,12 +157,27 @@ struct OpeningIRLowererTests {
         #expect(checkSaveScene.initialStateID == "check_save_route")
         let checkSaveRoute = try #require(checkSaveScene.states.first(where: { $0.id == "check_save_route" }))
         #expect(checkSaveRoute.transitions.contains(where: {
-            if case .flagEquals(name: "check_save_message_index", value: -1) = $0.trigger {
+            if case .flagEquals(name: "check_save_status_flags", value: 0) = $0.trigger {
                 return $0.targetSceneID == .mainMenu && $0.targetStateID == "main_menu_route"
             }
             return false
         }))
-        let messageState = try #require(checkSaveScene.states.first(where: { $0.id == "check_save_message_0" }))
+        #expect(checkSaveRoute.transitions.contains(where: {
+            if case .flagBitSet(name: "check_save_status_flags", mask: 1 << 1) = $0.trigger {
+                return $0.targetStateID == "check_save_prepare_save_erase"
+            }
+            return false
+        }))
+        let prepareState = try #require(checkSaveScene.states.first(where: { $0.id == "check_save_prepare_save_erase" }))
+        #expect(prepareState.commands.contains(where: { command in
+            if case let .mutateFlag(payload) = command {
+                return payload.flagName == "check_save_status_flags"
+                    && payload.operation == .clearBits
+                    && payload.value == ((1 << 1) | (1 << 0))
+            }
+            return false
+        }))
+        let messageState = try #require(checkSaveScene.states.first(where: { $0.id == "check_save_message_save_corrupted" }))
         let messageBox = try #require(messageState.commands.compactMap { command -> HGSSOpeningProgramIR.MessageBoxCommand? in
             if case let .setMessageBox(payload) = command {
                 return payload
@@ -170,6 +185,12 @@ struct OpeningIRLowererTests {
             return nil
         }.first)
         #expect(messageBox.text == "The save file is corrupted.\\nThe previous save file will be loaded.")
+        #expect(messageState.transitions.contains(where: {
+            if case .flagEquals(name: "program_confirm_requested", value: 1) = $0.trigger {
+                return $0.targetStateID == "check_save_fade_out_save_corrupted"
+            }
+            return false
+        }))
 
         let mainMenuScene = try #require(program.scenes.first(where: { $0.id == .mainMenu }))
         let routeState = try #require(mainMenuScene.states.first(where: { $0.id == "main_menu_route" }))

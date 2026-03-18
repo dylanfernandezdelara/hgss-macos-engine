@@ -531,61 +531,195 @@ struct PokeheartgoldOpeningIRLowerer {
             height: (windowValues.indices.contains(3) ? windowValues[3] : 4) * 8
         )
 
-        let messageRows = [
-            "msg_0229_00000",
-            "msg_0229_00001",
-            "msg_0229_00002",
-            "msg_0229_00003",
-            "msg_0229_00004",
-            "msg_0229_00005",
-        ]
-        let messageStates = try messageRows.enumerated().map { index, rowID -> HGSSOpeningProgramIR.State in
-            let text = try context.messageText(
-                relativePath: "files/msgdata/msg/msg_0229.gmm",
-                rowID: rowID
-            )
-            let messageProvenance = HGSSOpeningProgramIR.Provenance(
-                sourceFile: "files/msgdata/msg/msg_0229.gmm",
-                symbol: rowID
-            )
-            return .init(
-                id: "check_save_message_\(index)",
-                duration: .indefinite,
-                commands: [
-                    .setSolidFill(
-                        .init(screen: .top, colorHex: fadeInColor, provenance: routeProvenance)
-                    ),
-                    .setSolidFill(
-                        .init(screen: .bottom, colorHex: fadeInColor, provenance: routeProvenance)
-                    ),
-                    .setMessageBox(
-                        .init(
-                            id: "check_save_message",
-                            screen: .top,
-                            rect: windowRect,
-                            text: text,
-                            provenance: messageProvenance
-                        )
-                    )
-                ],
-                transitions: [],
-                provenance: messageProvenance
-            )
+        struct CheckSaveMessageRoute {
+            let idSuffix: String
+            let rowID: String
+            let triggerBit: Int
+            let clearMask: Int
         }
+
+        let messageRoutes: [CheckSaveMessageRoute] = [
+            .init(idSuffix: "save_erase", rowID: "msg_0229_00001", triggerBit: 1 << 1, clearMask: (1 << 1) | (1 << 0)),
+            .init(idSuffix: "save_corrupted", rowID: "msg_0229_00000", triggerBit: 1 << 0, clearMask: 1 << 0),
+            .init(idSuffix: "battle_hall_erased", rowID: "msg_0229_00005", triggerBit: 1 << 3, clearMask: (1 << 3) | (1 << 2)),
+            .init(idSuffix: "battle_hall_corrupted", rowID: "msg_0229_00004", triggerBit: 1 << 2, clearMask: 1 << 2),
+            .init(idSuffix: "battle_video_erased", rowID: "msg_0229_00003", triggerBit: 1 << 5, clearMask: (1 << 5) | (1 << 4)),
+            .init(idSuffix: "battle_video_corrupted", rowID: "msg_0229_00002", triggerBit: 1 << 4, clearMask: 1 << 4),
+        ]
 
         let routeTransitions = [
             HGSSOpeningProgramIR.Transition(
-                trigger: .flagEquals(name: "check_save_message_index", value: -1),
+                trigger: .flagEquals(name: "check_save_status_flags", value: 0),
                 targetSceneID: .mainMenu,
                 targetStateID: "main_menu_route",
                 provenance: routeProvenance
             ),
-        ] + messageStates.enumerated().map { index, state in
+        ] + messageRoutes.map { entry in
             HGSSOpeningProgramIR.Transition(
-                trigger: .flagEquals(name: "check_save_message_index", value: index),
-                targetStateID: state.id,
+                trigger: .flagBitSet(name: "check_save_status_flags", mask: entry.triggerBit),
+                targetStateID: "check_save_prepare_\(entry.idSuffix)",
                 provenance: routeProvenance
             )
+        }
+
+        let messageStates = try messageRoutes.flatMap { entry -> [HGSSOpeningProgramIR.State] in
+            let text = try context.messageText(
+                relativePath: "files/msgdata/msg/msg_0229.gmm",
+                rowID: entry.rowID
+            )
+            let messageProvenance = HGSSOpeningProgramIR.Provenance(
+                sourceFile: "files/msgdata/msg/msg_0229.gmm",
+                symbol: entry.rowID
+            )
+            let prepareStateID = "check_save_prepare_\(entry.idSuffix)"
+            let fadeInStateID = "check_save_fade_in_\(entry.idSuffix)"
+            let messageStateID = "check_save_message_\(entry.idSuffix)"
+            let fadeOutStateID = "check_save_fade_out_\(entry.idSuffix)"
+
+            return [
+                .init(
+                    id: prepareStateID,
+                    duration: .fixedFrames(1),
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: "#000000", provenance: routeProvenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: "#000000", provenance: routeProvenance)
+                        ),
+                        .mutateFlag(
+                            .init(
+                                flagName: "program_confirm_requested",
+                                operation: .assign,
+                                value: 0,
+                                provenance: routeProvenance
+                            )
+                        ),
+                        .mutateFlag(
+                            .init(
+                                flagName: "check_save_status_flags",
+                                operation: .clearBits,
+                                value: entry.clearMask,
+                                provenance: routeProvenance
+                            )
+                        ),
+                    ],
+                    transitions: [
+                        .init(
+                            trigger: .stateCompleted,
+                            targetStateID: fadeInStateID,
+                            provenance: routeProvenance
+                        )
+                    ],
+                    provenance: routeProvenance
+                ),
+                .init(
+                    id: fadeInStateID,
+                    duration: .fixedFrames(fadeDuration),
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: fadeInColor, provenance: routeProvenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: fadeInColor, provenance: routeProvenance)
+                        ),
+                        .fade(
+                            .init(
+                                target: .palette,
+                                startLevel: 31,
+                                endLevel: 0,
+                                durationFrames: fadeDuration,
+                                colorHex: "#000000",
+                                provenance: routeProvenance
+                            )
+                        ),
+                    ],
+                    transitions: [
+                        .init(
+                            trigger: .stateCompleted,
+                            targetStateID: messageStateID,
+                            provenance: routeProvenance
+                        )
+                    ],
+                    provenance: routeProvenance
+                ),
+                .init(
+                    id: messageStateID,
+                    duration: .indefinite,
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: fadeInColor, provenance: routeProvenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: fadeInColor, provenance: routeProvenance)
+                        ),
+                        .setMessageBox(
+                            .init(
+                                id: "check_save_message",
+                                screen: .top,
+                                rect: windowRect,
+                                text: text,
+                                provenance: messageProvenance
+                            )
+                        )
+                    ],
+                    transitions: [
+                        .init(
+                            trigger: .flagEquals(name: "program_confirm_requested", value: 1),
+                            targetStateID: fadeOutStateID,
+                            provenance: messageProvenance
+                        )
+                    ],
+                    provenance: messageProvenance
+                ),
+                .init(
+                    id: fadeOutStateID,
+                    duration: .fixedFrames(fadeDuration),
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: fadeInColor, provenance: routeProvenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: fadeInColor, provenance: routeProvenance)
+                        ),
+                        .setMessageBox(
+                            .init(
+                                id: "check_save_message",
+                                screen: .top,
+                                rect: windowRect,
+                                text: text,
+                                provenance: messageProvenance
+                            )
+                        ),
+                        .mutateFlag(
+                            .init(
+                                flagName: "program_confirm_requested",
+                                operation: .assign,
+                                value: 0,
+                                provenance: routeProvenance
+                            )
+                        ),
+                        .fade(
+                            .init(
+                                target: .palette,
+                                startLevel: 0,
+                                endLevel: 31,
+                                durationFrames: fadeDuration,
+                                colorHex: "#000000",
+                                provenance: routeProvenance
+                            )
+                        ),
+                    ],
+                    transitions: [
+                        .init(
+                            trigger: .stateCompleted,
+                            targetStateID: "check_save_route",
+                            provenance: routeProvenance
+                        )
+                    ],
+                    provenance: routeProvenance
+                ),
+            ]
         }
 
         return HGSSOpeningProgramIR.Scene(
@@ -601,6 +735,14 @@ struct PokeheartgoldOpeningIRLowerer {
                         ),
                         .setSolidFill(
                             .init(screen: .bottom, colorHex: "#000000", provenance: routeProvenance)
+                        ),
+                        .mutateFlag(
+                            .init(
+                                flagName: "program_confirm_requested",
+                                operation: .assign,
+                                value: 0,
+                                provenance: routeProvenance
+                            )
                         ),
                         .fade(
                             .init(
