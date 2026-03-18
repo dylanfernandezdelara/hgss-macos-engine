@@ -17,6 +17,24 @@ final class HGSSOpeningScreenCompositor {
         size: HGSSOpeningBundle.NativeScreen,
         controller: HGSSOpeningPlaybackController
     ) -> NSImage {
+        guard let cgImage = renderCGImage(
+            screen: screen,
+            size: size,
+            controller: controller
+        ) else {
+            return NSImage(size: NSSize(width: max(size.width, 1), height: max(size.height, 1)))
+        }
+        let imageSize = NSSize(width: max(size.width, 1), height: max(size.height, 1))
+        let image = NSImage(size: imageSize)
+        image.addRepresentation(NSBitmapImageRep(cgImage: cgImage))
+        return image
+    }
+
+    func renderCGImage(
+        screen: HGSSOpeningBundle.ScreenID,
+        size: HGSSOpeningBundle.NativeScreen,
+        controller: HGSSOpeningPlaybackController
+    ) -> CGImage? {
         let imageSize = NSSize(width: max(size.width, 1), height: max(size.height, 1))
         guard let bitmap = NSBitmapImageRep(
             bitmapDataPlanes: nil,
@@ -30,14 +48,14 @@ final class HGSSOpeningScreenCompositor {
             bytesPerRow: Int(imageSize.width) * 4,
             bitsPerPixel: 32
         ) else {
-            return NSImage(size: imageSize)
+            return nil
         }
 
         bitmap.size = imageSize
         NSGraphicsContext.saveGraphicsState()
         guard let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
             NSGraphicsContext.restoreGraphicsState()
-            return NSImage(size: imageSize)
+            return nil
         }
         NSGraphicsContext.current = context
 
@@ -74,10 +92,7 @@ final class HGSSOpeningScreenCompositor {
         )
 
         NSGraphicsContext.restoreGraphicsState()
-
-        let image = NSImage(size: imageSize)
-        image.addRepresentation(bitmap)
-        return image
+        return bitmap.cgImage
     }
 
     private func drawBundleScene(
