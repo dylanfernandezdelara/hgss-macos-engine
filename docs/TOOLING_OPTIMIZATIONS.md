@@ -15,6 +15,7 @@ Shorten the native opening/menu parity development loop by removing avoidable re
 - [x] `T6` Add a dedicated parity-fixture recorder so IR digests and opening parity snapshots can be refreshed intentionally in one command.
 - [x] `T7` Split fast parity checks from the full proof path with a dedicated full-proof script.
 - [x] `T8` Add extractor progress and timing output so long offline passes are observable instead of appearing hung.
+- [x] `T9` Add a native screenshot helper for `HGSSMac` so visual regressions can be inspected without manual screen grabs.
 
 ## Commands
 
@@ -22,3 +23,4 @@ Shorten the native opening/menu parity development loop by removing avoidable re
 - Full parity check with refresh: `./scripts/run_opening_menu_parity_harness.sh --refresh-content`
 - Record parity fixtures: `./scripts/record_opening_menu_parity_fixtures.sh --refresh-content`
 - Full proof path: `./scripts/run_opening_menu_full_proof.sh`
+- Capture a native app screenshot: `./scripts/capture_hgssmac_screenshot.sh --skip-extract`
