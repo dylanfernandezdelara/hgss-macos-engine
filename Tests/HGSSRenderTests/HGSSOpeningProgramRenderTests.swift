@@ -281,6 +281,48 @@ struct HGSSOpeningProgramRenderTests {
         #expect(menu.options.contains(where: { $0.id == "migrate_ruby" }))
     }
 
+    @Test("Playback controller reproduces the same interactive menu frame after reset")
+    @MainActor
+    func playbackControllerReachesStableMenuFrameAfterReset() throws {
+        let root = try makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeAsset(at: root, relativePath: "assets/title_handoff/top.png")
+        try writeAsset(at: root, relativePath: "audio/title_handoff/theme.wav")
+        try writeBundle(makeBundle(), to: root)
+        try writeProgram(makeProgram(), to: root)
+
+        let loadedBundle = try OpeningBundleLoader().load(from: root)
+        let loadedProgram = try OpeningProgramLoader().load(from: root)
+        let controller = HGSSOpeningPlaybackController(
+            loadedBundle: loadedBundle,
+            loadedProgram: loadedProgram,
+            bootstrapState: .init(
+                checkSaveStatusFlags: 0,
+                mainMenuHasSaveData: true,
+                mainMenuHasPokedex: true,
+                drawMysteryGift: true,
+                drawRanger: false,
+                drawConnectToWii: false,
+                connectedAgbGame: 1
+            )
+        )
+
+        var snapshots: [String] = []
+        for _ in 0..<3 {
+            driveControllerToMainMenu(controller)
+            let menu = try #require(controller.activeMenu(screen: .bottom))
+            snapshots.append([
+                controller.currentProgramState?.id ?? "<none>",
+                controller.currentMenuSelectionID ?? "<none>",
+                menu.options.map(\.id).joined(separator: ","),
+            ].joined(separator: "|"))
+            controller.reset()
+        }
+
+        #expect(snapshots == Array(repeating: snapshots[0], count: 3))
+    }
+
     private func makeTemporaryRoot() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("hgss-opening-program-render-tests-\(UUID().uuidString)", isDirectory: true)
@@ -292,6 +334,19 @@ struct HGSSOpeningProgramRenderTests {
         let url = root.appendingPathComponent(relativePath, isDirectory: false)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data([0x89, 0x50, 0x4E, 0x47]).write(to: url)
+    }
+
+    @MainActor
+    private func driveControllerToMainMenu(_ controller: HGSSOpeningPlaybackController) {
+        controller.requestSkip()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.requestSkip()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
     }
 
     private func writeBundle(_ bundle: HGSSOpeningBundle, to root: URL) throws {
