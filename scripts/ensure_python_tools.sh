@@ -38,9 +38,36 @@ do
 done
 
 if ! compgen -G "$WHEELHOUSE_DIR/pillow-10.4.0-*.whl" > /dev/null; then
-  echo "Missing offline Python package artifact matching: $WHEELHOUSE_DIR/pillow-10.4.0-*.whl" >&2
-  exit 1
+  if [[ ! -f "$WHEELHOUSE_DIR/pillow-10.4.0.tar.gz" ]]; then
+    echo "Missing offline Python package artifact matching: $WHEELHOUSE_DIR/pillow-10.4.0-*.whl or $WHEELHOUSE_DIR/pillow-10.4.0.tar.gz" >&2
+    exit 1
+  fi
 fi
+
+for required_file in \
+  "$WHEELHOUSE_DIR/packaging-25.0-py3-none-any.whl" \
+  "$WHEELHOUSE_DIR/setuptools-82.0.1-py3-none-any.whl" \
+  "$WHEELHOUSE_DIR/wheel-0.46.3-py3-none-any.whl"
+do
+  if [[ ! -f "$required_file" ]]; then
+    echo "Missing offline Python build tool artifact: $required_file" >&2
+    exit 1
+  fi
+done
+
+install_python_packages() {
+  "$VENV_DIR/bin/pip" install --quiet --no-index --find-links "$WHEELHOUSE_DIR" ndspy==4.2.0
+  "$VENV_DIR/bin/pip" install --quiet --no-index --find-links "$WHEELHOUSE_DIR" Pillow==10.4.0 && return 0
+
+  if [[ ! -f "$WHEELHOUSE_DIR/pillow-10.4.0.tar.gz" ]]; then
+    echo "No compatible offline Pillow wheel found and Pillow source fallback is missing." >&2
+    return 1
+  fi
+
+  "$VENV_DIR/bin/pip" install --quiet --no-index --find-links "$WHEELHOUSE_DIR" packaging==25.0 setuptools==82.0.1 wheel==0.46.3
+  "$VENV_DIR/bin/pip" install --quiet --no-index --no-build-isolation "$WHEELHOUSE_DIR/pillow-10.4.0.tar.gz"
+  return 0
+}
 
 if ! "$VENV_DIR/bin/python" - <<'PY'
 from importlib import metadata
@@ -61,9 +88,9 @@ for package_name, version in expected.items():
         sys.exit(1)
 PY
 then
-  "$VENV_DIR/bin/pip" install --quiet --no-index --find-links "$WHEELHOUSE_DIR" ndspy==4.2.0 Pillow==10.4.0
-  # nitrogfx-py still pins Pillow 7.x upstream; this repo uses a pinned newer Pillow wheel that
-  # is known to work with the helper's limited API surface on Apple Silicon.
+  install_python_packages
+  # nitrogfx-py still pins Pillow 7.x upstream; this repo uses a pinned newer Pillow build that
+  # is known to work with the helper's limited API surface.
   "$VENV_DIR/bin/pip" install --quiet --no-index --find-links "$WHEELHOUSE_DIR" --no-deps nitrogfx-py==0.2.0
 fi
 
