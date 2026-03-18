@@ -54,7 +54,7 @@ The target is parity with the official source-backed behavior, not a handcrafted
 ### Phase 4: Exact Subsystem Parity
 
 - [ ] Add a native 2D compositor for DS BG, OBJ, window, blend, and text rules used by title, `CheckSave`, and `MainMenu`.
-- [ ] Replace SwiftUI prompt/message/menu text drawing with DS-style glyph rendering sourced from the extracted font path.
+- [x] Replace SwiftUI prompt/message/menu text drawing with DS-style glyph rendering sourced from the extracted font path.
 - [ ] Add a native audio core for the opening/title cue subset so BGM fades, stop timing, and cry timing are source-accurate.
 - [ ] Replace parity-critical SceneKit usage with a native 3D subset or deterministic frame baker for the opening/title assets.
 - [ ] Finish the scene 4 particle path so the full opening remains exact while the menu work lands.
@@ -151,10 +151,10 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [ ] `P4.1a` Add a render model for DS BG planes, OBJ layers, and window masks independent of SwiftUI stacks.
 - [ ] `P4.1b` Execute scroll/window/fade commands through that compositor for title, `CheckSave`, and `MainMenu`.
 - [ ] `P4.1c` Add visual regression tests for compositor ordering, clipping, and blend behavior.
-- [ ] `P4.2` Replace SwiftUI text rendering in prompt/message/menu surfaces with extracted DS glyph rendering and layout rules.
-- [ ] `P4.2a` Extract the font and message glyph path used by title, `CheckSave`, and `MainMenu`.
-- [ ] `P4.2b` Implement DS-style text layout and glyph raster composition in a reusable native text renderer.
-- [ ] `P4.2c` Replace all prompt/message/menu text surfaces with the DS glyph renderer.
+- [x] `P4.2` Replace SwiftUI text rendering in prompt/message/menu surfaces with extracted DS glyph rendering and layout rules.
+- [x] `P4.2a` Extract the font and message glyph path used by title, `CheckSave`, and `MainMenu`.
+- [x] `P4.2b` Implement DS-style text layout and glyph raster composition in a reusable native text renderer.
+- [x] `P4.2c` Replace all prompt/message/menu text surfaces with the DS glyph renderer.
 - [ ] `P4.3` Implement the opening/title audio subset natively so BGM start/stop/fade timing matches source-backed traces.
 - [ ] `P4.3a` Define the exact opening/title cue subset and timing contract from extracted traces.
 - [ ] `P4.3b` Implement native BGM start/stop/fade timing for that subset.

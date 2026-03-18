@@ -1241,6 +1241,11 @@ struct OpeningHeartGoldExtractor {
             bundle = initialBundle
         }
 
+        try copyOpeningTextAssets(
+            pretRoot: pretRoot,
+            outputRoot: outputRoot
+        )
+
         try writeJSON(
             bundle,
             to: outputRoot.appendingPathComponent("opening_bundle.json", isDirectory: false)
@@ -1261,6 +1266,9 @@ struct OpeningHeartGoldExtractor {
                 "External/pokeheartgold/files/demo/opening/gs_opening",
                 "External/pokeheartgold/files/demo/title/titledemo",
                 "External/pokeheartgold/files/a/0/5/9",
+                "External/pokeheartgold/files/graphic/font/font_00000000.bin",
+                "External/pokeheartgold/files/graphic/font/font_00000007.bin",
+                "External/pokeheartgold/charmap.txt",
             ],
             assetSources: provenanceSources,
             audioArchive: "External/pokeheartgold/files/data/sound/gs_sound_data.sdat"
@@ -3352,4 +3360,34 @@ private func rgb15Hex(red: Int, green: Int, blue: Int) -> String {
         convert(green),
         convert(blue)
     )
+}
+
+private func copyOpeningTextAssets(
+    pretRoot: URL,
+    outputRoot: URL
+) throws {
+    let fontOutputDirectory = outputRoot.appendingPathComponent(HGSSOpeningTextAssetPaths.directory, isDirectory: true)
+    try FileManager.default.createDirectory(at: fontOutputDirectory, withIntermediateDirectories: true)
+
+    let copies: [(source: URL, destination: URL)] = [
+        (
+            pretRoot.appendingPathComponent("files/graphic/font/font_00000000.bin", isDirectory: false),
+            outputRoot.appendingPathComponent(HGSSOpeningTextAssetPaths.fontData, isDirectory: false)
+        ),
+        (
+            pretRoot.appendingPathComponent("files/graphic/font/font_00000007.bin", isDirectory: false),
+            outputRoot.appendingPathComponent(HGSSOpeningTextAssetPaths.fontPalette, isDirectory: false)
+        ),
+        (
+            pretRoot.appendingPathComponent("charmap.txt", isDirectory: false),
+            outputRoot.appendingPathComponent(HGSSOpeningTextAssetPaths.charmap, isDirectory: false)
+        ),
+    ]
+
+    for copy in copies {
+        if FileManager.default.fileExists(atPath: copy.destination.path()) {
+            try FileManager.default.removeItem(at: copy.destination)
+        }
+        try FileManager.default.copyItem(at: copy.source, to: copy.destination)
+    }
 }

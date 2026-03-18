@@ -181,11 +181,16 @@ public struct HGSSOpeningPlayerView: View {
     ) -> some View {
         let rect = prompt.rect ?? .init(x: 0, y: 144, width: 256, height: 16)
         let promptText = prompt.text ?? "TOUCH TO START"
-        return Text(promptText)
-            .font(.system(size: 10, weight: .bold, design: .monospaced))
-            .tracking(0.8)
-            .foregroundStyle(Color(red: 0.86, green: 0.55, blue: 0.09))
-            .shadow(color: .black.opacity(0.85), radius: 0, x: 1, y: 1)
+        return glyphTextView(
+            promptText,
+            style: .titlePrompt,
+            fallback: {
+                Text(promptText)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(0.8)
+                    .foregroundStyle(Color(red: 0.86, green: 0.55, blue: 0.09))
+            }
+        )
             .frame(width: CGFloat(rect.width), height: CGFloat(rect.height))
             .position(
                 x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
@@ -256,14 +261,22 @@ public struct HGSSOpeningPlayerView: View {
             )
             .frame(width: CGFloat(messageBox.rect.width), height: CGFloat(messageBox.rect.height))
             .overlay(
-                Text(messageBox.text.replacingOccurrences(of: "\\n", with: "\n"))
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white)
+                glyphTextView(
+                    messageBox.text.replacingOccurrences(of: "\\n", with: "\n"),
+                    style: .body,
+                    fallback: {
+                        Text(messageBox.text.replacingOccurrences(of: "\\n", with: "\n"))
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.white)
+                    }
+                )
                     .frame(
                         width: CGFloat(messageBox.rect.width - 12),
                         height: CGFloat(messageBox.rect.height - 8),
-                        alignment: .leading
+                        alignment: .topLeading
                     )
+                    .padding(.leading, 6)
+                    .padding(.top, 4)
             )
             .position(
                 x: CGFloat(messageBox.rect.x) + (CGFloat(messageBox.rect.width) / 2.0),
@@ -281,9 +294,16 @@ public struct HGSSOpeningPlayerView: View {
                     Circle()
                         .fill(option.id == selectedOptionID ? Color(red: 0.96, green: 0.79, blue: 0.12) : Color.clear)
                         .frame(width: 8, height: 8)
-                    Text(option.text.replacingOccurrences(of: "\\n", with: "\n"))
-                        .font(.system(size: 16, weight: .heavy, design: .rounded))
-                        .foregroundStyle(option.id == selectedOptionID ? Color.white : Color.white.opacity(0.7))
+                    glyphTextView(
+                        option.text.replacingOccurrences(of: "\\n", with: "\n"),
+                        style: .body,
+                        fallback: {
+                            Text(option.text.replacingOccurrences(of: "\\n", with: "\n"))
+                                .font(.system(size: 16, weight: .heavy, design: .rounded))
+                                .foregroundStyle(option.id == selectedOptionID ? Color.white : Color.white.opacity(0.7))
+                        }
+                    )
+                    .opacity(option.id == selectedOptionID ? 1.0 : 0.78)
                 }
             }
         }
@@ -310,6 +330,26 @@ public struct HGSSOpeningPlayerView: View {
             return .top
         case .bottom:
             return .bottom
+        }
+    }
+
+    @ViewBuilder
+    private func glyphTextView<Fallback: View>(
+        _ text: String,
+        style: HGSSDSGlyphTextStyle,
+        @ViewBuilder fallback: () -> Fallback
+    ) -> some View {
+        if let image = try? HGSSDSGlyphRenderer.shared.renderImage(
+            text: text,
+            from: loadedBundle.rootURL,
+            style: style
+        ) {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.none)
+                .frame(width: image.size.width, height: image.size.height, alignment: .topLeading)
+        } else {
+            fallback()
         }
     }
 
