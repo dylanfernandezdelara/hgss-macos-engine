@@ -8,6 +8,7 @@ let package = Package(
     ],
     products: [
         .library(name: "HGSSDataModel", targets: ["HGSSDataModel"]),
+        .library(name: "HGSSOpeningIR", targets: ["HGSSOpeningIR"]),
         .library(name: "HGSSContent", targets: ["HGSSContent"]),
         .library(name: "HGSSTelemetry", targets: ["HGSSTelemetry"]),
         .library(name: "HGSSCore", targets: ["HGSSCore"]),
@@ -21,6 +22,10 @@ let package = Package(
         .target(
             name: "HGSSDataModel",
             path: "Sources/HGSSDataModel"
+        ),
+        .target(
+            name: "HGSSOpeningIR",
+            path: "Sources/HGSSOpeningIR"
         ),
         .target(
             name: "HGSSContent",
@@ -46,6 +51,14 @@ let package = Package(
             name: "HGSSExtractCLI",
             dependencies: ["HGSSContent", "HGSSDataModel"],
             path: "Sources/HGSSExtractCLI"
+        ),
+        .testTarget(
+            name: "HGSSOpeningIRTests",
+            dependencies: [
+                "HGSSOpeningIR",
+                .product(name: "Testing", package: "swift-testing")
+            ],
+            path: "Tests/HGSSOpeningIRTests"
         ),
         .testTarget(
             name: "HGSSContentTests",
