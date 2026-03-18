@@ -29,14 +29,18 @@ fi
 
 for required_file in \
   "$WHEELHOUSE_DIR/ndspy-4.2.0-py3-none-any.whl" \
-  "$WHEELHOUSE_DIR/nitrogfx_py-0.2.0-py3-none-any.whl" \
-  "$WHEELHOUSE_DIR/pillow-10.4.0-cp39-cp39-macosx_11_0_arm64.whl"
+  "$WHEELHOUSE_DIR/nitrogfx_py-0.2.0-py3-none-any.whl"
 do
   if [[ ! -f "$required_file" ]]; then
     echo "Missing offline Python package artifact: $required_file" >&2
     exit 1
   fi
 done
+
+if ! compgen -G "$WHEELHOUSE_DIR/pillow-10.4.0-*.whl" > /dev/null; then
+  echo "Missing offline Python package artifact matching: $WHEELHOUSE_DIR/pillow-10.4.0-*.whl" >&2
+  exit 1
+fi
 
 if ! "$VENV_DIR/bin/python" - <<'PY'
 from importlib import metadata
