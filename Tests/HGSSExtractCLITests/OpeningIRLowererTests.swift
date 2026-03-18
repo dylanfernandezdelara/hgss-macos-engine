@@ -248,9 +248,38 @@ struct OpeningIRLowererTests {
 
         let playDelay = try #require(titleScene.states.first(where: { $0.id == "title_play_delay" }))
         #expect(playDelay.duration == .fixedFrames(30))
+        #expect(playDelay.commands.contains(where: { command in
+            if case let .setPlaneVisibility(payload) = command {
+                return payload.screen == .top && payload.planeID == "main_bg3" && payload.visible == false
+            }
+            return false
+        }))
+        #expect(playDelay.commands.contains(where: { command in
+            if case let .setGlow(payload) = command {
+                return payload.screen == .top
+                    && payload.colorHex == "#636363"
+                    && payload.peakLevel == 60
+                    && payload.fadeInFrames == 60
+                    && payload.fadeOutFrames == 60
+                    && payload.pauseFrames == 21
+            }
+            return false
+        }))
 
         let playState = try #require(titleScene.states.first(where: { $0.id == "title_play" }))
         #expect(playState.duration == .fixedFrames(2341))
+        #expect(playState.commands.contains(where: { command in
+            if case let .setPlaneVisibility(payload) = command {
+                return payload.screen == .top && payload.planeID == "main_bg3" && payload.visible
+            }
+            return false
+        }))
+        #expect(playState.commands.contains(where: { command in
+            if case let .setGlow(payload) = command {
+                return payload.screen == .top && payload.colorHex == "#636363"
+            }
+            return false
+        }))
         let promptFlash = try #require(playState.commands.compactMap { command -> HGSSOpeningProgramIR.PromptFlashCommand? in
             if case let .setPromptFlash(payload) = command {
                 return payload
@@ -278,6 +307,18 @@ struct OpeningIRLowererTests {
         #expect(proceedFlash.commands.contains(where: { command in
             if case let .fade(payload) = command {
                 return payload.colorHex == "#FFFFFF" && payload.durationFrames == 5
+            }
+            return false
+        }))
+        #expect(proceedFlash.commands.contains(where: { command in
+            if case let .setPlaneVisibility(payload) = command {
+                return payload.screen == .top && payload.planeID == "main_bg3" && payload.visible == false
+            }
+            return false
+        }))
+        #expect(proceedFlash.commands.contains(where: { command in
+            if case .setGlow = command {
+                return true
             }
             return false
         }))
@@ -404,14 +445,14 @@ struct OpeningIRLowererTests {
         ])
         #expect(migrateRuby.destinationID == "gApp_MainMenu_SelectOption_MigrateFromAgb")
         let newGameState = try #require(mainMenuScene.states.first(where: { $0.id == "main_menu_new_game" }))
-        let menu = try #require(newGameState.commands.compactMap { command -> HGSSOpeningProgramIR.MenuCommand? in
-            if case let .setMenu(payload) = command {
+        let dispatch = try #require(newGameState.commands.compactMap { command -> HGSSOpeningProgramIR.DispatchMenuCommand? in
+            if case let .dispatchMenu(payload) = command {
                 return payload
             }
             return nil
         }.first)
-        #expect(menu.options.map(\.text) == ["NEW GAME"])
-        #expect(menu.selectedOptionID == "new_game")
+        #expect(dispatch.selectionID == "new_game")
+        #expect(dispatch.destinationID == "ov36_App_MainMenu_SelectOption_NewGame")
     }
 
     private func makeTemporaryRoot() throws -> URL {

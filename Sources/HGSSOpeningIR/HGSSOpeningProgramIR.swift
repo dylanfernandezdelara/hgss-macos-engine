@@ -70,6 +70,30 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         }
     }
 
+    public struct ScreenPoint: Codable, Equatable, Sendable {
+        public let x: Int
+        public let y: Int
+
+        public init(x: Int, y: Int) {
+            self.x = x
+            self.y = y
+        }
+    }
+
+    public struct Insets: Codable, Equatable, Sendable {
+        public let top: Int
+        public let left: Int
+        public let bottom: Int
+        public let right: Int
+
+        public init(top: Int, left: Int, bottom: Int, right: Int) {
+            self.top = top
+            self.left = left
+            self.bottom = bottom
+            self.right = right
+        }
+    }
+
     public struct Scene: Codable, Equatable, Sendable {
         public let id: SceneID
         public let initialStateID: String
@@ -410,6 +434,53 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         }
     }
 
+    public struct PlaneVisibilityCommand: Codable, Equatable, Sendable {
+        public let screen: ScreenID
+        public let planeID: String
+        public let visible: Bool
+        public let provenance: Provenance
+
+        public init(
+            screen: ScreenID,
+            planeID: String,
+            visible: Bool,
+            provenance: Provenance
+        ) {
+            self.screen = screen
+            self.planeID = planeID
+            self.visible = visible
+            self.provenance = provenance
+        }
+    }
+
+    public struct GlowCommand: Codable, Equatable, Sendable {
+        public let screen: ScreenID
+        public let colorHex: String
+        public let peakLevel: Int
+        public let fadeInFrames: Int
+        public let fadeOutFrames: Int
+        public let pauseFrames: Int
+        public let provenance: Provenance
+
+        public init(
+            screen: ScreenID,
+            colorHex: String,
+            peakLevel: Int,
+            fadeInFrames: Int,
+            fadeOutFrames: Int,
+            pauseFrames: Int,
+            provenance: Provenance
+        ) {
+            self.screen = screen
+            self.colorHex = colorHex
+            self.peakLevel = peakLevel
+            self.fadeInFrames = fadeInFrames
+            self.fadeOutFrames = fadeOutFrames
+            self.pauseFrames = pauseFrames
+            self.provenance = provenance
+        }
+    }
+
     public struct AudioCommand: Codable, Equatable, Sendable {
         public enum Action: String, Codable, Equatable, Sendable {
             case startBGM = "start_bgm"
@@ -498,6 +569,8 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         public let screen: ScreenID
         public let rect: ScreenRect
         public let text: String
+        public let frameAssetID: String?
+        public let textInsets: Insets?
         public let provenance: Provenance
 
         public init(
@@ -505,12 +578,16 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             screen: ScreenID,
             rect: ScreenRect,
             text: String,
+            frameAssetID: String? = nil,
+            textInsets: Insets? = nil,
             provenance: Provenance
         ) {
             self.id = id
             self.screen = screen
             self.rect = rect
             self.text = text
+            self.frameAssetID = frameAssetID
+            self.textInsets = textInsets
             self.provenance = provenance
         }
     }
@@ -531,19 +608,65 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         public let enabled: Bool
         public let requiredFlags: [FlagRequirement]
         public let destinationID: String?
+        public let heightPixels: Int?
+        public let wirelessIconType: Int?
 
         public init(
             id: String,
             text: String,
             enabled: Bool = true,
             requiredFlags: [FlagRequirement] = [],
-            destinationID: String? = nil
+            destinationID: String? = nil,
+            heightPixels: Int? = nil,
+            wirelessIconType: Int? = nil
         ) {
             self.id = id
             self.text = text
             self.enabled = enabled
             self.requiredFlags = requiredFlags
             self.destinationID = destinationID
+            self.heightPixels = heightPixels
+            self.wirelessIconType = wirelessIconType
+        }
+    }
+
+    public struct MenuChrome: Codable, Equatable, Sendable {
+        public let optionOrigin: ScreenPoint
+        public let optionWidth: Int
+        public let optionSpacingPixels: Int
+        public let normalFrameAssetID: String?
+        public let selectedFrameAssetID: String?
+        public let touchFrameAssetID: String?
+        public let wifiIconSheetAssetID: String?
+        public let upArrowFrameAssetIDs: [String]
+        public let downArrowFrameAssetIDs: [String]
+        public let upArrowRect: ScreenRect?
+        public let downArrowRect: ScreenRect?
+
+        public init(
+            optionOrigin: ScreenPoint,
+            optionWidth: Int,
+            optionSpacingPixels: Int,
+            normalFrameAssetID: String? = nil,
+            selectedFrameAssetID: String? = nil,
+            touchFrameAssetID: String? = nil,
+            wifiIconSheetAssetID: String? = nil,
+            upArrowFrameAssetIDs: [String] = [],
+            downArrowFrameAssetIDs: [String] = [],
+            upArrowRect: ScreenRect? = nil,
+            downArrowRect: ScreenRect? = nil
+        ) {
+            self.optionOrigin = optionOrigin
+            self.optionWidth = optionWidth
+            self.optionSpacingPixels = optionSpacingPixels
+            self.normalFrameAssetID = normalFrameAssetID
+            self.selectedFrameAssetID = selectedFrameAssetID
+            self.touchFrameAssetID = touchFrameAssetID
+            self.wifiIconSheetAssetID = wifiIconSheetAssetID
+            self.upArrowFrameAssetIDs = upArrowFrameAssetIDs
+            self.downArrowFrameAssetIDs = downArrowFrameAssetIDs
+            self.upArrowRect = upArrowRect
+            self.downArrowRect = downArrowRect
         }
     }
 
@@ -551,17 +674,36 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         public let screen: ScreenID
         public let options: [MenuOption]
         public let selectedOptionID: String
+        public let chrome: MenuChrome?
         public let provenance: Provenance
 
         public init(
             screen: ScreenID,
             options: [MenuOption],
             selectedOptionID: String,
+            chrome: MenuChrome? = nil,
             provenance: Provenance
         ) {
             self.screen = screen
             self.options = options
             self.selectedOptionID = selectedOptionID
+            self.chrome = chrome
+            self.provenance = provenance
+        }
+    }
+
+    public struct DispatchMenuCommand: Codable, Equatable, Sendable {
+        public let selectionID: String
+        public let destinationID: String?
+        public let provenance: Provenance
+
+        public init(
+            selectionID: String,
+            destinationID: String?,
+            provenance: Provenance
+        ) {
+            self.selectionID = selectionID
+            self.destinationID = destinationID
             self.provenance = provenance
         }
     }
@@ -574,12 +716,15 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         case circleWipe(CircleWipeCommand)
         case fade(FadeCommand)
         case setBrightness(BrightnessCommand)
+        case setPlaneVisibility(PlaneVisibilityCommand)
+        case setGlow(GlowCommand)
         case dispatchAudio(AudioCommand)
         case setScreenSwap(ScreenSwapCommand)
         case setSolidFill(SolidFillCommand)
         case setPromptFlash(PromptFlashCommand)
         case setMessageBox(MessageBoxCommand)
         case setMenu(MenuCommand)
+        case dispatchMenu(DispatchMenuCommand)
         case mutateFlag(FlagMutationCommand)
 
         private enum CodingKeys: String, CodingKey {
@@ -591,12 +736,15 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case circleWipe
             case fade
             case brightness
+            case planeVisibility
+            case glow
             case audio
             case screenSwap
             case solidFill
             case promptFlash
             case messageBox
             case menu
+            case dispatchMenu
             case flagMutation
         }
 
@@ -608,12 +756,15 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case circleWipe = "circle_wipe"
             case fade
             case setBrightness = "set_brightness"
+            case setPlaneVisibility = "set_plane_visibility"
+            case setGlow = "set_glow"
             case dispatchAudio = "dispatch_audio"
             case setScreenSwap = "set_screen_swap"
             case setSolidFill = "set_solid_fill"
             case setPromptFlash = "set_prompt_flash"
             case setMessageBox = "set_message_box"
             case setMenu = "set_menu"
+            case dispatchMenu = "dispatch_menu"
             case mutateFlag = "mutate_flag"
         }
 
@@ -638,6 +789,12 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 self = .fade(try container.decode(FadeCommand.self, forKey: .fade))
             case .setBrightness:
                 self = .setBrightness(try container.decode(BrightnessCommand.self, forKey: .brightness))
+            case .setPlaneVisibility:
+                self = .setPlaneVisibility(
+                    try container.decode(PlaneVisibilityCommand.self, forKey: .planeVisibility)
+                )
+            case .setGlow:
+                self = .setGlow(try container.decode(GlowCommand.self, forKey: .glow))
             case .dispatchAudio:
                 self = .dispatchAudio(try container.decode(AudioCommand.self, forKey: .audio))
             case .setScreenSwap:
@@ -650,6 +807,8 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 self = .setMessageBox(try container.decode(MessageBoxCommand.self, forKey: .messageBox))
             case .setMenu:
                 self = .setMenu(try container.decode(MenuCommand.self, forKey: .menu))
+            case .dispatchMenu:
+                self = .dispatchMenu(try container.decode(DispatchMenuCommand.self, forKey: .dispatchMenu))
             case .mutateFlag:
                 self = .mutateFlag(try container.decode(FlagMutationCommand.self, forKey: .flagMutation))
             }
@@ -679,6 +838,12 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case let .setBrightness(command):
                 try container.encode(Kind.setBrightness, forKey: .kind)
                 try container.encode(command, forKey: .brightness)
+            case let .setPlaneVisibility(command):
+                try container.encode(Kind.setPlaneVisibility, forKey: .kind)
+                try container.encode(command, forKey: .planeVisibility)
+            case let .setGlow(command):
+                try container.encode(Kind.setGlow, forKey: .kind)
+                try container.encode(command, forKey: .glow)
             case let .dispatchAudio(command):
                 try container.encode(Kind.dispatchAudio, forKey: .kind)
                 try container.encode(command, forKey: .audio)
@@ -697,6 +862,9 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case let .setMenu(command):
                 try container.encode(Kind.setMenu, forKey: .kind)
                 try container.encode(command, forKey: .menu)
+            case let .dispatchMenu(command):
+                try container.encode(Kind.dispatchMenu, forKey: .kind)
+                try container.encode(command, forKey: .dispatchMenu)
             case let .mutateFlag(command):
                 try container.encode(Kind.mutateFlag, forKey: .kind)
                 try container.encode(command, forKey: .flagMutation)
@@ -948,6 +1116,48 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 )
             }
             try validate(provenance: payload.provenance)
+        case let .setPlaneVisibility(payload):
+            guard payload.planeID.isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "planeVisibility.planeID")
+            }
+            try validate(provenance: payload.provenance)
+        case let .setGlow(payload):
+            guard payload.colorHex.isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "glow.colorHex")
+            }
+            guard payload.peakLevel > 0 else {
+                throw HGSSOpeningIRValidationError.invalidCommandDuration(
+                    sceneID,
+                    stateID,
+                    "glow.peakLevel",
+                    payload.peakLevel
+                )
+            }
+            guard payload.fadeInFrames > 0 else {
+                throw HGSSOpeningIRValidationError.invalidCommandDuration(
+                    sceneID,
+                    stateID,
+                    "glow.fadeInFrames",
+                    payload.fadeInFrames
+                )
+            }
+            guard payload.fadeOutFrames > 0 else {
+                throw HGSSOpeningIRValidationError.invalidCommandDuration(
+                    sceneID,
+                    stateID,
+                    "glow.fadeOutFrames",
+                    payload.fadeOutFrames
+                )
+            }
+            guard payload.pauseFrames >= 0 else {
+                throw HGSSOpeningIRValidationError.invalidCommandDuration(
+                    sceneID,
+                    stateID,
+                    "glow.pauseFrames",
+                    payload.pauseFrames
+                )
+            }
+            try validate(provenance: payload.provenance)
         case let .dispatchAudio(payload):
             guard payload.cueName.isEmpty == false else {
                 throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "cueName")
@@ -1015,6 +1225,15 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             }
             guard payload.options.contains(where: { $0.id == payload.selectedOptionID }) else {
                 throw HGSSOpeningIRValidationError.invalidMenuSelection(sceneID, stateID, payload.selectedOptionID)
+            }
+            try validate(provenance: payload.provenance)
+        case let .dispatchMenu(payload):
+            guard payload.selectionID.isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "dispatchMenu.selectionID")
+            }
+            if let destinationID = payload.destinationID,
+               destinationID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "dispatchMenu.destinationID")
             }
             try validate(provenance: payload.provenance)
         case let .mutateFlag(payload):

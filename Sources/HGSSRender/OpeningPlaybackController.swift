@@ -352,6 +352,66 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         return (fade.colorHex ?? "#000000", opacity)
     }
 
+    public func activeProgramGlowOverlay(
+        screen: HGSSOpeningProgramIR.ScreenID
+    ) -> (colorHex: String, opacity: Double)? {
+        guard let programState = currentProgramState else {
+            return nil
+        }
+        guard let glow = programState.commands.compactMap({ command -> HGSSOpeningProgramIR.GlowCommand? in
+            guard case let .setGlow(payload) = command, payload.screen == screen else {
+                return nil
+            }
+            return payload
+        }).last else {
+            return nil
+        }
+
+        let totalFrames = 1 + glow.fadeInFrames + glow.fadeOutFrames + glow.pauseFrames
+        guard totalFrames > 0 else {
+            return nil
+        }
+
+        let phase = state.frameInProgramState % totalFrames
+        let level: Int
+        if phase == 0 {
+            level = 0
+        } else if phase <= glow.fadeInFrames {
+            level = min(glow.peakLevel, phase)
+        } else if phase <= glow.fadeInFrames + glow.fadeOutFrames {
+            let fadeOutFrame = phase - glow.fadeInFrames
+            level = max(0, glow.peakLevel - fadeOutFrame)
+        } else {
+            level = 0
+        }
+
+        let opacity = max(0.0, min(Double(level) / Double(glow.peakLevel), 1.0)) * 0.35
+        guard opacity > 0 else {
+            return nil
+        }
+        return (glow.colorHex, opacity)
+    }
+
+    public func isProgramPlaneVisible(
+        screen: HGSSOpeningProgramIR.ScreenID,
+        planeID: String
+    ) -> Bool? {
+        guard let programState = currentProgramState else {
+            return nil
+        }
+
+        for command in programState.commands.reversed() {
+            guard case let .setPlaneVisibility(payload) = command,
+                  payload.screen == screen,
+                  payload.planeID == planeID else {
+                continue
+            }
+            return payload.visible
+        }
+
+        return nil
+    }
+
     private func advanceProgramFrame() {
         guard let programState = currentProgramState else {
             return
@@ -438,6 +498,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
 
         applyEntryFlagMutationsIfNeeded()
         dispatchProgramAudioCommandsIfNeeded()
+        dispatchProgramMenuCommandsIfNeeded()
         syncMenuSelectionForCurrentProgramState()
 
         if let transition = automaticTransitionForCurrentProgramState() {
@@ -517,6 +578,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             screen: menu.screen,
             options: visibleOptions,
             selectedOptionID: selectedOptionID,
+            chrome: menu.chrome,
             provenance: menu.provenance
         )
     }
@@ -618,6 +680,29 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         }
     }
 
+    private func dispatchProgramMenuCommandsIfNeeded() {
+        guard let programState = currentProgramState else {
+            return
+        }
+
+        for command in programState.commands {
+            guard case let .dispatchMenu(payload) = command else {
+                continue
+            }
+
+            let dispatchedMenu = HGSSOpeningMenuDispatch(
+                menuStateID: programState.id,
+                selectionID: payload.selectionID,
+                destinationID: payload.destinationID
+            )
+            currentMenuSelectionID = payload.selectionID
+            lastMenuDispatch = dispatchedMenu
+            lastConfirmedMenuSelectionID = payload.selectionID
+            lastConfirmedMenuDestinationID = payload.destinationID
+            onMenuDispatch?(dispatchedMenu)
+        }
+    }
+
     private func syntheticAudioCue(
         from payload: HGSSOpeningProgramIR.AudioCommand
     ) -> HGSSOpeningBundle.AudioCue {
@@ -687,6 +772,9 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
 
         return programState.commands.contains { command in
             if case .setMenu = command {
+                return true
+            }
+            if case .dispatchMenu = command {
                 return true
             }
             return false

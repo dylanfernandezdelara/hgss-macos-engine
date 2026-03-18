@@ -82,6 +82,7 @@ public struct HGSSOpeningPlayerView: View {
         } else {
             let scene = controller.currentScene
             let frame = controller.state.frameInScene
+            let programScreen = programScreenID(for: screen)
             let screenLayers = layers(for: screen, scene: scene, frame: frame)
             let screenSprites = spriteAnimations(for: screen, scene: scene, frame: frame)
             let screenModels = modelAnimations(for: screen, scene: scene, frame: frame)
@@ -89,6 +90,7 @@ public struct HGSSOpeningPlayerView: View {
             let maskState = maskStateForScreen(screen, scene: scene, frame: frame, size: size)
             let circleWipeState = circleWipeStateForScreen(screen, scene: scene, frame: frame)
             let programFadeOverlay = controller.activeProgramFadeOverlay()
+            let programGlowOverlay = controller.activeProgramGlowOverlay(screen: programScreen)
             let promptFlash = screen == .top ? controller.activePromptFlashCommand() : nil
 
             ZStack(alignment: .topLeading) {
@@ -134,8 +136,15 @@ public struct HGSSOpeningPlayerView: View {
                         .frame(width: CGFloat(size.width), height: CGFloat(size.height))
                 }
 
+                if let programGlowOverlay {
+                    Rectangle()
+                        .fill(Color(hex: programGlowOverlay.colorHex).opacity(programGlowOverlay.opacity))
+                        .frame(width: CGFloat(size.width), height: CGFloat(size.height))
+                }
+
                 if let promptFlash,
-                   controller.isProgramLayerVisible(promptFlash.targetID) != false {
+                   controller.isProgramLayerVisible(promptFlash.targetID) != false,
+                   controller.isProgramPlaneVisible(screen: programScreen, planeID: "main_bg3") != false {
                     titlePromptView(promptFlash)
                 }
 
@@ -212,6 +221,7 @@ public struct HGSSOpeningPlayerView: View {
         let messageBox = controller.activeMessageBox(screen: programScreen)
         let menu = controller.activeMenu(screen: programScreen)
         let programFadeOverlay = controller.activeProgramFadeOverlay()
+        let programGlowOverlay = controller.activeProgramGlowOverlay(screen: programScreen)
 
         ZStack(alignment: .topLeading) {
             Rectangle()
@@ -227,6 +237,12 @@ public struct HGSSOpeningPlayerView: View {
                     menu,
                     selectedOptionID: controller.resolvedMenuSelectionID(for: menu)
                 )
+            }
+
+            if let programGlowOverlay {
+                Rectangle()
+                    .fill(Color(hex: programGlowOverlay.colorHex).opacity(programGlowOverlay.opacity))
+                    .frame(width: CGFloat(size.width), height: CGFloat(size.height))
             }
 
             if let programFadeOverlay {
@@ -254,76 +270,175 @@ public struct HGSSOpeningPlayerView: View {
         .clipped()
     }
 
+    @ViewBuilder
     private func programMessageBoxView(
         _ messageBox: HGSSOpeningProgramIR.MessageBoxCommand
     ) -> some View {
-        RoundedRectangle(cornerRadius: 4)
-            .fill(Color(red: 0.08, green: 0.09, blue: 0.16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(Color.white.opacity(0.85), lineWidth: 2)
-            )
-            .frame(width: CGFloat(messageBox.rect.width), height: CGFloat(messageBox.rect.height))
-            .overlay(
-                glyphTextView(
-                    messageBox.text.replacingOccurrences(of: "\\n", with: "\n"),
-                    style: .body,
-                    fallback: {
-                        Text(messageBox.text.replacingOccurrences(of: "\\n", with: "\n"))
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.white)
-                    }
+        let rect = messageBox.rect
+        let insets = messageBox.textInsets ?? .init(top: 4, left: 6, bottom: 4, right: 6)
+        let text = messageBox.text.replacingOccurrences(of: "\\n", with: "\n")
+
+        ZStack(alignment: .topLeading) {
+            if let frameAssetID = messageBox.frameAssetID {
+                framedSurfaceView(
+                    assetID: frameAssetID,
+                    size: CGSize(width: rect.width, height: rect.height)
                 )
-                    .frame(
-                        width: CGFloat(messageBox.rect.width - 12),
-                        height: CGFloat(messageBox.rect.height - 8),
-                        alignment: .topLeading
+                .position(
+                    x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
+                    y: CGFloat(rect.y) + (CGFloat(rect.height) / 2.0)
+                )
+            } else {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color(red: 0.08, green: 0.09, blue: 0.16))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.white.opacity(0.85), lineWidth: 2)
                     )
-                    .padding(.leading, 6)
-                    .padding(.top, 4)
+                    .frame(width: CGFloat(rect.width), height: CGFloat(rect.height))
+                    .position(
+                        x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
+                        y: CGFloat(rect.y) + (CGFloat(rect.height) / 2.0)
+                    )
+            }
+
+            glyphTextView(
+                text,
+                style: .body,
+                fallback: {
+                    Text(text)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                }
+            )
+            .frame(
+                width: CGFloat(rect.width - insets.left - insets.right),
+                height: CGFloat(rect.height - insets.top - insets.bottom),
+                alignment: .topLeading
             )
             .position(
-                x: CGFloat(messageBox.rect.x) + (CGFloat(messageBox.rect.width) / 2.0),
-                y: CGFloat(messageBox.rect.y) + (CGFloat(messageBox.rect.height) / 2.0)
+                x: CGFloat(rect.x + insets.left) + (CGFloat(rect.width - insets.left - insets.right) / 2.0),
+                y: CGFloat(rect.y + insets.top) + (CGFloat(rect.height - insets.top - insets.bottom) / 2.0)
             )
+        }
     }
 
+    @ViewBuilder
     private func programMenuView(
         _ menu: HGSSOpeningProgramIR.MenuCommand,
         selectedOptionID: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(menu.options, id: \.id) { option in
-                HStack(spacing: 10) {
-                    Circle()
-                        .fill(option.id == selectedOptionID ? Color(red: 0.96, green: 0.79, blue: 0.12) : Color.clear)
-                        .frame(width: 8, height: 8)
+        if let chrome = menu.chrome {
+            let scrollOffset = menuScrollOffset(menu, selectedOptionID: selectedOptionID)
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(menu.options.enumerated()), id: \.element.id) { index, option in
+                    let rect = menuOptionRect(menu, index: index, scrollOffset: scrollOffset)
+                    let isSelected = option.id == selectedOptionID
+                    let frameAssetID = isSelected
+                        ? (chrome.selectedFrameAssetID ?? chrome.normalFrameAssetID)
+                        : chrome.normalFrameAssetID
+
+                    if let frameAssetID {
+                        framedSurfaceView(
+                            assetID: frameAssetID,
+                            size: CGSize(width: rect.width, height: rect.height)
+                        )
+                        .position(
+                            x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
+                            y: CGFloat(rect.y) + (CGFloat(rect.height) / 2.0)
+                        )
+                    }
+
+                    if let wirelessIconType = option.wirelessIconType,
+                       let wifiIconSheetAssetID = chrome.wifiIconSheetAssetID {
+                        wifiIconView(
+                            assetID: wifiIconSheetAssetID,
+                            type: wirelessIconType
+                        )
+                        .frame(width: 16, height: 16)
+                        .position(
+                            x: CGFloat(rect.x + rect.width - 8),
+                            y: CGFloat(rect.y + 8)
+                        )
+                    }
+
                     glyphTextView(
                         option.text.replacingOccurrences(of: "\\n", with: "\n"),
                         style: .body,
                         fallback: {
                             Text(option.text.replacingOccurrences(of: "\\n", with: "\n"))
-                                .font(.system(size: 16, weight: .heavy, design: .rounded))
-                                .foregroundStyle(option.id == selectedOptionID ? Color.white : Color.white.opacity(0.7))
+                                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
                         }
                     )
-                    .opacity(option.id == selectedOptionID ? 1.0 : 0.78)
+                    .frame(
+                        width: CGFloat(max(0, rect.width - 40)),
+                        height: CGFloat(max(0, rect.height - 8)),
+                        alignment: .topLeading
+                    )
+                    .position(
+                        x: CGFloat(rect.x + 20) + (CGFloat(max(0, rect.width - 40)) / 2.0),
+                        y: CGFloat(rect.y + 4) + (CGFloat(max(0, rect.height - 8)) / 2.0)
+                    )
+                    .opacity(option.enabled ? 1.0 : 0.6)
+                }
+
+                if let upArrowRect = chrome.upArrowRect,
+                   chrome.upArrowFrameAssetIDs.isEmpty == false,
+                   scrollOffset > 0 {
+                    arrowAnimationView(frameAssetIDs: chrome.upArrowFrameAssetIDs)
+                        .frame(width: CGFloat(upArrowRect.width), height: CGFloat(upArrowRect.height))
+                        .position(
+                            x: CGFloat(upArrowRect.x) + (CGFloat(upArrowRect.width) / 2.0),
+                            y: CGFloat(upArrowRect.y) + (CGFloat(upArrowRect.height) / 2.0)
+                        )
+                }
+
+                if let downArrowRect = chrome.downArrowRect,
+                   chrome.downArrowFrameAssetIDs.isEmpty == false,
+                   menuContentHeight(menu) - scrollOffset > 192 {
+                    arrowAnimationView(frameAssetIDs: chrome.downArrowFrameAssetIDs)
+                        .frame(width: CGFloat(downArrowRect.width), height: CGFloat(downArrowRect.height))
+                        .position(
+                            x: CGFloat(downArrowRect.x) + (CGFloat(downArrowRect.width) / 2.0),
+                            y: CGFloat(downArrowRect.y) + (CGFloat(downArrowRect.height) / 2.0)
+                        )
                 }
             }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(menu.options, id: \.id) { option in
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(option.id == selectedOptionID ? Color(red: 0.96, green: 0.79, blue: 0.12) : Color.clear)
+                            .frame(width: 8, height: 8)
+                        glyphTextView(
+                            option.text.replacingOccurrences(of: "\\n", with: "\n"),
+                            style: .body,
+                            fallback: {
+                                Text(option.text.replacingOccurrences(of: "\\n", with: "\n"))
+                                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(option.id == selectedOptionID ? Color.white : Color.white.opacity(0.7))
+                            }
+                        )
+                        .opacity(option.id == selectedOptionID ? 1.0 : 0.78)
+                    }
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.black.opacity(0.24))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    )
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 18)
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 24)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.black.opacity(0.24))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                )
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-        .padding(.horizontal, 20)
-        .padding(.bottom, 18)
     }
 
     private func programScreenID(
@@ -355,6 +470,165 @@ public struct HGSSOpeningPlayerView: View {
         } else {
             fallback()
         }
+    }
+
+    @ViewBuilder
+    private func framedSurfaceView(
+        assetID: String,
+        size: CGSize
+    ) -> some View {
+        if let tiles = nineSliceTiles(assetID: assetID),
+           tiles.count == 9 {
+            let tileHeight = tiles[0].size.height
+            let middleHeight = max(0, size.height - (tileHeight * 2))
+
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    Image(nsImage: tiles[0]).interpolation(.none)
+                    Image(nsImage: tiles[1]).resizable(resizingMode: .tile).interpolation(.none)
+                    Image(nsImage: tiles[2]).interpolation(.none)
+                }
+                .frame(width: size.width, height: tileHeight, alignment: .topLeading)
+
+                HStack(spacing: 0) {
+                    Image(nsImage: tiles[3]).resizable(resizingMode: .tile).interpolation(.none)
+                    Image(nsImage: tiles[4]).resizable(resizingMode: .tile).interpolation(.none)
+                    Image(nsImage: tiles[5]).resizable(resizingMode: .tile).interpolation(.none)
+                }
+                .frame(width: size.width, height: middleHeight, alignment: .topLeading)
+
+                HStack(spacing: 0) {
+                    Image(nsImage: tiles[6]).interpolation(.none)
+                    Image(nsImage: tiles[7]).resizable(resizingMode: .tile).interpolation(.none)
+                    Image(nsImage: tiles[8]).interpolation(.none)
+                }
+                .frame(width: size.width, height: tileHeight, alignment: .topLeading)
+            }
+            .frame(width: size.width, height: size.height, alignment: .topLeading)
+        } else {
+            Color.clear
+                .frame(width: size.width, height: size.height)
+        }
+    }
+
+    @ViewBuilder
+    private func wifiIconView(
+        assetID: String,
+        type: Int
+    ) -> some View {
+        if let image = try? loadedBundle.assetURL(id: assetID).image,
+           let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            let iconWidth = cgImage.width / 2
+            let iconOriginX = type == 2 ? iconWidth : 0
+            let cropRect = CGRect(x: iconOriginX, y: 0, width: iconWidth, height: cgImage.height)
+            if let icon = croppedImage(from: cgImage, rect: cropRect) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.none)
+            } else {
+                Color.clear
+            }
+        } else {
+            Color.clear
+        }
+    }
+
+    @ViewBuilder
+    private func arrowAnimationView(frameAssetIDs: [String]) -> some View {
+        let frameIndex = frameAssetIDs.isEmpty ? 0 : (controller.state.frameInProgramState / 4) % frameAssetIDs.count
+        if frameAssetIDs.indices.contains(frameIndex),
+           let image = try? loadedBundle.assetURL(id: frameAssetIDs[frameIndex]).image {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.none)
+        } else {
+            Color.clear
+        }
+    }
+
+    private func menuContentHeight(
+        _ menu: HGSSOpeningProgramIR.MenuCommand
+    ) -> CGFloat {
+        let optionHeights = menu.options.map { CGFloat($0.heightPixels ?? 32) }
+        let spacing = CGFloat(menu.chrome?.optionSpacingPixels ?? 16)
+        let totalOptionHeight = optionHeights.reduce(0, +)
+        let totalSpacing = spacing * CGFloat(max(0, optionHeights.count - 1))
+        let topInset = CGFloat(menu.chrome?.optionOrigin.y ?? 8)
+        return topInset + totalOptionHeight + totalSpacing
+    }
+
+    private func menuScrollOffset(
+        _ menu: HGSSOpeningProgramIR.MenuCommand,
+        selectedOptionID: String
+    ) -> CGFloat {
+        guard let selectedIndex = menu.options.firstIndex(where: { $0.id == selectedOptionID }) else {
+            return 0
+        }
+
+        let rect = menuOptionRect(menu, index: selectedIndex, scrollOffset: 0)
+        let viewportHeight: CGFloat = 192
+        let bottomPadding: CGFloat = 8
+        let rawOffset = CGFloat(rect.y + rect.height) - (viewportHeight - bottomPadding)
+        let maxOffset = max(0, menuContentHeight(menu) - viewportHeight)
+        return max(0, min(rawOffset, maxOffset))
+    }
+
+    private func menuOptionRect(
+        _ menu: HGSSOpeningProgramIR.MenuCommand,
+        index: Int,
+        scrollOffset: CGFloat
+    ) -> HGSSOpeningProgramIR.ScreenRect {
+        let chrome = menu.chrome
+        let originX = chrome?.optionOrigin.x ?? 24
+        let originY = chrome?.optionOrigin.y ?? 8
+        let width = chrome?.optionWidth ?? 184
+        let spacing = chrome?.optionSpacingPixels ?? 16
+        let y = menu.options.prefix(index).reduce(originY) { partial, option in
+            partial + (option.heightPixels ?? 32) + spacing
+        } - Int(scrollOffset.rounded(.towardZero))
+        let height = menu.options[index].heightPixels ?? 32
+        return .init(x: originX, y: y, width: width, height: height)
+    }
+
+    private func nineSliceTiles(assetID: String) -> [NSImage]? {
+        guard let image = try? loadedBundle.assetURL(id: assetID).image,
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return nil
+        }
+
+        let tileWidth = cgImage.width / 3
+        let tileHeight = cgImage.height / 3
+        guard tileWidth > 0, tileHeight > 0 else {
+            return nil
+        }
+
+        var tiles: [NSImage] = []
+        for row in 0..<3 {
+            for column in 0..<3 {
+                let cropRect = CGRect(
+                    x: column * tileWidth,
+                    y: cgImage.height - ((row + 1) * tileHeight),
+                    width: tileWidth,
+                    height: tileHeight
+                )
+                guard let tile = croppedImage(from: cgImage, rect: cropRect) else {
+                    return nil
+                }
+                tiles.append(tile)
+            }
+        }
+
+        return tiles
+    }
+
+    private func croppedImage(
+        from cgImage: CGImage,
+        rect: CGRect
+    ) -> NSImage? {
+        guard let cropped = cgImage.cropping(to: rect.integral) else {
+            return nil
+        }
+        return NSImage(cgImage: cropped, size: NSSize(width: cropped.width, height: cropped.height))
     }
 
     private func layers(

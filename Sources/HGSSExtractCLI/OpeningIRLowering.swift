@@ -336,6 +336,24 @@ struct PokeheartgoldOpeningIRLowerer {
             titleSourceFile: titleSourceFile,
             context: context
         )
+        let titleGlowColor = try context.requiredRGBHex(
+            #"PaletteData_FadePalettesTowardsColorStep\([^\n]*RGB\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)\s*\)"#,
+            in: titleSourceText,
+            sourceFile: titleSourceFile,
+            description: "title glow color"
+        )
+        let titleGlowPeakLevel = try context.requiredInt(
+            #"glowFadeStep\s*>\s*([0-9]+)"#,
+            in: titleSourceText,
+            sourceFile: titleSourceFile,
+            description: "title glow peak level"
+        )
+        let titleGlowPauseFrames = try context.requiredInt(
+            #"glowTimer\s*>\s*([0-9]+)"#,
+            in: titleSourceText,
+            sourceFile: titleSourceFile,
+            description: "title glow pause duration"
+        ) + 1
         _ = try caseNode(named: "TITLESCREEN_MAIN_START_MUSIC", from: caseNodes)
         let titleBGM = try context.requiredMatch(
             #"Sound_SetSceneAndPlayBGM\(\s*[0-9]+\s*,\s*([A-Z0-9_]+)\s*,\s*[0-9]+\s*\)"#,
@@ -374,6 +392,23 @@ struct PokeheartgoldOpeningIRLowerer {
             let provenance = context.provenance(for: caseNode, symbolOverride: stateName)
             let hiddenPromptCommand = HGSSOpeningProgramIR.Command.setLayerVisibility(
                 .init(layerID: "start_prompt", visible: false, provenance: provenance)
+            )
+            let promptPlaneOn = HGSSOpeningProgramIR.Command.setPlaneVisibility(
+                .init(screen: .top, planeID: "main_bg3", visible: true, provenance: provenance)
+            )
+            let promptPlaneOff = HGSSOpeningProgramIR.Command.setPlaneVisibility(
+                .init(screen: .top, planeID: "main_bg3", visible: false, provenance: provenance)
+            )
+            let titleGlowCommand = HGSSOpeningProgramIR.Command.setGlow(
+                .init(
+                    screen: .top,
+                    colorHex: titleGlowColor,
+                    peakLevel: titleGlowPeakLevel,
+                    fadeInFrames: titleGlowPeakLevel,
+                    fadeOutFrames: titleGlowPeakLevel,
+                    pauseFrames: titleGlowPauseFrames,
+                    provenance: context.provenance(for: animRunNode, symbolOverride: "TitleScreenAnim_RunTopScreenGlow")
+                )
             )
 
             switch stateName {
@@ -414,6 +449,8 @@ struct PokeheartgoldOpeningIRLowerer {
                     id: titleStateID(for: stateName),
                     duration: .fixedFrames(titleScreenDuration + 1),
                     commands: [
+                        promptPlaneOn,
+                        titleGlowCommand,
                         .setPromptFlash(promptFlash)
                     ],
                     transitions: [
@@ -445,6 +482,8 @@ struct PokeheartgoldOpeningIRLowerer {
                     id: titleStateID(for: stateName),
                     duration: .fixedFrames(whiteFlashDuration),
                     commands: [
+                        promptPlaneOff,
+                        titleGlowCommand,
                         hiddenPromptCommand,
                         .fade(
                             .init(
@@ -470,7 +509,11 @@ struct PokeheartgoldOpeningIRLowerer {
                 return .init(
                     id: titleStateID(for: stateName),
                     duration: .fixedFrames(postFlashFadeDuration),
-                    commands: [hiddenPromptCommand],
+                    commands: [
+                        promptPlaneOff,
+                        titleGlowCommand,
+                        hiddenPromptCommand,
+                    ],
                     transitions: [
                         .init(
                             trigger: .stateCompleted,
@@ -484,7 +527,11 @@ struct PokeheartgoldOpeningIRLowerer {
                 return .init(
                     id: titleStateID(for: stateName),
                     duration: .fixedFrames(bgmFadeDuration),
-                    commands: [hiddenPromptCommand],
+                    commands: [
+                        promptPlaneOff,
+                        titleGlowCommand,
+                        hiddenPromptCommand,
+                    ],
                     transitions: [
                         .init(
                             trigger: .stateCompleted,
@@ -516,6 +563,20 @@ struct PokeheartgoldOpeningIRLowerer {
             id: "title_play_delay",
             duration: .fixedFrames(initialDelayFrames),
             commands: [
+                .setPlaneVisibility(
+                    .init(screen: .top, planeID: "main_bg3", visible: false, provenance: playDelayProvenance)
+                ),
+                .setGlow(
+                    .init(
+                        screen: .top,
+                        colorHex: titleGlowColor,
+                        peakLevel: titleGlowPeakLevel,
+                        fadeInFrames: titleGlowPeakLevel,
+                        fadeOutFrames: titleGlowPeakLevel,
+                        pauseFrames: titleGlowPauseFrames,
+                        provenance: context.provenance(for: animRunNode, symbolOverride: "TitleScreenAnim_RunTopScreenGlow")
+                    )
+                ),
                 .setLayerVisibility(
                     .init(layerID: "start_prompt", visible: false, provenance: playDelayProvenance)
                 )
@@ -1854,6 +1915,8 @@ struct PokeheartgoldOpeningIRLowerer {
                                 screen: .top,
                                 rect: windowRect,
                                 text: text,
+                                frameAssetID: "check_save_window_frame",
+                                textInsets: .init(top: 4, left: 8, bottom: 4, right: 8),
                                 provenance: messageProvenance
                             )
                         )
@@ -1883,6 +1946,8 @@ struct PokeheartgoldOpeningIRLowerer {
                                 screen: .top,
                                 rect: windowRect,
                                 text: text,
+                                frameAssetID: "check_save_window_frame",
+                                textInsets: .init(top: 4, left: 8, bottom: 4, right: 8),
                                 provenance: messageProvenance
                             )
                         ),
@@ -2005,21 +2070,24 @@ struct PokeheartgoldOpeningIRLowerer {
                 id: "continue",
                 text: messageTextByRow["msg_0442_00000"] ?? "CONTINUE",
                 requiredFlags: requires(("main_menu_has_save_data", 1)),
-                destinationID: "ov36_App_MainMenu_SelectOption_Continue"
+                destinationID: "ov36_App_MainMenu_SelectOption_Continue",
+                heightPixels: 80
             )
         )
         continueMenuOptions.append(
             .init(
                 id: "new_game",
                 text: messageTextByRow["msg_0442_00001"] ?? "NEW GAME",
-                destinationID: "ov36_App_MainMenu_SelectOption_NewGame"
+                destinationID: "ov36_App_MainMenu_SelectOption_NewGame",
+                heightPixels: 32
             )
         )
         continueMenuOptions.append(
             .init(
                 id: "pokewalker",
                 text: messageTextByRow["msg_0442_00009"] ?? "POKEWALKER",
-                destinationID: "ov112_App_MainMenu_SelectOption_ConnectToPokewalker"
+                destinationID: "ov112_App_MainMenu_SelectOption_ConnectToPokewalker",
+                heightPixels: 32
             )
         )
         continueMenuOptions.append(
@@ -2030,7 +2098,8 @@ struct PokeheartgoldOpeningIRLowerer {
                     ("main_menu_draw_mystery_gift", 1),
                     ("main_menu_has_pokedex", 1)
                 ),
-                destinationID: "gApp_MainMenu_SelectOption_MysteryGift"
+                destinationID: "gApp_MainMenu_SelectOption_MysteryGift",
+                heightPixels: 32
             )
         )
         continueMenuOptions.append(
@@ -2041,7 +2110,9 @@ struct PokeheartgoldOpeningIRLowerer {
                     ("main_menu_draw_ranger", 1),
                     ("main_menu_has_pokedex", 1)
                 ),
-                destinationID: "gApp_MainMenu_SelectOption_ConnectToRanger"
+                destinationID: "gApp_MainMenu_SelectOption_ConnectToRanger",
+                heightPixels: 32,
+                wirelessIconType: 1
             )
         )
         continueMenuOptions.append(
@@ -2049,7 +2120,8 @@ struct PokeheartgoldOpeningIRLowerer {
                 id: "migrate_ruby",
                 text: messageTextByRow["msg_0442_00004"] ?? "MIGRATE FROM RUBY",
                 requiredFlags: requires(("main_menu_connected_agb_game", 1)),
-                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb",
+                heightPixels: 32
             )
         )
         continueMenuOptions.append(
@@ -2057,7 +2129,8 @@ struct PokeheartgoldOpeningIRLowerer {
                 id: "migrate_sapphire",
                 text: messageTextByRow["msg_0442_00005"] ?? "MIGRATE FROM SAPPHIRE",
                 requiredFlags: requires(("main_menu_connected_agb_game", 2)),
-                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb",
+                heightPixels: 32
             )
         )
         continueMenuOptions.append(
@@ -2065,7 +2138,8 @@ struct PokeheartgoldOpeningIRLowerer {
                 id: "migrate_leafgreen",
                 text: messageTextByRow["msg_0442_00006"] ?? "MIGRATE FROM LEAFGREEN",
                 requiredFlags: requires(("main_menu_connected_agb_game", 3)),
-                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb",
+                heightPixels: 32
             )
         )
         continueMenuOptions.append(
@@ -2073,7 +2147,8 @@ struct PokeheartgoldOpeningIRLowerer {
                 id: "migrate_firered",
                 text: messageTextByRow["msg_0442_00007"] ?? "MIGRATE FROM FIRERED",
                 requiredFlags: requires(("main_menu_connected_agb_game", 4)),
-                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb",
+                heightPixels: 32
             )
         )
         continueMenuOptions.append(
@@ -2081,7 +2156,8 @@ struct PokeheartgoldOpeningIRLowerer {
                 id: "migrate_emerald",
                 text: messageTextByRow["msg_0442_00008"] ?? "MIGRATE FROM EMERALD",
                 requiredFlags: requires(("main_menu_connected_agb_game", 5)),
-                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb",
+                heightPixels: 32
             )
         )
         continueMenuOptions.append(
@@ -2089,21 +2165,26 @@ struct PokeheartgoldOpeningIRLowerer {
                 id: "connect_to_wii",
                 text: messageTextByRow["msg_0442_00011"] ?? "CONNECT TO Wii",
                 requiredFlags: requires(("main_menu_draw_connect_to_wii", 1)),
-                destinationID: "sub_02027098:data/eoo.dat"
+                destinationID: "sub_02027098:data/eoo.dat",
+                heightPixels: 32,
+                wirelessIconType: 1
             )
         )
         continueMenuOptions.append(
             .init(
                 id: "wfc",
                 text: messageTextByRow["msg_0442_00012"] ?? "NINTENDO WFC SETTINGS",
-                destinationID: "gApp_MainMenu_SelectOption_NintendoWFCSetup"
+                destinationID: "gApp_MainMenu_SelectOption_NintendoWFCSetup",
+                heightPixels: 32,
+                wirelessIconType: 2
             )
         )
         continueMenuOptions.append(
             .init(
                 id: "wii_settings",
                 text: messageTextByRow["msg_0442_00010"] ?? "Wii MESSAGE SETTINGS",
-                destinationID: "ov75_App_MainMenu_SelectOption_WiiMessageSettings"
+                destinationID: "ov75_App_MainMenu_SelectOption_WiiMessageSettings",
+                heightPixels: 32
             )
         )
         continueMenuOptions = continueMenuOptions.filter { option in
@@ -2112,6 +2193,19 @@ struct PokeheartgoldOpeningIRLowerer {
         }
         let newGameOnly = continueMenuOptions.filter { $0.id == "new_game" }
         let menuProvenance = context.provenance(for: mainNode, symbolOverride: "MainMenuApp_Main")
+        let menuChrome = HGSSOpeningProgramIR.MenuChrome(
+            optionOrigin: .init(x: 24, y: 8),
+            optionWidth: 184,
+            optionSpacingPixels: 16,
+            normalFrameAssetID: "main_menu_button_frame_normal",
+            selectedFrameAssetID: "main_menu_button_frame_selected",
+            touchFrameAssetID: "main_menu_button_frame_selected",
+            wifiIconSheetAssetID: "main_menu_wifi_icons",
+            upArrowFrameAssetIDs: (0..<8).map { "main_menu_arrow_seq0_frame0_\($0)" },
+            downArrowFrameAssetIDs: (0..<8).map { "main_menu_arrow_seq1_frame1_\($0)" },
+            upArrowRect: .init(x: 220, y: 4, width: 32, height: 32),
+            downArrowRect: .init(x: 220, y: 156, width: 32, height: 32)
+        )
 
         return HGSSOpeningProgramIR.Scene(
             id: .mainMenu,
@@ -2157,6 +2251,7 @@ struct PokeheartgoldOpeningIRLowerer {
                                 screen: .bottom,
                                 options: continueMenuOptions,
                                 selectedOptionID: "continue",
+                                chrome: menuChrome,
                                 provenance: menuProvenance
                             )
                         )
@@ -2174,11 +2269,10 @@ struct PokeheartgoldOpeningIRLowerer {
                         .setSolidFill(
                             .init(screen: .bottom, colorHex: backgroundColor, provenance: menuProvenance)
                         ),
-                        .setMenu(
+                        .dispatchMenu(
                             .init(
-                                screen: .bottom,
-                                options: newGameOnly,
-                                selectedOptionID: "new_game",
+                                selectionID: newGameOnly.first?.id ?? "new_game",
+                                destinationID: newGameOnly.first?.destinationID,
                                 provenance: menuProvenance
                             )
                         )
@@ -2255,6 +2349,9 @@ struct PokeheartgoldOpeningIRLowerer {
         provenance: HGSSOpeningProgramIR.Provenance
     ) throws -> HGSSOpeningProgramIR.State {
         var commands: [HGSSOpeningProgramIR.Command] = [
+            .setPlaneVisibility(
+                .init(screen: .top, planeID: "main_bg3", visible: false, provenance: provenance)
+            ),
             .setLayerVisibility(
                 .init(layerID: "start_prompt", visible: false, provenance: provenance)
             ),

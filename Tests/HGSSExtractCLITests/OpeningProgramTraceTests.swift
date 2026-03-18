@@ -37,13 +37,7 @@ struct OpeningProgramTraceTests {
             .init(bundleSceneID: "title_handoff", programSceneID: "title_screen", programStateID: "title_proceed_flash"),
             .init(bundleSceneID: "title_handoff", programSceneID: "title_screen", programStateID: "title_proceed_flash_2"),
             .init(bundleSceneID: "title_handoff", programSceneID: "title_screen", programStateID: "title_fadeout_menu"),
-            .init(
-                bundleSceneID: "title_handoff",
-                programSceneID: "main_menu",
-                programStateID: "main_menu_new_game",
-                selectedMenuOptionID: "new_game",
-                visibleMenuOptionIDs: ["new_game"]
-            ),
+            .init(bundleSceneID: "title_handoff", programSceneID: "main_menu", programStateID: "main_menu_new_game"),
         ])
 
         #expect(try traceTitleMenuExit(
@@ -114,13 +108,7 @@ struct OpeningProgramTraceTests {
             .init(bundleSceneID: "title_handoff", programSceneID: "check_save", programStateID: "check_save_fade_in_save_corrupted"),
             .init(bundleSceneID: "title_handoff", programSceneID: "check_save", programStateID: "check_save_message_save_corrupted"),
             .init(bundleSceneID: "title_handoff", programSceneID: "check_save", programStateID: "check_save_fade_out_save_corrupted"),
-            .init(
-                bundleSceneID: "title_handoff",
-                programSceneID: "main_menu",
-                programStateID: "main_menu_new_game",
-                selectedMenuOptionID: "new_game",
-                visibleMenuOptionIDs: ["new_game"]
-            ),
+            .init(bundleSceneID: "title_handoff", programSceneID: "main_menu", programStateID: "main_menu_new_game"),
         ])
     }
 

@@ -208,16 +208,10 @@
         "selectedOptionID": "continue"
       },
       "main_menu_new_game": {
-        "options": [
-          {
-            "destinationID": "ov36_App_MainMenu_SelectOption_NewGame",
-            "enabled": true,
-            "id": "new_game",
-            "requiredFlags": [],
-            "text": "NEW GAME"
-          }
-        ],
-        "selectedOptionID": "new_game"
+        "dispatchDestinationID": "ov36_App_MainMenu_SelectOption_NewGame",
+        "dispatchSelectionID": "new_game",
+        "options": [],
+        "selectedOptionID": null
       }
     },
     "transitions": [

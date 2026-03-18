@@ -117,8 +117,10 @@ private struct OpeningProgramSurfaceSnapshot: Codable, Equatable {
     }
 
     struct MenuStateSnapshot: Codable, Equatable {
-        let selectedOptionID: String
+        let selectedOptionID: String?
         let options: [MenuOptionSnapshot]
+        let dispatchSelectionID: String?
+        let dispatchDestinationID: String?
     }
 
     struct MainMenuRoutingSnapshot: Codable, Equatable {
@@ -196,12 +198,18 @@ private struct OpeningProgramSurfaceSnapshot: Codable, Equatable {
                             return payload
                         }
                         return nil
-                    }.first!
+                    }.first
+                    let dispatch = state.commands.compactMap { command -> HGSSOpeningProgramIR.DispatchMenuCommand? in
+                        if case let .dispatchMenu(payload) = command {
+                            return payload
+                        }
+                        return nil
+                    }.first
                     return (
                         state.id,
                         MenuStateSnapshot(
-                            selectedOptionID: menu.selectedOptionID,
-                            options: menu.options.map { option in
+                            selectedOptionID: menu?.selectedOptionID,
+                            options: (menu?.options ?? []).map { option in
                                 MenuOptionSnapshot(
                                     id: option.id,
                                     text: option.text,
@@ -211,7 +219,9 @@ private struct OpeningProgramSurfaceSnapshot: Codable, Equatable {
                                     },
                                     destinationID: option.destinationID
                                 )
-                            }
+                            },
+                            dispatchSelectionID: dispatch?.selectionID,
+                            dispatchDestinationID: dispatch?.destinationID
                         )
                     )
                 }

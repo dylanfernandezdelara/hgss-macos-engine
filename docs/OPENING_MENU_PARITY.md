@@ -21,7 +21,8 @@ The target is parity with the official source-backed behavior, not a handcrafted
 - [x] The runtime routes from title fadeout into source-backed `CheckSave` and `MainMenu` scenes using default post-title flags.
 - [x] The app can load post-title bootstrap flags from `opening_bootstrap_state.json` through `HGSSCore`.
 - [x] Confirmed `MainMenu` selections now hand off into typed native app-shell stubs instead of only updating controller debug state.
-- [ ] The post-title visuals are still semantic SwiftUI stand-ins, not exact DS-rendered output.
+- [x] The no-save post-title path now auto-dispatches `NEW GAME` instead of presenting a synthetic one-option interactive menu.
+- [ ] The post-title visuals now use extracted window/menu chrome and DS glyph text, but the overall compositor is still SwiftUI-based rather than exact DS output.
 
 ## Parity Checklist
 
@@ -38,15 +39,15 @@ The target is parity with the official source-backed behavior, not a handcrafted
 
 - [ ] Replace the remaining title-screen duplicated behavior in `HGSSRender` with IR-driven sequencing and overlays.
 - [x] Extract and render the title prompt window with source-backed text layout and exact DS-style text output.
-- [ ] Reproduce title-screen palette fades, glow behavior, and screen-plane toggles without relying on ad hoc view logic.
+- [x] Reproduce title-screen palette fades, glow behavior, and screen-plane toggles without relying on ad hoc view logic.
 - [ ] Replace the current title SceneKit dependency with a source-backed native playback path or deterministic baked frames for the title subset.
 - [x] Add input handling for all title exit paths, not just the menu request path.
 
 ### Phase 3: Add Menu Handoff Runtime
 
-- [ ] Replace the current semantic `CheckSave` stand-in with extracted BG/window/text assets and exact timing.
+- [x] Replace the current semantic `CheckSave` stand-in with extracted BG/window/text assets and exact timing.
 - [ ] Add runtime flag plumbing from real save-status data into the `CheckSave` scene router.
-- [ ] Replace the current semantic `MainMenu` stand-in with extracted graphics, button borders, arrow sprites, and source-backed scroll behavior.
+- [x] Replace the current semantic `MainMenu` stand-in with extracted graphics, button borders, arrow sprites, and source-backed scroll behavior.
 - [ ] Add runtime flag plumbing from real save data and feature availability into the `MainMenu` router.
 - [ ] Reach the first stable interactive menu state without relying on synthetic defaults.
 - [x] Add native handling for menu navigation, confirmation, and overlay dispatch from the first interactive menu state.
@@ -108,10 +109,10 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [x] `P2.2a` Confirm from `title_screen.c` that the prompt is a BG3 window text draw, not separate decorative frame art.
 - [x] `P2.2b` Extend `HGSSOpeningIR` prompt metadata so the runtime carries the source-backed prompt rect and letter spacing.
 - [x] `P2.2c` Render the title prompt with extracted DS glyphs at the source-backed rect instead of a synthetic SwiftUI label.
-- [ ] `P2.3` Replace ad hoc title fade overlays with IR-driven palette/glow/screen-plane handling.
-- [ ] `P2.3a` Extend `HGSSOpeningIR` fade/brightness commands to cover title glow and plane-enable state.
-- [ ] `P2.3b` Replace `activeProgramFadeOverlay()`-only title fades with command evaluation that can compose palette fade, glow, and plane toggles.
-- [ ] `P2.3c` Add tests that title play, white flash, and fadeout states produce the expected overlay/glow outputs.
+- [x] `P2.3` Replace ad hoc title fade overlays with IR-driven palette/glow/screen-plane handling.
+- [x] `P2.3a` Extend `HGSSOpeningIR` fade/brightness commands to cover title glow and plane-enable state.
+- [x] `P2.3b` Replace `activeProgramFadeOverlay()`-only title fades with command evaluation that can compose palette fade, glow, and plane toggles.
+- [x] `P2.3c` Add tests that title play, white flash, and fadeout states produce the expected overlay/glow outputs.
 - [ ] `P2.4` Replace the title SceneKit playback path with a native subset renderer or deterministic baked-frame player sourced from extracted assets.
 - [ ] `P2.4a` Decide and document the exact title 3D parity path: native subset or deterministic baked frames.
 - [ ] `P2.4b` Extract the necessary title Ho-Oh/sparkle frame or model assets for that path.
@@ -120,18 +121,18 @@ This milestone is done when the native macOS app can be launched from the repo a
 
 ### Phase 3 Todos
 
-- [ ] `P3.1` Replace the semantic `CheckSave` stand-in with extracted BG/window/text assets while keeping the source-backed state machine.
-- [ ] `P3.1a` Identify the exact `CheckSave` BG/window/font assets and add extractor support for them.
-- [ ] `P3.1b` Extend the program scene payloads to reference extracted `CheckSave` surfaces instead of plain solid fills.
-- [ ] `P3.1c` Render the `CheckSave` message box with extracted frame art and DS glyph layout.
+- [x] `P3.1` Replace the semantic `CheckSave` stand-in with extracted BG/window/text assets while keeping the source-backed state machine.
+- [x] `P3.1a` Identify the exact `CheckSave` BG/window/font assets and add extractor support for them.
+- [x] `P3.1b` Extend the program scene payloads to reference extracted `CheckSave` surfaces instead of plain solid fills.
+- [x] `P3.1c` Render the `CheckSave` message box with extracted frame art and DS glyph layout.
 - [ ] `P3.2` Add a save-status provider that derives `CheckSave` flags from real save data instead of synthetic controller defaults.
 - [x] `P3.2a` Define a native `CheckSave` save-status model in `HGSSCore`.
 - [ ] `P3.2b` Read save flags from real local save data or stub-free validated fixtures.
 - [x] `P3.2c` Plumb those flags into `HGSSOpeningPlaybackController` without defaulting to synthetic status masks.
-- [ ] `P3.3` Replace the semantic `MainMenu` stand-in with extracted menu borders, arrow sprites, and source-backed option layout.
-- [ ] `P3.3a` Extract the main menu border/background/arrow assets referenced by `main_menu.c`.
-- [ ] `P3.3b` Extend `HGSSOpeningIR.MenuCommand` so the runtime can bind extracted chrome assets and option anchor positions.
-- [ ] `P3.3c` Replace `programMenuView` with asset-backed menu rendering that follows source-backed layout and scroll behavior.
+- [x] `P3.3` Replace the semantic `MainMenu` stand-in with extracted menu borders, arrow sprites, and source-backed option layout.
+- [x] `P3.3a` Extract the main menu border/background/arrow assets referenced by `main_menu.c`.
+- [x] `P3.3b` Extend `HGSSOpeningIR.MenuCommand` so the runtime can bind extracted chrome assets and option anchor positions.
+- [x] `P3.3c` Replace `programMenuView` with asset-backed menu rendering that follows source-backed layout and scroll behavior.
 - [ ] `P3.4` Add a main-menu feature-availability provider that derives menu flags from real save data and feature toggles.
 - [x] `P3.4a` Define the save-derived menu availability inputs in `HGSSCore`.
 - [ ] `P3.4b` Compute `main_menu_*` flags from real save data instead of hardcoded controller defaults.
@@ -140,6 +141,7 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [ ] `P3.5a` Start the post-title path with real save-derived flags in app boot.
 - [ ] `P3.5b` Verify the native app can transition title -> `CheckSave` -> `MainMenu` with no synthetic fallback state injection.
 - [x] `P3.5c` Keep the first interactive menu frame stable under repeated boot/reset cycles.
+- [x] `P3.5d` Match the no-save source path by auto-dispatching `NEW GAME` instead of presenting a one-option interactive menu.
 - [x] `P3.6` Route interactive menu confirmation into real overlay/application dispatch targets instead of debug-only selection capture.
 - [x] `P3.6a` Model post-menu destination dispatch in `HGSSCore` instead of only storing `lastConfirmedMenuDestinationID`.
 - [x] `P3.6b` Add application handoff stubs for the first reachable menu overlays.

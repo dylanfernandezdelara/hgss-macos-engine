@@ -33,7 +33,8 @@ struct HGSSOpeningProgramRenderTests {
         let loadedProgram = try OpeningProgramLoader().load(from: root)
         let controller = HGSSOpeningPlaybackController(
             loadedBundle: loadedBundle,
-            loadedProgram: loadedProgram
+            loadedProgram: loadedProgram,
+            bootstrapState: .init(mainMenuHasSaveData: true)
         )
 
         controller.requestSkip()
@@ -51,12 +52,17 @@ struct HGSSOpeningProgramRenderTests {
         controller.advanceFrame()
         #expect(controller.currentProgramState?.id == "title_play")
         #expect(controller.isProgramLayerVisible("start_prompt") == true)
+        #expect(controller.isProgramPlaneVisible(screen: .top, planeID: "main_bg3") == true)
 
         controller.advanceFrame()
         #expect(controller.isProgramLayerVisible("start_prompt") == false)
+        let glowOverlay = try #require(controller.activeProgramGlowOverlay(screen: .top))
+        #expect(glowOverlay.colorHex == "#636363")
+        #expect(glowOverlay.opacity > 0.0)
 
         controller.requestSkip()
         #expect(controller.currentProgramState?.id == "title_proceed_flash")
+        #expect(controller.isProgramPlaneVisible(screen: .top, planeID: "main_bg3") == false)
         let whiteFade = try #require(controller.activeProgramFadeOverlay())
         #expect(whiteFade.colorHex == "#FFFFFF")
 
@@ -69,9 +75,9 @@ struct HGSSOpeningProgramRenderTests {
 
         controller.advanceFrame()
         #expect(controller.currentProgramScene?.id == .mainMenu)
-        #expect(controller.currentProgramState?.id == "main_menu_new_game")
+        #expect(controller.currentProgramState?.id == "main_menu_continue")
         let menu = try #require(controller.activeMenu(screen: .bottom))
-        #expect(menu.options.map(\.text) == ["NEW GAME"])
+        #expect(menu.options.contains(where: { $0.id == "continue" }))
         #expect(controller.state.hasReachedOpeningMenuHandoff)
         #expect(controller.audioCueLog.last?.cue.action == .stopBGM)
     }
@@ -234,6 +240,11 @@ struct HGSSOpeningProgramRenderTests {
         controller.advanceFrame()
         #expect(controller.currentProgramScene?.id == .mainMenu)
         #expect(controller.currentProgramState?.id == "main_menu_new_game")
+        #expect(controller.lastMenuDispatch == .init(
+            menuStateID: "main_menu_new_game",
+            selectionID: "new_game",
+            destinationID: "ov36_App_MainMenu_SelectOption_NewGame"
+        ))
     }
 
     @Test("Playback controller consumes typed bootstrap flags from core state")
@@ -425,6 +436,17 @@ struct HGSSOpeningProgramRenderTests {
             sourceFile: "src/title_screen.c",
             symbol: "TitleScreen_Main"
         )
+        let titleGlowCommand = HGSSOpeningProgramIR.Command.setGlow(
+            .init(
+                screen: .top,
+                colorHex: "#636363",
+                peakLevel: 60,
+                fadeInFrames: 60,
+                fadeOutFrames: 60,
+                pauseFrames: 21,
+                provenance: provenance
+            )
+        )
         return HGSSOpeningProgramIR(
             schemaVersion: 1,
             entrySceneID: .titleScreen,
@@ -468,6 +490,10 @@ struct HGSSOpeningProgramRenderTests {
                             id: "title_play_delay",
                             duration: .fixedFrames(2),
                             commands: [
+                                .setPlaneVisibility(
+                                    .init(screen: .top, planeID: "main_bg3", visible: false, provenance: provenance)
+                                ),
+                                titleGlowCommand,
                                 .setLayerVisibility(
                                     .init(layerID: "start_prompt", visible: false, provenance: provenance)
                                 )
@@ -481,6 +507,10 @@ struct HGSSOpeningProgramRenderTests {
                             id: "title_play",
                             duration: .fixedFrames(4),
                             commands: [
+                                .setPlaneVisibility(
+                                    .init(screen: .top, planeID: "main_bg3", visible: true, provenance: provenance)
+                                ),
+                                titleGlowCommand,
                                 .setPromptFlash(
                                     .init(
                                         targetID: "start_prompt",
@@ -512,6 +542,10 @@ struct HGSSOpeningProgramRenderTests {
                             id: "title_proceed_flash",
                             duration: .fixedFrames(1),
                             commands: [
+                                .setPlaneVisibility(
+                                    .init(screen: .top, planeID: "main_bg3", visible: false, provenance: provenance)
+                                ),
+                                titleGlowCommand,
                                 .setLayerVisibility(
                                     .init(layerID: "start_prompt", visible: false, provenance: provenance)
                                 ),
@@ -535,6 +569,10 @@ struct HGSSOpeningProgramRenderTests {
                             id: "title_proceed_flash_2",
                             duration: .fixedFrames(2),
                             commands: [
+                                .setPlaneVisibility(
+                                    .init(screen: .top, planeID: "main_bg3", visible: false, provenance: provenance)
+                                ),
+                                titleGlowCommand,
                                 .setLayerVisibility(
                                     .init(layerID: "start_prompt", visible: false, provenance: provenance)
                                 )
@@ -548,6 +586,10 @@ struct HGSSOpeningProgramRenderTests {
                             id: "title_proceed_noflash",
                             duration: .fixedFrames(3),
                             commands: [
+                                .setPlaneVisibility(
+                                    .init(screen: .top, planeID: "main_bg3", visible: false, provenance: provenance)
+                                ),
+                                titleGlowCommand,
                                 .setLayerVisibility(
                                     .init(layerID: "start_prompt", visible: false, provenance: provenance)
                                 )
@@ -561,6 +603,9 @@ struct HGSSOpeningProgramRenderTests {
                             id: "title_fadeout",
                             duration: .fixedFrames(1),
                             commands: [
+                                .setPlaneVisibility(
+                                    .init(screen: .top, planeID: "main_bg3", visible: false, provenance: provenance)
+                                ),
                                 .dispatchAudio(
                                     .init(action: .stopBGM, cueName: "SEQ_GS_POKEMON_THEME", provenance: provenance)
                                 ),
@@ -655,13 +700,10 @@ struct HGSSOpeningProgramRenderTests {
                                 .setSolidFill(
                                     .init(screen: .bottom, colorHex: "#6363FF", provenance: provenance)
                                 ),
-                                .setMenu(
+                                .dispatchMenu(
                                     .init(
-                                        screen: .bottom,
-                                        options: [
-                                            .init(id: "new_game", text: "NEW GAME")
-                                        ],
-                                        selectedOptionID: "new_game",
+                                        selectionID: "new_game",
+                                        destinationID: "ov36_App_MainMenu_SelectOption_NewGame",
                                         provenance: provenance
                                     )
                                 )
@@ -1038,13 +1080,10 @@ struct HGSSOpeningProgramRenderTests {
                             id: "main_menu_new_game",
                             duration: .indefinite,
                             commands: [
-                                .setMenu(
+                                .dispatchMenu(
                                     .init(
-                                        screen: .bottom,
-                                        options: [
-                                            .init(id: "new_game", text: "NEW GAME")
-                                        ],
-                                        selectedOptionID: "new_game",
+                                        selectionID: "new_game",
+                                        destinationID: "ov36_App_MainMenu_SelectOption_NewGame",
                                         provenance: provenance
                                     )
                                 )
