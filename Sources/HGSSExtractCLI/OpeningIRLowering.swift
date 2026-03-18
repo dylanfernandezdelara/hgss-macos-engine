@@ -19,9 +19,9 @@ enum OpeningIRLoweringError: Error, LocalizedError {
         case let .missingTopLevelNode(sourceFile, name, kind):
             return "Missing \(kind) '\(name)' in parsed translation unit \(sourceFile)."
         case let .missingCaseNode(stateName):
-            return "Unable to locate switch case for \(stateName) in TitleScreen_Main."
+            return "Unable to locate switch case for \(stateName)."
         case let .duplicateCaseNode(stateName):
-            return "Encountered duplicate switch cases for \(stateName) in TitleScreen_Main."
+            return "Encountered duplicate switch cases for \(stateName)."
         case let .unsupportedSceneFunction(symbol):
             return "Encountered unsupported intro movie scene function \(symbol)."
         case let .invalidPromptFlashCycle(visibleFrames, cycleFrames):
@@ -87,6 +87,11 @@ struct PokeheartgoldOpeningIRLowerer {
             kind: "FunctionDecl",
             in: titleScreen
         )
+        let titlePromptWindow = try context.topLevelNode(
+            named: "sTouchToStartWindow",
+            kind: "VarDecl",
+            in: titleScreen
+        )
         let checkSaveStateEnum = try context.topLevelNode(
             named: "CheckSavedataApp_MainState",
             kind: "EnumDecl",
@@ -119,6 +124,7 @@ struct PokeheartgoldOpeningIRLowerer {
             exitNode: titleExit,
             stateEnumNode: titleStateEnum,
             animRunNode: titleAnimRun,
+            promptWindowNode: titlePromptWindow,
             context: context
         )
         let deleteSaveScene = lowerTerminalTitleExitScene(
@@ -230,6 +236,7 @@ struct PokeheartgoldOpeningIRLowerer {
         exitNode: ClangASTNode,
         stateEnumNode: ClangASTNode,
         animRunNode: ClangASTNode,
+        promptWindowNode: ClangASTNode,
         context: OpeningIRLoweringContext
     ) throws -> HGSSOpeningProgramIR.Scene {
         let titleSourceFile = context.relativePath(for: mainNode.location?.file ?? "src/title_screen.c")
@@ -237,10 +244,15 @@ struct PokeheartgoldOpeningIRLowerer {
         let stateNames = stateEnumNode.children
             .filter { $0.kind == "EnumConstantDecl" }
             .map(\.spelling)
-        let caseNodes = try titleCaseNodes(from: mainNode, context: context)
+        let caseNodes = try switchCaseNodes(
+            from: mainNode,
+            casePattern: #"TITLESCREEN_MAIN_[A-Z0-9_]+"#,
+            context: context
+        )
+        let waitFadeCaseNode = try caseNode(named: "TITLESCREEN_MAIN_WAIT_FADE", from: caseNodes)
         let initialDelayFrames = try context.requiredInt(
             #"initialDelay\s*=\s*([0-9]+)\s*;"#,
-            in: try context.snippet(for: mainNode),
+            in: try context.snippet(for: waitFadeCaseNode),
             sourceFile: titleSourceFile,
             description: "title initial delay"
         )
@@ -252,10 +264,11 @@ struct PokeheartgoldOpeningIRLowerer {
         )
         let promptFlash = try lowerPromptFlash(
             animRunNode: animRunNode,
+            promptWindowNode: promptWindowNode,
             titleSourceFile: titleSourceFile,
-            titleSourceText: titleSourceText,
             context: context
         )
+        _ = try caseNode(named: "TITLESCREEN_MAIN_START_MUSIC", from: caseNodes)
         let titleBGM = try context.requiredMatch(
             #"Sound_SetSceneAndPlayBGM\(\s*[0-9]+\s*,\s*([A-Z0-9_]+)\s*,\s*[0-9]+\s*\)"#,
             in: try context.snippet(for: mainNode),
@@ -1104,11 +1117,17 @@ struct PokeheartgoldOpeningIRLowerer {
         context: OpeningIRLoweringContext
     ) throws -> [String: TitleExitRoute] {
         let exitText = try context.snippet(for: exitNode)
+        let exitCases = try switchCaseNodes(
+            from: exitNode,
+            casePattern: #"TITLESCREEN_EXIT_[A-Z0-9_]+"#,
+            context: context
+        )
         return [
             "TITLESCREEN_EXIT_MENU": try route(
                 for: "TITLESCREEN_EXIT_MENU",
                 overlaySymbol: "gApplication_CheckSave",
                 defaultRoute: .init(sceneID: .checkSave, stateID: "check_save_route"),
+                caseNode: try caseNode(named: "TITLESCREEN_EXIT_MENU", from: exitCases),
                 exitText: exitText,
                 sourceFile: context.relativePath(for: exitNode.location?.file ?? "src/title_screen.c"),
                 context: context
@@ -1117,6 +1136,7 @@ struct PokeheartgoldOpeningIRLowerer {
                 for: "TITLESCREEN_EXIT_CLEARSAVE",
                 overlaySymbol: "gApplication_DeleteSave",
                 defaultRoute: .init(sceneID: .deleteSave, stateID: "delete_save_handoff"),
+                caseNode: try caseNode(named: "TITLESCREEN_EXIT_CLEARSAVE", from: exitCases),
                 exitText: exitText,
                 sourceFile: context.relativePath(for: exitNode.location?.file ?? "src/title_screen.c"),
                 context: context
@@ -1125,6 +1145,7 @@ struct PokeheartgoldOpeningIRLowerer {
                 for: "TITLESCREEN_EXIT_TIMEOUT",
                 overlaySymbol: "gApplication_IntroMovie",
                 defaultRoute: .init(sceneID: .scene1, stateID: "scene1_run"),
+                caseNode: try caseNode(named: "TITLESCREEN_EXIT_TIMEOUT", from: exitCases),
                 exitText: exitText,
                 sourceFile: context.relativePath(for: exitNode.location?.file ?? "src/title_screen.c"),
                 context: context
@@ -1133,6 +1154,7 @@ struct PokeheartgoldOpeningIRLowerer {
                 for: "TITLESCREEN_EXIT_MIC_TEST",
                 overlaySymbol: "gApplication_MicTest",
                 defaultRoute: .init(sceneID: .micTest, stateID: "mic_test_handoff"),
+                caseNode: try caseNode(named: "TITLESCREEN_EXIT_MIC_TEST", from: exitCases),
                 exitText: exitText,
                 sourceFile: context.relativePath(for: exitNode.location?.file ?? "src/title_screen.c"),
                 context: context
@@ -1154,10 +1176,12 @@ struct PokeheartgoldOpeningIRLowerer {
         for exitMode: String,
         overlaySymbol: String,
         defaultRoute: TitleExitRoute,
+        caseNode: ClangASTNode,
         exitText: String,
         sourceFile: String,
         context: OpeningIRLoweringContext
     ) throws -> TitleExitRoute {
+        _ = caseNode
         guard try context.optionalMatch(
             #"(case\s+\#(exitMode)\s*:[\s\S]*?RegisterMainOverlay\([^\n]*&\#(overlaySymbol)\))"#,
             in: exitText
@@ -1172,10 +1196,16 @@ struct PokeheartgoldOpeningIRLowerer {
 
     private func lowerPromptFlash(
         animRunNode: ClangASTNode,
+        promptWindowNode: ClangASTNode,
         titleSourceFile: String,
-        titleSourceText: String,
         context: OpeningIRLoweringContext
     ) throws -> HGSSOpeningProgramIR.PromptFlashCommand {
+        let animCaseNodes = try switchCaseNodes(
+            from: animRunNode,
+            casePattern: #"TITLESCREEN_ANIM_[A-Z0-9_]+"#,
+            context: context
+        )
+        _ = try caseNode(named: "TITLESCREEN_ANIM_RUN", from: animCaseNodes)
         let animRunText = try context.snippet(for: animRunNode)
         let equalityMatches = try context.matchIntegers(
             #"startInstructionFlashTimer\s*==\s*([0-9]+)"#,
@@ -1198,7 +1228,7 @@ struct PokeheartgoldOpeningIRLowerer {
         }
         let promptRect = try titlePromptRect(
             sourceFile: titleSourceFile,
-            titleSourceText: titleSourceText,
+            promptWindowNode: promptWindowNode,
             context: context
         )
         let promptText = try titlePromptText(context: context)
@@ -1217,12 +1247,13 @@ struct PokeheartgoldOpeningIRLowerer {
 
     private func titlePromptRect(
         sourceFile: String,
-        titleSourceText: String,
+        promptWindowNode: ClangASTNode,
         context: OpeningIRLoweringContext
     ) throws -> HGSSOpeningProgramIR.ScreenRect {
+        let titlePromptWindowText = try context.snippet(for: promptWindowNode)
         let rawFields = try context.requiredMatch(
             #"static\s+const\s+WindowTemplate\s+sTouchToStartWindow\s*=\s*\{\s*[^,]+,\s*([0-9]+\s*,\s*[0-9]+\s*,\s*[0-9]+\s*,\s*[0-9]+)\s*,"#,
-            in: titleSourceText,
+            in: titlePromptWindowText,
             sourceFile: sourceFile,
             description: "title prompt window template"
         )
@@ -1266,15 +1297,16 @@ struct PokeheartgoldOpeningIRLowerer {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func titleCaseNodes(
-        from mainNode: ClangASTNode,
+    private func switchCaseNodes(
+        from functionNode: ClangASTNode,
+        casePattern: String,
         context: OpeningIRLoweringContext
     ) throws -> [String: ClangASTNode] {
         var caseNodes: [String: ClangASTNode] = [:]
-        for caseNode in mainNode.descendants(kind: "CaseStmt") {
+        for caseNode in functionNode.descendants(kind: "CaseStmt") {
             let snippet = try context.snippet(for: caseNode)
             guard let stateName = try context.optionalMatch(
-                #"case\s+(TITLESCREEN_MAIN_[A-Z0-9_]+)\s*:"#,
+                #"case\s+(\#(casePattern))\s*:"#,
                 in: snippet
             ) else {
                 continue

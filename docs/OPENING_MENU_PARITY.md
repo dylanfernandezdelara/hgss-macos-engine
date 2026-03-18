@@ -26,7 +26,7 @@ The target is parity with the official source-backed behavior, not a handcrafted
 ### Phase 1: Finish Source-Backed Opening IR
 
 - [ ] Lower `intro_movie_scene_1.c` through `intro_movie_scene_5.c` into concrete IR commands for fades, windows, scrolls, viewport masks, and scene-local timing.
-- [ ] Replace the remaining regex-only title extraction with AST-backed lowering for `TitleScreen_Main`, `TitleScreen_Exit`, and `TitleScreenAnim_Run`.
+- [x] Replace the remaining regex-only title extraction with AST-backed lowering for `TitleScreen_Main`, `TitleScreen_Exit`, and `TitleScreenAnim_Run`.
 - [x] Add byte-stable snapshot coverage for parser-derived `opening_program_ir.json` built from real parsed upstream inputs.
 - [x] Expand title-screen IR to cover all exit modes explicitly: `TITLESCREEN_EXIT_MENU`, `TITLESCREEN_EXIT_TIMEOUT`, `TITLESCREEN_EXIT_CLEARSAVE`, and `TITLESCREEN_EXIT_MIC_TEST`.
 - [x] Expand `CheckSave` IR from the current default route into full save-status routing for clean save, corrupted save, erased save, and battle hall/video error variants.
@@ -85,9 +85,9 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [ ] `P1.4` Lower scene 3 commands for fades, layer toggles, masks, and timing into `HGSSOpeningIR`.
 - [ ] `P1.5` Lower scene 4 commands for fades, layer toggles, masks, particle hooks, and timing into `HGSSOpeningIR`.
 - [ ] `P1.6` Lower scene 5 commands for fades, layer toggles, masks, and timing into `HGSSOpeningIR`.
-- [ ] `P1.7` Replace regex-only title extraction with cursor-walked AST lowering for `TitleScreen_Main`.
-- [ ] `P1.8` Replace regex-only title extraction with cursor-walked AST lowering for `TitleScreen_Exit`.
-- [ ] `P1.9` Replace regex-only title extraction with cursor-walked AST lowering for `TitleScreenAnim_Run`.
+- [x] `P1.7` Replace regex-only title extraction with cursor-walked AST lowering for `TitleScreen_Main`.
+- [x] `P1.8` Replace regex-only title extraction with cursor-walked AST lowering for `TitleScreen_Exit`.
+- [x] `P1.9` Replace regex-only title extraction with cursor-walked AST lowering for `TitleScreenAnim_Run`.
 - [x] `P1.10` Model the full `CheckSavedataApp_MainState` and `CheckSavedataApp_PrintState` loop in IR, including repeated save-status message dispatch.
 - [x] `P1.11` Add IR commands and runtime support for `CheckSave` flag mutation so status flags can be cleared and revisited exactly like the source loop.
 - [x] `P1.12` Add IR commands and runtime support for `CheckSave` confirm/input-gated transitions between printed messages.
