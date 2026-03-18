@@ -79,7 +79,7 @@ This milestone is done when the native macOS app can be launched from the repo a
 
 ### Phase 1 Todos
 
-- [ ] `P1.1` Parse `intro_movie_scene_1.c` through `intro_movie_scene_5.c` into AST-backed scene blocks and state spans.
+- [x] `P1.1` Parse `intro_movie_scene_1.c` through `intro_movie_scene_5.c` into AST-backed scene blocks and state spans.
 - [ ] `P1.2` Lower scene 1 commands for fades, layer toggles, masks, and timing into `HGSSOpeningIR`.
 - [ ] `P1.3` Lower scene 2 commands for fades, layer toggles, masks, and timing into `HGSSOpeningIR`.
 - [ ] `P1.4` Lower scene 3 commands for fades, layer toggles, masks, and timing into `HGSSOpeningIR`.

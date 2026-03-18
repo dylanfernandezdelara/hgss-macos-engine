@@ -43,8 +43,30 @@ struct OpeningIRLowererTests {
 
         let scene1 = try #require(program.scenes.first(where: { $0.id == .scene1 }))
         let scene1State = try #require(scene1.states.first(where: { $0.id == "scene1_run" }))
-        #expect(scene1State.transitions.first?.targetSceneID == .scene2)
-        #expect(scene1State.transitions.first?.targetStateID == "scene2_run")
+        #expect(scene1.initialStateID == "scene1_run")
+        #expect(scene1.states.map(\.id) == [
+            "scene1_run",
+            "scene1_appear_copyright",
+            "scene1_wait_copyright",
+            "scene1_wait_fadeout_copyright",
+            "scene1_wait_appear_gamefreak",
+            "scene1_wait_gamefreak",
+            "scene1_appear_bg_image",
+            "scene1_wait_start_bg_scroll",
+            "scene1_wait_bg_scroll",
+            "scene1_wait_appear_bird",
+            "scene1_delay90_start_fadeout",
+            "scene1_wait_fadeout",
+        ])
+        #expect(scene1State.transitions.contains(where: {
+            $0.trigger == .stateCompleted && $0.targetStateID == "scene1_appear_copyright"
+        }))
+        #expect(scene1State.transitions.contains(where: {
+            if case .flagEquals(name: "scene1_complete", value: 1) = $0.trigger {
+                return $0.targetSceneID == .scene2 && $0.targetStateID == "scene2_run"
+            }
+            return false
+        }))
         #expect(scene1State.commands.contains(where: { command in
             if case let .setScreenSwap(payload) = command {
                 return payload.enabled
@@ -57,6 +79,20 @@ struct OpeningIRLowererTests {
             }
             return false
         }))
+
+        let scene3 = try #require(program.scenes.first(where: { $0.id == .scene3 }))
+        #expect(scene3.states.map(\.id).contains("scene3_wait_admins"))
+        let scene4 = try #require(program.scenes.first(where: { $0.id == .scene4 }))
+        #expect(scene4.states.map(\.id).contains("scene4_wait_sparkle"))
+        let scene5 = try #require(program.scenes.first(where: { $0.id == .scene5 }))
+        #expect(scene5.states.map(\.id) == [
+            "scene5_run",
+            "scene5_wipe_in",
+            "scene5_wait_wipe",
+            "scene5_begin_bg_scroll",
+            "scene5_wait_bg_scroll",
+            "scene5_wait_fade_out",
+        ])
 
         let titleScene = try #require(program.scenes.first(where: { $0.id == .titleScreen }))
         #expect(titleScene.initialStateID == "title_wait_fade")

@@ -37,6 +37,12 @@ enum OpeningIRLoweringError: Error, LocalizedError {
 }
 
 struct PokeheartgoldOpeningIRLowerer {
+    private struct IntroSceneDescriptor {
+        let id: HGSSOpeningProgramIR.SceneID
+        let enumNode: ClangASTNode
+        let mainNode: ClangASTNode
+    }
+
     func lower(
         validation: PokeheartgoldOpeningParseValidation,
         pretRoot: URL
@@ -48,6 +54,11 @@ struct PokeheartgoldOpeningIRLowerer {
 
         let introMovie = try context.translationUnit(matchingSuffix: "/src/intro_movie.c")
         let titleScreen = try context.translationUnit(matchingSuffix: "/src/title_screen.c")
+        let introMovieScene1 = try context.translationUnit(matchingSuffix: "/src/intro_movie_scene_1.c")
+        let introMovieScene2 = try context.translationUnit(matchingSuffix: "/src/intro_movie_scene_2.c")
+        let introMovieScene3 = try context.translationUnit(matchingSuffix: "/src/intro_movie_scene_3.c")
+        let introMovieScene4 = try context.translationUnit(matchingSuffix: "/src/intro_movie_scene_4.c")
+        let introMovieScene5 = try context.translationUnit(matchingSuffix: "/src/intro_movie_scene_5.c")
         let checkSavedata = try context.translationUnit(matchingSuffix: "/src/application/check_savedata.c")
         let mainMenu = try context.translationUnit(matchingSuffix: "/src/application/main_menu/main_menu.c")
 
@@ -113,10 +124,39 @@ struct PokeheartgoldOpeningIRLowerer {
             in: mainMenu
         )
 
+        let introSceneDescriptors = try [
+            IntroSceneDescriptor(
+                id: .scene1,
+                enumNode: context.topLevelNode(named: "IntroScene1State", kind: "EnumDecl", in: introMovieScene1),
+                mainNode: context.topLevelNode(named: "IntroMovie_Scene1_Main", kind: "FunctionDecl", in: introMovieScene1)
+            ),
+            IntroSceneDescriptor(
+                id: .scene2,
+                enumNode: context.topLevelNode(named: "IntroScene2State", kind: "EnumDecl", in: introMovieScene2),
+                mainNode: context.topLevelNode(named: "IntroMovie_Scene2_Main", kind: "FunctionDecl", in: introMovieScene2)
+            ),
+            IntroSceneDescriptor(
+                id: .scene3,
+                enumNode: context.topLevelNode(named: "IntroScene3State", kind: "EnumDecl", in: introMovieScene3),
+                mainNode: context.topLevelNode(named: "IntroMovie_Scene3_Main", kind: "FunctionDecl", in: introMovieScene3)
+            ),
+            IntroSceneDescriptor(
+                id: .scene4,
+                enumNode: context.topLevelNode(named: "IntroScene4State", kind: "EnumDecl", in: introMovieScene4),
+                mainNode: context.topLevelNode(named: "IntroMovie_Scene4_Main", kind: "FunctionDecl", in: introMovieScene4)
+            ),
+            IntroSceneDescriptor(
+                id: .scene5,
+                enumNode: context.topLevelNode(named: "IntroScene5State", kind: "EnumDecl", in: introMovieScene5),
+                mainNode: context.topLevelNode(named: "IntroMovie_Scene5_Main", kind: "FunctionDecl", in: introMovieScene5)
+            ),
+        ]
+
         let introScenes = try lowerIntroScenes(
             tableNode: introSceneTable,
             initNode: introInit,
             mainNode: introMain,
+            sceneDescriptors: introSceneDescriptors,
             context: context
         )
         let titleScene = try lowerTitleScene(
@@ -162,6 +202,7 @@ struct PokeheartgoldOpeningIRLowerer {
         tableNode: ClangASTNode,
         initNode: ClangASTNode,
         mainNode: ClangASTNode,
+        sceneDescriptors: [IntroSceneDescriptor],
         context: OpeningIRLoweringContext
     ) throws -> [HGSSOpeningProgramIR.Scene] {
         let introMovieBGM = try context.requiredMatch(
@@ -180,11 +221,17 @@ struct PokeheartgoldOpeningIRLowerer {
             return (sceneID, context.provenance(for: node))
         }
 
-        return orderedScenes.enumerated().map { index, entry in
+        let descriptorsBySceneID = Dictionary(uniqueKeysWithValues: sceneDescriptors.map { ($0.id, $0) })
+
+        return try orderedScenes.enumerated().map { index, entry in
             let stateID = "\(entry.id.rawValue)_run"
             let transitionTarget = index + 1 < orderedScenes.count
                 ? (orderedScenes[index + 1].id, "\(orderedScenes[index + 1].id.rawValue)_run")
                 : (.titleScreen, "title_wait_fade")
+
+            guard let descriptor = descriptorsBySceneID[entry.id] else {
+                throw OpeningIRLoweringError.missingCaseNode(entry.id.rawValue)
+            }
 
             var commands: [HGSSOpeningProgramIR.Command] = []
             if index == 0 {
@@ -207,25 +254,52 @@ struct PokeheartgoldOpeningIRLowerer {
                 )
             }
 
+            let enumStateNames = descriptor.enumNode.children
+                .filter { $0.kind == "EnumConstantDecl" }
+                .map(\.spelling)
+            let caseNodes = try switchCaseNodes(
+                from: descriptor.mainNode,
+                casePattern: #"INTRO_SCENE[0-9]+_[A-Z0-9_]+"#,
+                context: context
+            )
+            let sceneStates = try enumStateNames.compactMap { stateName -> HGSSOpeningProgramIR.State? in
+                guard let caseNode = caseNodes[stateName] else {
+                    return nil
+                }
+                return .init(
+                    id: introSceneStateID(for: entry.id, stateName: stateName),
+                    duration: .indefinite,
+                    commands: [],
+                    transitions: [],
+                    provenance: context.provenance(for: caseNode, symbolOverride: stateName)
+                )
+            }
+
+            let firstSceneStateID = sceneStates.first?.id ?? stateID
+            let sceneRunState = HGSSOpeningProgramIR.State(
+                id: stateID,
+                duration: .fixedFrames(1),
+                commands: commands,
+                transitions: [
+                    .init(
+                        trigger: .stateCompleted,
+                        targetStateID: firstSceneStateID,
+                        provenance: entry.provenance
+                    ),
+                    .init(
+                        trigger: .flagEquals(name: "\(entry.id.rawValue)_complete", value: 1),
+                        targetSceneID: transitionTarget.0,
+                        targetStateID: transitionTarget.1,
+                        provenance: context.provenance(for: mainNode, symbolOverride: "IntroMovie_Main")
+                    )
+                ],
+                provenance: entry.provenance
+            )
+
             return HGSSOpeningProgramIR.Scene(
                 id: entry.id,
                 initialStateID: stateID,
-                states: [
-                    .init(
-                        id: stateID,
-                        duration: .indefinite,
-                        commands: commands,
-                        transitions: [
-                            .init(
-                                trigger: .flagEquals(name: "\(entry.id.rawValue)_complete", value: 1),
-                                targetSceneID: transitionTarget.0,
-                                targetStateID: transitionTarget.1,
-                                provenance: context.provenance(for: mainNode, symbolOverride: "IntroMovie_Main")
-                            )
-                        ],
-                        provenance: entry.provenance
-                    )
-                ],
+                states: [sceneRunState] + sceneStates,
                 provenance: entry.provenance
             )
         }
@@ -1354,6 +1428,15 @@ struct PokeheartgoldOpeningIRLowerer {
         default:
             throw OpeningIRLoweringError.unsupportedSceneFunction(symbol)
         }
+    }
+
+    private func introSceneStateID(
+        for sceneID: HGSSOpeningProgramIR.SceneID,
+        stateName: String
+    ) -> String {
+        let prefix = "INTRO_SCENE\(sceneID.rawValue.replacingOccurrences(of: "scene", with: ""))_"
+        let trimmed = stateName.replacingOccurrences(of: prefix, with: "")
+        return sceneID.rawValue + "_" + trimmed.lowercased()
     }
 
     private func titleStateID(for stateName: String) -> String {
