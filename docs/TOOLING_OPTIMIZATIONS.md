@@ -24,3 +24,4 @@ Shorten the native opening/menu parity development loop by removing avoidable re
 - Record parity fixtures: `./scripts/record_opening_menu_parity_fixtures.sh --refresh-content`
 - Full proof path: `./scripts/run_opening_menu_full_proof.sh`
 - Capture a native app screenshot: `./scripts/capture_hgssmac_screenshot.sh --skip-extract`
+- Launch the app fullscreen: `./scripts/run_app.sh --skip-extract --fullscreen`

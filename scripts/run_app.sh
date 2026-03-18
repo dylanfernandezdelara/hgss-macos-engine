@@ -12,6 +12,7 @@ APP_SCRATCH="$ROOT_DIR/.build-app"
 SWIFT=(xcrun swift)
 REFRESH_CONTENT=0
 SKIP_EXTRACT=0
+FULLSCREEN=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -21,9 +22,12 @@ while [[ $# -gt 0 ]]; do
     --skip-extract)
       SKIP_EXTRACT=1
       ;;
+    --fullscreen)
+      FULLSCREEN=1
+      ;;
     *)
       echo "Unknown argument: $1" >&2
-      echo "Usage: ./scripts/run_app.sh [--refresh-content] [--skip-extract]" >&2
+      echo "Usage: ./scripts/run_app.sh [--refresh-content] [--skip-extract] [--fullscreen]" >&2
       exit 1
       ;;
   esac
@@ -44,4 +48,5 @@ fi
 echo "Launching HGSSMac opening player..."
 HGSS_REPO_ROOT="$ROOT_DIR" \
 HGSS_CONTENT_ROOT="$ROOT_DIR/Content/Local/Boot/HeartGold" \
+HGSSMAC_FULLSCREEN="$FULLSCREEN" \
 "${SWIFT[@]}" run --scratch-path "$APP_SCRATCH" --package-path Apps/HGSSMac HGSSMac
