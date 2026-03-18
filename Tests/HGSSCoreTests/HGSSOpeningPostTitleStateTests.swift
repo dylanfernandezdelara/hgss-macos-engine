@@ -105,4 +105,39 @@ struct HGSSOpeningPostTitleStateTests {
             "main_menu_connected_agb_game": 3,
         ])
     }
+
+    @Test("Save summary derives CheckSave flags and MainMenu availability")
+    func saveSummaryDerivesPostTitleState() {
+        let summary = HGSSOpeningSaveSummary(
+            hasUsableSaveData: true,
+            mainSaveStatus: .corrupted,
+            battleHallStatus: .erased,
+            battleVideoStatus: .corrupted,
+            hasPokedex: false,
+            mysteryGiftEnabled: true,
+            rangerEnabled: true,
+            connectToWiiEnabled: true,
+            connectedAGBGame: .sapphire
+        )
+
+        #expect(summary.checkSaveStatus == [.saveCorrupted, .battleHallErased, .battleVideoCorrupted])
+        #expect(summary.mainMenuAvailability.visibleOptionIDs == [
+            "continue",
+            "new_game",
+            "pokewalker",
+            "migrate_sapphire",
+            "connect_to_wii",
+            "wfc",
+            "wii_settings",
+        ])
+        #expect(summary.postTitleState.programFlags == [
+            "check_save_status_flags": (1 << 0) | (1 << 3) | (1 << 4),
+            "main_menu_has_save_data": 1,
+            "main_menu_has_pokedex": 0,
+            "main_menu_draw_mystery_gift": 1,
+            "main_menu_draw_ranger": 1,
+            "main_menu_draw_connect_to_wii": 1,
+            "main_menu_connected_agb_game": 2,
+        ])
+    }
 }

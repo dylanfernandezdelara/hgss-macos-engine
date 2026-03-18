@@ -128,9 +128,23 @@ final class GameViewModel: ObservableObject {
         case 0, 36, 76:
             readyState?.controller.requestSkip()
         case 8:
-            readyState?.controller.requestTitleClearSaveExit()
+            readyState?.controller.requestProgramFlagMutations(
+                [
+                    "title_clear_save_requested": 1,
+                    "title_mic_test_requested": 0,
+                ],
+                sceneID: .titleScreen,
+                stateID: "title_play"
+            )
         case 46:
-            readyState?.controller.requestTitleMicTestExit()
+            readyState?.controller.requestProgramFlagMutations(
+                [
+                    "title_mic_test_requested": 1,
+                    "title_clear_save_requested": 0,
+                ],
+                sceneID: .titleScreen,
+                stateID: "title_play"
+            )
         case 2:
             if developerOverlayEnabled {
                 showDeveloperOverlay.toggle()
@@ -209,6 +223,10 @@ final class GameViewModel: ObservableObject {
 
         Expected extracted content under Content/Local/Boot/HeartGold.
         Run ./scripts/run_extractor_stub.sh first.
+        Optional real-save boot inputs:
+        - set HGSS_SAVE_FILE to a local HeartGold save snapshot
+        - or place opening_savedata.sav / opening_savedata.dsv under the content root
+        - use opening_feature_flags.json for Ranger / Wii / AGB feature overrides
         For pret-backed extraction, ensure POKEHEARTGOLD_ROOT points to a local clone such as:
         \(defaultPretRoot)
         """

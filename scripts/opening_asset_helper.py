@@ -900,9 +900,19 @@ def render_sequence_audio(args: argparse.Namespace) -> None:
 
     sequence_cycle_accumulator = 0
     current_time = 0.0
+    target_duration_seconds = args.target_duration_seconds
 
     while True:
+        if target_duration_seconds is not None and current_time >= target_duration_seconds:
+            for track in track_states.values():
+                track.ended = True
+            break
+
         while any(not track.ended and track.wait_ticks == 0 for track in track_states.values()):
+            if target_duration_seconds is not None and current_time >= target_duration_seconds:
+                for track in track_states.values():
+                    track.ended = True
+                break
             for track_number in sorted(track_states.keys()):
                 track = track_states[track_number]
                 if not track.ended and track.wait_ticks == 0:

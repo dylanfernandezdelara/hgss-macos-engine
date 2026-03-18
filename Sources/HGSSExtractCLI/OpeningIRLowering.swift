@@ -482,6 +482,14 @@ struct PokeheartgoldOpeningIRLowerer {
                     id: titleStateID(for: stateName),
                     duration: .fixedFrames(whiteFlashDuration),
                     commands: [
+                        .dispatchAudio(
+                            .init(
+                                action: .fadeOutBGM,
+                                cueName: titleBGM,
+                                durationFrames: bgmFadeDuration,
+                                provenance: provenance
+                            )
+                        ),
                         promptPlaneOff,
                         titleGlowCommand,
                         hiddenPromptCommand,
@@ -528,6 +536,14 @@ struct PokeheartgoldOpeningIRLowerer {
                     id: titleStateID(for: stateName),
                     duration: .fixedFrames(bgmFadeDuration),
                     commands: [
+                        .dispatchAudio(
+                            .init(
+                                action: .fadeOutBGM,
+                                cueName: titleBGM,
+                                durationFrames: bgmFadeDuration,
+                                provenance: provenance
+                            )
+                        ),
                         promptPlaneOff,
                         titleGlowCommand,
                         hiddenPromptCommand,

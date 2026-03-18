@@ -1,0 +1,47 @@
+{
+  "cueAssets" : [
+    {
+      "cueName" : "SEQ_GS_TITLE",
+      "traceDigest" : "192254f6d7947f499a73f694fdb9c36fe8f3db4b2b80f7bec8d99b60657060b7",
+      "wavDigest" : "33b2989775747d3300704d3a16dbd2d303ec8d36fb08a33560d24f9aa65e15f6"
+    },
+    {
+      "cueName" : "SEQ_GS_POKEMON_THEME",
+      "traceDigest" : "1d3bbb768cd6273318358f459dc8f6981219ab3bc6426872cbea26096c3b0013",
+      "wavDigest" : "ca7b4fcd1653415e2db6bba94d3451b1ed813ee8ca68b4dc64e582b277aed7c4"
+    }
+  ],
+  "runtimeTrace" : [
+    {
+      "action" : "start_bgm",
+      "bundleSceneID" : "scene1",
+      "cueName" : "SEQ_GS_TITLE",
+      "index" : 0
+    },
+    {
+      "action" : "start_bgm",
+      "bundleSceneID" : "title_handoff",
+      "cueName" : "SEQ_GS_POKEMON_THEME",
+      "index" : 1,
+      "programSceneID" : "title_screen",
+      "programStateID" : "title_start_music"
+    },
+    {
+      "action" : "fade_out_bgm",
+      "bundleSceneID" : "title_handoff",
+      "cueName" : "SEQ_GS_POKEMON_THEME",
+      "fadeDurationFrames" : 60,
+      "index" : 2,
+      "programSceneID" : "title_screen",
+      "programStateID" : "title_proceed_flash"
+    },
+    {
+      "action" : "stop_bgm",
+      "bundleSceneID" : "title_handoff",
+      "cueName" : "SEQ_GS_POKEMON_THEME",
+      "index" : 3,
+      "programSceneID" : "title_screen",
+      "programStateID" : "title_fadeout_menu"
+    }
+  ]
+}

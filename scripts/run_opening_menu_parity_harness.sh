@@ -51,6 +51,9 @@ run_filtered_test OpeningProgramTraceTests
 echo "Running native playback controller checks..."
 run_filtered_test HGSSOpeningProgramRenderTests
 
+echo "Running visual and audio parity digest checks..."
+run_filtered_test HGSSOpeningParityHarnessTests
+
 if [[ -n "$COMPARE_PATH" ]]; then
   echo "Diffing extracted audio/reference artifacts against: $COMPARE_PATH"
   python3 "$ROOT_DIR/scripts/opening_reference_diff.py" \

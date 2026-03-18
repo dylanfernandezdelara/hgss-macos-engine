@@ -65,6 +65,8 @@ struct HGSSOpeningProgramRenderTests {
         #expect(controller.isProgramPlaneVisible(screen: .top, planeID: "main_bg3") == false)
         let whiteFade = try #require(controller.activeProgramFadeOverlay())
         #expect(whiteFade.colorHex == "#FFFFFF")
+        #expect(controller.audioCueLog.last?.cue.action == .fadeOutBGM)
+        #expect(controller.audioCueLog.last?.cue.fadeDurationFrames == 60)
 
         controller.advanceFrame()
         #expect(controller.currentProgramState?.id == "title_proceed_flash_2")
@@ -183,8 +185,14 @@ struct HGSSOpeningProgramRenderTests {
             loadedProgram: loadedProgram
         )
         clearSaveController.requestSkip()
-        clearSaveController.requestTitleClearSaveExit()
-        clearSaveController.advanceFrame()
+        _ = clearSaveController.requestProgramFlagMutations(
+            [
+                "title_clear_save_requested": 1,
+                "title_mic_test_requested": 0,
+            ],
+            sceneID: .titleScreen,
+            stateID: "title_play"
+        )
         #expect(clearSaveController.currentProgramState?.id == "title_fadeout_clearsave")
         clearSaveController.advanceFrame()
         #expect(clearSaveController.currentProgramScene?.id == .deleteSave)
@@ -195,8 +203,14 @@ struct HGSSOpeningProgramRenderTests {
             loadedProgram: loadedProgram
         )
         micTestController.requestSkip()
-        micTestController.requestTitleMicTestExit()
-        micTestController.advanceFrame()
+        _ = micTestController.requestProgramFlagMutations(
+            [
+                "title_mic_test_requested": 1,
+                "title_clear_save_requested": 0,
+            ],
+            sceneID: .titleScreen,
+            stateID: "title_play"
+        )
         #expect(micTestController.currentProgramState?.id == "title_fadeout_mic_test")
         micTestController.advanceFrame()
         #expect(micTestController.currentProgramScene?.id == .micTest)
@@ -542,6 +556,14 @@ struct HGSSOpeningProgramRenderTests {
                             id: "title_proceed_flash",
                             duration: .fixedFrames(1),
                             commands: [
+                                .dispatchAudio(
+                                    .init(
+                                        action: .fadeOutBGM,
+                                        cueName: "SEQ_GS_POKEMON_THEME",
+                                        durationFrames: 60,
+                                        provenance: provenance
+                                    )
+                                ),
                                 .setPlaneVisibility(
                                     .init(screen: .top, planeID: "main_bg3", visible: false, provenance: provenance)
                                 ),
@@ -586,6 +608,14 @@ struct HGSSOpeningProgramRenderTests {
                             id: "title_proceed_noflash",
                             duration: .fixedFrames(3),
                             commands: [
+                                .dispatchAudio(
+                                    .init(
+                                        action: .fadeOutBGM,
+                                        cueName: "SEQ_GS_POKEMON_THEME",
+                                        durationFrames: 60,
+                                        provenance: provenance
+                                    )
+                                ),
                                 .setPlaneVisibility(
                                     .init(screen: .top, planeID: "main_bg3", visible: false, provenance: provenance)
                                 ),

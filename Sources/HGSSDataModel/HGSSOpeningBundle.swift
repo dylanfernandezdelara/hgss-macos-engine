@@ -37,6 +37,7 @@ public struct HGSSOpeningBundle: Codable, Equatable, Sendable {
 
     public enum AudioCueAction: String, Codable, Equatable, Sendable {
         case startBGM = "start_bgm"
+        case fadeOutBGM = "fade_out_bgm"
         case stopBGM = "stop_bgm"
         case triggerCry = "trigger_cry"
     }
@@ -364,6 +365,7 @@ public struct HGSSOpeningBundle: Codable, Equatable, Sendable {
         public let action: AudioCueAction
         public let cueName: String
         public let frame: Int
+        public let fadeDurationFrames: Int?
         public let playableAssetID: String?
         public let provenance: String
 
@@ -372,6 +374,7 @@ public struct HGSSOpeningBundle: Codable, Equatable, Sendable {
             action: AudioCueAction,
             cueName: String,
             frame: Int,
+            fadeDurationFrames: Int? = nil,
             playableAssetID: String? = nil,
             provenance: String
         ) {
@@ -379,6 +382,7 @@ public struct HGSSOpeningBundle: Codable, Equatable, Sendable {
             self.action = action
             self.cueName = cueName
             self.frame = frame
+            self.fadeDurationFrames = fadeDurationFrames
             self.playableAssetID = playableAssetID
             self.provenance = provenance
         }

@@ -1,7 +1,9 @@
 import AppKit
+import CoreImage
 import Foundation
 import HGSSDataModel
 import HGSSOpeningIR
+import Metal
 import SceneKit
 
 private struct HelperSpriteManifest: Decodable {
@@ -59,6 +61,8 @@ private struct BakedModelScreenResult {
 private struct ModelRendererState {
     let renderer: SCNRenderer
     let cycleFrames: Int?
+    let commandQueue: MTLCommandQueue
+    let ciContext: CIContext
 }
 
 private struct RenderedAudioCueResult {
@@ -271,6 +275,12 @@ private enum OpeningHeartGoldExtractModeError: Error, LocalizedError {
     case missingScene4BakedParticlePhase(String)
     case missingScene4ParticleResource(Int)
     case missingScene4SparklesSequence
+    case missingMetalDevice
+    case missingMetalCommandQueue
+    case metalTextureCreationFailed
+    case metalCommandBufferCreationFailed
+    case metalRenderedImageUnavailable
+    case metalRenderFailed(String)
     case sourcePatternNotFound(file: String, pattern: String)
     case invalidSourceNumbers(file: String, pattern: String)
 
@@ -284,6 +294,18 @@ private enum OpeningHeartGoldExtractModeError: Error, LocalizedError {
             return "Scene 4 particle manifest is missing required resource \(resourceID)."
         case .missingScene4SparklesSequence:
             return "Scene 4 sparkles sequence did not decode any frames."
+        case .missingMetalDevice:
+            return "A Metal device is required to bake SceneKit frames in the extractor."
+        case .missingMetalCommandQueue:
+            return "Failed to create a Metal command queue for SceneKit baking."
+        case .metalTextureCreationFailed:
+            return "Failed to allocate a Metal render target for SceneKit baking."
+        case .metalCommandBufferCreationFailed:
+            return "Failed to create a Metal command buffer for SceneKit baking."
+        case .metalRenderedImageUnavailable:
+            return "Failed to convert the baked SceneKit frame into an image."
+        case let .metalRenderFailed(message):
+            return "SceneKit Metal bake failed: \(message)"
         case let .sourcePatternNotFound(file, pattern):
             return "Could not derive opening metadata from \(file) using pattern \(pattern)."
         case let .invalidSourceNumbers(file, pattern):
@@ -3009,17 +3031,27 @@ struct OpeningHeartGoldExtractor {
 
         let wavOutput = sceneAudioRoot.appendingPathComponent("\(cueName.lowercased()).wav", isDirectory: false)
         let metadataOutput = sceneIntermediateAudioRoot.appendingPathComponent("\(cueName.lowercased()).json", isDirectory: false)
+        var arguments = [
+            "render-audio",
+            "--input", soundArchive.path(),
+            "--cue-name", cueName,
+            "--output-wav", wavOutput.path(),
+            "--output-json", metadataOutput.path(),
+        ]
+        if let targetDurationSeconds = audioRenderTargetDurationSeconds(
+            cueName: cueName,
+            sceneID: sceneID
+        ) {
+            arguments.append(contentsOf: [
+                "--target-duration-seconds",
+                String(format: "%.3f", targetDurationSeconds),
+            ])
+        }
 
         try runPythonHelper(
             pythonTool: pythonTool,
             helperScript: helperScript,
-            arguments: [
-                "render-audio",
-                "--input", soundArchive.path(),
-                "--cue-name", cueName,
-                "--output-wav", wavOutput.path(),
-                "--output-json", metadataOutput.path(),
-            ]
+            arguments: arguments
         )
 
         let asset = HGSSOpeningBundle.Asset(
@@ -3039,11 +3071,25 @@ struct OpeningHeartGoldExtractor {
         )
     }
 
+    private func audioRenderTargetDurationSeconds(
+        cueName: String,
+        sceneID: String
+    ) -> Double? {
+        switch (sceneID, cueName) {
+        case ("scene1", "SEQ_GS_TITLE"):
+            return 12.0
+        case ("title_handoff", "SEQ_GS_POKEMON_THEME"):
+            return 12.0
+        default:
+            return nil
+        }
+    }
+
     private func sceneKitBakeSceneIDs(
         for bundle: HGSSOpeningBundle
     ) -> Set<HGSSOpeningBundle.SceneID> {
         let allSceneIDs = Set(bundle.scenes.filter { !$0.modelAnimations.isEmpty }.map(\.id))
-        guard ProcessInfo.processInfo.environment["HGSS_ENABLE_SCENEKIT_BAKE"] == "1" else {
+        guard ProcessInfo.processInfo.environment["HGSS_DISABLE_SCENEKIT_BAKE"] != "1" else {
             return []
         }
         return allSceneIDs
@@ -3200,10 +3246,10 @@ struct OpeningHeartGoldExtractor {
                     continue
                 }
                 let sceneTime = modelSceneTime(model: model, sceneFrame: frame)
-                let rendered = rendererState.renderer.snapshot(
-                    atTime: sceneTime,
-                    with: screenSize,
-                    antialiasingMode: .none
+                let rendered = try renderModelSnapshot(
+                    rendererState: rendererState,
+                    sceneTime: sceneTime,
+                    size: screenSize
                 )
                 rendered.draw(in: CGRect(origin: .zero, size: screenSize))
             }
@@ -3247,18 +3293,98 @@ struct OpeningHeartGoldExtractor {
         model: HGSSOpeningBundle.ModelAnimationRef
     ) throws -> ModelRendererState {
         _ = NSApplication.shared
-        let stagedAssetURL = try stageModelAssetForSceneKit(assetURL)
-        let scene = try SCNScene(url: stagedAssetURL, options: nil)
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw OpeningHeartGoldExtractModeError.missingMetalDevice
+        }
+        guard let commandQueue = device.makeCommandQueue() else {
+            throw OpeningHeartGoldExtractModeError.missingMetalCommandQueue
+        }
+        let sceneData = try Data(contentsOf: assetURL)
+        let assetDirectory = assetURL.deletingLastPathComponent()
+        let loadingOptions: [SCNSceneSource.LoadingOption: Any] = [
+            .assetDirectoryURLs: [assetDirectory],
+        ]
+        guard
+            let sceneSource = SCNSceneSource(data: sceneData, options: loadingOptions),
+            let scene = sceneSource.scene(options: loadingOptions)
+        else {
+            throw ExtractCLIError.missingPretRenderAsset(path: assetURL.path())
+        }
         scene.background.contents = NSColor.clear
         configureModelScene(scene, model: model)
-        let renderer = SCNRenderer(device: nil, options: nil)
+        let renderer = SCNRenderer(device: device, options: nil)
         renderer.scene = scene
         renderer.pointOfView = scene.rootNode.childNode(withName: "openingCamera", recursively: false)
         renderer.isJitteringEnabled = false
         return ModelRendererState(
             renderer: renderer,
-            cycleFrames: model.loop ? animationCycleFrames(in: scene) : nil
+            cycleFrames: model.loop ? animationCycleFrames(in: scene) : nil,
+            commandQueue: commandQueue,
+            ciContext: CIContext(mtlDevice: device)
         )
+    }
+
+    private func renderModelSnapshot(
+        rendererState: ModelRendererState,
+        sceneTime: TimeInterval,
+        size: CGSize
+    ) throws -> NSImage {
+        let width = max(1, Int(size.width.rounded(.up)))
+        let height = max(1, Int(size.height.rounded(.up)))
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        textureDescriptor.usage = [.renderTarget, .shaderRead]
+        textureDescriptor.storageMode = .shared
+        guard let texture = rendererState.commandQueue.device.makeTexture(descriptor: textureDescriptor) else {
+            throw OpeningHeartGoldExtractModeError.metalTextureCreationFailed
+        }
+
+        let passDescriptor = MTLRenderPassDescriptor()
+        let colorAttachment = passDescriptor.colorAttachments[0]
+        colorAttachment?.texture = texture
+        colorAttachment?.loadAction = .clear
+        colorAttachment?.storeAction = .store
+        colorAttachment?.clearColor = MTLClearColorMake(0, 0, 0, 0)
+
+        guard let commandBuffer = rendererState.commandQueue.makeCommandBuffer() else {
+            throw OpeningHeartGoldExtractModeError.metalCommandBufferCreationFailed
+        }
+
+        rendererState.renderer.render(
+            atTime: sceneTime,
+            viewport: CGRect(origin: .zero, size: size),
+            commandBuffer: commandBuffer,
+            passDescriptor: passDescriptor
+        )
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+
+        if let error = commandBuffer.error {
+            throw OpeningHeartGoldExtractModeError.metalRenderFailed(error.localizedDescription)
+        }
+
+        guard let ciImage = CIImage(
+            mtlTexture: texture,
+            options: [CIImageOption.colorSpace: CGColorSpaceCreateDeviceRGB()]
+        ) else {
+            throw OpeningHeartGoldExtractModeError.metalRenderedImageUnavailable
+        }
+
+        let flipped = ciImage.transformed(
+            by: CGAffineTransform(scaleX: 1, y: -1).translatedBy(x: 0, y: -CGFloat(height))
+        )
+        guard let cgImage = rendererState.ciContext.createCGImage(
+            flipped,
+            from: CGRect(x: 0, y: 0, width: width, height: height)
+        ) else {
+            throw OpeningHeartGoldExtractModeError.metalRenderedImageUnavailable
+        }
+
+        return NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
     }
 
     private func configureModelScene(
@@ -3354,14 +3480,6 @@ struct OpeningHeartGoldExtractor {
             return nil
         }
         return farClipDistance
-    }
-
-    private func stageModelAssetForSceneKit(_ assetURL: URL) throws -> URL {
-        let sourceDirectory = assetURL.deletingLastPathComponent()
-        let stagedDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("hgss-opening-3d-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.copyItem(at: sourceDirectory, to: stagedDirectory)
-        return stagedDirectory.appendingPathComponent(assetURL.lastPathComponent, isDirectory: false)
     }
 
     private func modelSceneTime(

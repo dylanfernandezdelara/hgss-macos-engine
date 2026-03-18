@@ -305,6 +305,14 @@ struct OpeningIRLowererTests {
             $0.targetStateID == "title_proceed_flash_2" && $0.trigger == .stateCompleted
         }))
         #expect(proceedFlash.commands.contains(where: { command in
+            if case let .dispatchAudio(payload) = command {
+                return payload.action == .fadeOutBGM
+                    && payload.cueName == "SEQ_GS_POKEMON_THEME"
+                    && payload.durationFrames == 60
+            }
+            return false
+        }))
+        #expect(proceedFlash.commands.contains(where: { command in
             if case let .fade(payload) = command {
                 return payload.colorHex == "#FFFFFF" && payload.durationFrames == 5
             }
@@ -328,6 +336,14 @@ struct OpeningIRLowererTests {
 
         let proceedNoFlash = try #require(titleScene.states.first(where: { $0.id == "title_proceed_noflash" }))
         #expect(proceedNoFlash.duration == .fixedFrames(60))
+        #expect(proceedNoFlash.commands.contains(where: { command in
+            if case let .dispatchAudio(payload) = command {
+                return payload.action == .fadeOutBGM
+                    && payload.cueName == "SEQ_GS_POKEMON_THEME"
+                    && payload.durationFrames == 60
+            }
+            return false
+        }))
 
         let menuFadeout = try #require(titleScene.states.first(where: { $0.id == "title_fadeout_menu" }))
         #expect(menuFadeout.duration == .fixedFrames(6))

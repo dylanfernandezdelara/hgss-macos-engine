@@ -174,7 +174,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         }
 
         if currentProgramScene != nil {
-            if requestProgramFlagTransition(flagName: "program_confirm_requested", value: 1) {
+            if requestProgramFlagMutations(["program_confirm_requested": 1]) {
                 return
             }
             return
@@ -190,22 +190,32 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         enterBundleScene(sceneIndex: titleSceneIndex)
     }
 
-    public func requestTitleClearSaveExit() {
-        guard currentProgramScene?.id == .titleScreen,
-              currentProgramState?.id == "title_play" else {
-            return
+    @discardableResult
+    public func requestProgramFlagMutations(
+        _ mutations: [String: Int],
+        sceneID: HGSSOpeningProgramIR.SceneID? = nil,
+        stateID: String? = nil
+    ) -> Bool {
+        guard currentProgramScene != nil else {
+            return false
         }
-        programFlags["title_clear_save_requested"] = 1
-        programFlags["title_mic_test_requested"] = 0
-    }
+        if let sceneID, currentProgramScene?.id != sceneID {
+            return false
+        }
+        if let stateID, currentProgramState?.id != stateID {
+            return false
+        }
 
-    public func requestTitleMicTestExit() {
-        guard currentProgramScene?.id == .titleScreen,
-              currentProgramState?.id == "title_play" else {
-            return
+        for (name, value) in mutations {
+            programFlags[name] = value
         }
-        programFlags["title_mic_test_requested"] = 1
-        programFlags["title_clear_save_requested"] = 0
+
+        if let transition = automaticTransitionForCurrentProgramState() {
+            transitionToProgramState(transition)
+        } else {
+            syncMenuSelectionForCurrentProgramState()
+        }
+        return true
     }
 
     public func setProgramFlag(name: String, value: Int) {
@@ -276,11 +286,14 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         return nil
     }
 
-    public func activePromptFlashCommand(
+    public func activePromptCommand(
+        screen: HGSSOpeningProgramIR.ScreenID,
         targetID: String = "start_prompt"
     ) -> HGSSOpeningProgramIR.PromptFlashCommand? {
         currentProgramState?.commands.compactMap { command in
-            guard case let .setPromptFlash(payload) = command, payload.targetID == targetID else {
+            guard case let .setPromptFlash(payload) = command,
+                  payload.targetID == targetID,
+                  payload.screen == nil || payload.screen == screen else {
                 return nil
             }
             return payload
@@ -471,8 +484,20 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         )
 
         if reachedTitleHandoff,
-           let titleScene = loadedProgram?.program.scenes.first(where: { $0.id == .titleScreen }) {
-            enterProgramState(sceneID: titleScene.id, stateID: titleScene.initialStateID)
+           let program = loadedProgram?.program {
+            let initialProgramSceneID: HGSSOpeningProgramIR.SceneID
+            if program.scenes.contains(where: { $0.id == .titleScreen }) {
+                initialProgramSceneID = .titleScreen
+            } else {
+                initialProgramSceneID = program.entrySceneID
+            }
+
+            guard let entryScene = program.scenes.first(where: { $0.id == initialProgramSceneID }) else {
+                dispatchBundleAudioCuesForCurrentFrameIfNeeded()
+                return
+            }
+
+            enterProgramState(sceneID: entryScene.id, stateID: entryScene.initialStateID)
             return
         }
 
@@ -510,7 +535,11 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         _ transition: HGSSOpeningProgramIR.Transition,
         sceneFrame: Int? = nil
     ) {
-        let nextSceneID = transition.targetSceneID ?? state.programSceneID ?? .titleScreen
+        let nextSceneID =
+            transition.targetSceneID
+            ?? state.programSceneID
+            ?? loadedProgram?.program.entrySceneID
+            ?? .titleScreen
         if let bundleSceneIndex = bundleSceneIndex(for: nextSceneID) {
             currentMenuSelectionID = nil
             lastMenuDispatch = nil
@@ -591,22 +620,6 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         }
     }
 
-    private func requestProgramFlagTransition(flagName: String, value: Int) -> Bool {
-        guard let programState = currentProgramState,
-              let transition = programState.transitions.first(where: {
-                  if case let .flagEquals(name, expectedValue) = $0.trigger {
-                      return name == flagName && expectedValue == value
-                  }
-                  return false
-              }) else {
-            return false
-        }
-
-        programFlags[flagName] = value
-        transitionToProgramState(transition)
-        return true
-    }
-
     private func applyEntryFlagMutationsIfNeeded() {
         guard let programState = currentProgramState else {
             return
@@ -631,8 +644,12 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
 
     private func evaluate(trigger: HGSSOpeningProgramIR.Trigger) -> Bool {
         switch trigger {
-        case .stateCompleted, .frameEquals, .frameAtLeast:
+        case .stateCompleted:
             return false
+        case let .frameEquals(frame):
+            return state.frameInProgramState == frame
+        case let .frameAtLeast(frame):
+            return state.frameInProgramState >= frame
         case let .flagEquals(name, value):
             return programFlags[name] == value
         case let .flagBitSet(name, mask):
@@ -710,6 +727,8 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         switch payload.action {
         case .startBGM:
             matchingAction = .startBGM
+        case .fadeOutBGM:
+            matchingAction = .fadeOutBGM
         case .stopBGM:
             matchingAction = .stopBGM
         case .triggerSFX:
@@ -726,6 +745,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             action: matchingAction,
             cueName: payload.cueName,
             frame: state.frameInScene,
+            fadeDurationFrames: payload.durationFrames,
             playableAssetID: playableAssetID,
             provenance: payload.provenance.sourceFile
         )

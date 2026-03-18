@@ -42,6 +42,13 @@ public struct HGSSOpeningBootstrapState: Codable, Equatable, Sendable {
         )
     }
 
+    public init(saveSummary: HGSSOpeningSaveSummary) {
+        self.init(
+            checkSaveStatus: saveSummary.checkSaveStatus,
+            mainMenu: saveSummary.mainMenuAvailability
+        )
+    }
+
     public static let noSave = HGSSOpeningBootstrapState()
 
     public var checkSaveStatus: HGSSCheckSaveStatus {
@@ -72,15 +79,32 @@ public struct HGSSOpeningBootstrapState: Codable, Equatable, Sendable {
 }
 
 public struct HGSSOpeningBootstrapLoader: Sendable {
+    public static let saveSummaryFilename = "opening_save_summary.json"
+    public static let bootstrapFilename = "opening_bootstrap_state.json"
+
     public init() {}
 
-    public func load(from root: URL) throws -> HGSSOpeningBootstrapState {
-        let fileURL = root.appendingPathComponent("opening_bootstrap_state.json", isDirectory: false)
-        guard FileManager.default.fileExists(atPath: fileURL.path()) else {
+    public func load(
+        from root: URL,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) throws -> HGSSOpeningBootstrapState {
+        if let saveSummary = try HGSSOpeningLocalSaveSummaryLoader().load(from: root, environment: environment) {
+            return HGSSOpeningBootstrapState(saveSummary: saveSummary)
+        }
+
+        let saveSummaryURL = root.appendingPathComponent(Self.saveSummaryFilename, isDirectory: false)
+        if FileManager.default.fileExists(atPath: saveSummaryURL.path()) {
+            let data = try Data(contentsOf: saveSummaryURL)
+            let summary = try JSONDecoder().decode(HGSSOpeningSaveSummary.self, from: data)
+            return HGSSOpeningBootstrapState(saveSummary: summary)
+        }
+
+        let bootstrapURL = root.appendingPathComponent(Self.bootstrapFilename, isDirectory: false)
+        guard FileManager.default.fileExists(atPath: bootstrapURL.path()) else {
             return .noSave
         }
 
-        let data = try Data(contentsOf: fileURL)
+        let data = try Data(contentsOf: bootstrapURL)
         return try JSONDecoder().decode(HGSSOpeningBootstrapState.self, from: data)
     }
 }

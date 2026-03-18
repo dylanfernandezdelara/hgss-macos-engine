@@ -74,8 +74,8 @@ let package = Package(
                 "OpeningPlaybackController.swift",
                 "OpeningPlayerView.swift",
                 "OpeningProgramLoader.swift",
+                "OpeningScreenCompositor.swift",
                 "RenderBundleLoader.swift",
-                "SceneModelView.swift",
             ]
         ),
         .executableTarget(

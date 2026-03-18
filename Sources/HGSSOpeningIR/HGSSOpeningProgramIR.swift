@@ -484,17 +484,25 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
     public struct AudioCommand: Codable, Equatable, Sendable {
         public enum Action: String, Codable, Equatable, Sendable {
             case startBGM = "start_bgm"
+            case fadeOutBGM = "fade_out_bgm"
             case stopBGM = "stop_bgm"
             case triggerSFX = "trigger_sfx"
         }
 
         public let action: Action
         public let cueName: String
+        public let durationFrames: Int?
         public let provenance: Provenance
 
-        public init(action: Action, cueName: String, provenance: Provenance) {
+        public init(
+            action: Action,
+            cueName: String,
+            durationFrames: Int? = nil,
+            provenance: Provenance
+        ) {
             self.action = action
             self.cueName = cueName
+            self.durationFrames = durationFrames
             self.provenance = provenance
         }
     }
@@ -1161,6 +1169,24 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         case let .dispatchAudio(payload):
             guard payload.cueName.isEmpty == false else {
                 throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "cueName")
+            }
+            if payload.action == .fadeOutBGM {
+                guard let durationFrames = payload.durationFrames else {
+                    throw HGSSOpeningIRValidationError.invalidCommandDuration(
+                        sceneID,
+                        stateID,
+                        "audio.fadeOut.duration",
+                        0
+                    )
+                }
+                guard durationFrames > 0 else {
+                    throw HGSSOpeningIRValidationError.invalidCommandDuration(
+                        sceneID,
+                        stateID,
+                        "audio.fadeOut.duration",
+                        durationFrames
+                    )
+                }
             }
             try validate(provenance: payload.provenance)
         case let .setScreenSwap(payload):
