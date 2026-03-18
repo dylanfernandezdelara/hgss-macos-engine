@@ -305,6 +305,59 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         }
     }
 
+    public struct WindowMaskAnimationCommand: Codable, Equatable, Sendable {
+        public let screen: ScreenID
+        public let fromRect: ScreenRect
+        public let toRect: ScreenRect
+        public let durationFrames: Int
+        public let auxiliaryFromRect: ScreenRect?
+        public let auxiliaryToRect: ScreenRect?
+        public let provenance: Provenance
+
+        public init(
+            screen: ScreenID,
+            fromRect: ScreenRect,
+            toRect: ScreenRect,
+            durationFrames: Int,
+            auxiliaryFromRect: ScreenRect? = nil,
+            auxiliaryToRect: ScreenRect? = nil,
+            provenance: Provenance
+        ) {
+            self.screen = screen
+            self.fromRect = fromRect
+            self.toRect = toRect
+            self.durationFrames = durationFrames
+            self.auxiliaryFromRect = auxiliaryFromRect
+            self.auxiliaryToRect = auxiliaryToRect
+            self.provenance = provenance
+        }
+    }
+
+    public struct CircleWipeCommand: Codable, Equatable, Sendable {
+        public let screen: ScreenID
+        public let durationFrames: Int
+        public let colorHex: String
+        public let mode: Int
+        public let revealsInside: Bool
+        public let provenance: Provenance
+
+        public init(
+            screen: ScreenID,
+            durationFrames: Int,
+            colorHex: String,
+            mode: Int,
+            revealsInside: Bool,
+            provenance: Provenance
+        ) {
+            self.screen = screen
+            self.durationFrames = durationFrames
+            self.colorHex = colorHex
+            self.mode = mode
+            self.revealsInside = revealsInside
+            self.provenance = provenance
+        }
+    }
+
     public struct FadeCommand: Codable, Equatable, Sendable {
         public enum Target: String, Codable, Equatable, Sendable {
             case palette
@@ -514,6 +567,8 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         case setLayerVisibility(LayerVisibilityCommand)
         case scroll(ScrollCommand)
         case setWindowMask(WindowMaskCommand)
+        case animateWindowMask(WindowMaskAnimationCommand)
+        case circleWipe(CircleWipeCommand)
         case fade(FadeCommand)
         case setBrightness(BrightnessCommand)
         case dispatchAudio(AudioCommand)
@@ -529,6 +584,8 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case layerVisibility
             case scroll
             case windowMask
+            case windowMaskAnimation
+            case circleWipe
             case fade
             case brightness
             case audio
@@ -544,6 +601,8 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case setLayerVisibility = "set_layer_visibility"
             case scroll
             case setWindowMask = "set_window_mask"
+            case animateWindowMask = "animate_window_mask"
+            case circleWipe = "circle_wipe"
             case fade
             case setBrightness = "set_brightness"
             case dispatchAudio = "dispatch_audio"
@@ -566,6 +625,12 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 self = .scroll(try container.decode(ScrollCommand.self, forKey: .scroll))
             case .setWindowMask:
                 self = .setWindowMask(try container.decode(WindowMaskCommand.self, forKey: .windowMask))
+            case .animateWindowMask:
+                self = .animateWindowMask(
+                    try container.decode(WindowMaskAnimationCommand.self, forKey: .windowMaskAnimation)
+                )
+            case .circleWipe:
+                self = .circleWipe(try container.decode(CircleWipeCommand.self, forKey: .circleWipe))
             case .fade:
                 self = .fade(try container.decode(FadeCommand.self, forKey: .fade))
             case .setBrightness:
@@ -599,6 +664,12 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case let .setWindowMask(command):
                 try container.encode(Kind.setWindowMask, forKey: .kind)
                 try container.encode(command, forKey: .windowMask)
+            case let .animateWindowMask(command):
+                try container.encode(Kind.animateWindowMask, forKey: .kind)
+                try container.encode(command, forKey: .windowMaskAnimation)
+            case let .circleWipe(command):
+                try container.encode(Kind.circleWipe, forKey: .kind)
+                try container.encode(command, forKey: .circleWipe)
             case let .fade(command):
                 try container.encode(Kind.fade, forKey: .kind)
                 try container.encode(command, forKey: .fade)
@@ -817,6 +888,41 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 guard rect.width > 0, rect.height > 0 else {
                     throw HGSSOpeningIRValidationError.invalidWindowMaskRect(sceneID, stateID)
                 }
+            }
+            try validate(provenance: payload.provenance)
+        case let .animateWindowMask(payload):
+            guard payload.durationFrames > 0 else {
+                throw HGSSOpeningIRValidationError.invalidCommandDuration(
+                    sceneID,
+                    stateID,
+                    "windowMaskAnimation",
+                    payload.durationFrames
+                )
+            }
+            guard payload.fromRect.width > 0, payload.fromRect.height > 0,
+                  payload.toRect.width > 0, payload.toRect.height > 0 else {
+                throw HGSSOpeningIRValidationError.invalidWindowMaskRect(sceneID, stateID)
+            }
+            if let auxiliaryFromRect = payload.auxiliaryFromRect,
+               (auxiliaryFromRect.width <= 0 || auxiliaryFromRect.height <= 0) {
+                throw HGSSOpeningIRValidationError.invalidWindowMaskRect(sceneID, stateID)
+            }
+            if let auxiliaryToRect = payload.auxiliaryToRect,
+               (auxiliaryToRect.width <= 0 || auxiliaryToRect.height <= 0) {
+                throw HGSSOpeningIRValidationError.invalidWindowMaskRect(sceneID, stateID)
+            }
+            try validate(provenance: payload.provenance)
+        case let .circleWipe(payload):
+            guard payload.durationFrames > 0 else {
+                throw HGSSOpeningIRValidationError.invalidCommandDuration(
+                    sceneID,
+                    stateID,
+                    "circleWipe",
+                    payload.durationFrames
+                )
+            }
+            guard payload.colorHex.isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "circleWipe.colorHex")
             }
             try validate(provenance: payload.provenance)
         case let .fade(payload):

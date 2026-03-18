@@ -584,24 +584,40 @@ struct PokeheartgoldOpeningIRLowerer {
     ) throws -> [HGSSOpeningProgramIR.State] {
         switch sceneID {
         case .scene1:
-            return try lowerScene1States(
+            return lowerScene1States(
                 sceneID: sceneID,
                 enumStateNames: enumStateNames,
                 caseNodes: caseNodes,
                 context: context
             )
-        case .scene2, .scene3, .scene4, .scene5:
-            return enumStateNames.compactMap { stateName in
-                guard let caseNode = caseNodes[stateName] else {
-                    return nil
-                }
-                return makeIntroSkeletonState(
-                    sceneID: sceneID,
-                    stateName: stateName,
-                    caseNode: caseNode,
-                    context: context
-                )
-            }
+        case .scene2:
+            return lowerScene2States(
+                sceneID: sceneID,
+                enumStateNames: enumStateNames,
+                caseNodes: caseNodes,
+                context: context
+            )
+        case .scene3:
+            return lowerScene3States(
+                sceneID: sceneID,
+                enumStateNames: enumStateNames,
+                caseNodes: caseNodes,
+                context: context
+            )
+        case .scene4:
+            return lowerScene4States(
+                sceneID: sceneID,
+                enumStateNames: enumStateNames,
+                caseNodes: caseNodes,
+                context: context
+            )
+        case .scene5:
+            return lowerScene5States(
+                sceneID: sceneID,
+                enumStateNames: enumStateNames,
+                caseNodes: caseNodes,
+                context: context
+            )
         case .titleHandoff, .titleScreen, .deleteSave, .micTest, .checkSave, .mainMenu:
             return []
         }
@@ -612,8 +628,8 @@ struct PokeheartgoldOpeningIRLowerer {
         enumStateNames: [String],
         caseNodes: [String: ClangASTNode],
         context: OpeningIRLoweringContext
-    ) throws -> [HGSSOpeningProgramIR.State] {
-        try enumStateNames.compactMap { stateName in
+    ) -> [HGSSOpeningProgramIR.State] {
+        enumStateNames.compactMap { stateName -> HGSSOpeningProgramIR.State? in
             guard let caseNode = caseNodes[stateName] else {
                 return nil
             }
@@ -785,6 +801,878 @@ struct PokeheartgoldOpeningIRLowerer {
                 )
             }
         }
+    }
+
+    private func lowerScene2States(
+        sceneID: HGSSOpeningProgramIR.SceneID,
+        enumStateNames: [String],
+        caseNodes: [String: ClangASTNode],
+        context: OpeningIRLoweringContext
+    ) -> [HGSSOpeningProgramIR.State] {
+        return enumStateNames.compactMap { stateName -> HGSSOpeningProgramIR.State? in
+            guard let caseNode = caseNodes[stateName] else {
+                return nil
+            }
+
+            let provenance = context.provenance(for: caseNode, symbolOverride: stateName)
+
+            switch stateName {
+            case "INTRO_SCENE2_START_FLYIN":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 1,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene2_top_main0_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene2_top_main1_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene2_top_main2_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene2_bottom_sub0_layer", visible: true, provenance: provenance)),
+                        .fade(
+                            .init(
+                                target: .palette,
+                                startLevel: 31,
+                                endLevel: 0,
+                                durationFrames: 3,
+                                colorHex: "#FFFFFF",
+                                provenance: provenance
+                            )
+                        ),
+                    ],
+                    nextStateName: "INTRO_SCENE2_FLYIN",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE2_FLYIN":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 56,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE2_START_SLOW_PAN_ETHAN",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE2_START_SLOW_PAN_ETHAN":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 8,
+                    commands: [
+                        .scroll(.init(targetID: "scene2_top_main1_layer", deltaX: 0, deltaY: -0xC0, durationFrames: 5, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_top_main0_layer", deltaX: 0, deltaY: -0xC0, durationFrames: 5, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_players", deltaX: 0, deltaY: 0xC0, durationFrames: 5, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_flowers", deltaX: 0, deltaY: 0xC0, durationFrames: 5, provenance: provenance)),
+                        .fade(
+                            .init(
+                                target: .palette,
+                                startLevel: 31,
+                                endLevel: 0,
+                                durationFrames: 8,
+                                colorHex: "#000000",
+                                provenance: provenance
+                            )
+                        ),
+                    ],
+                    nextStateName: "INTRO_SCENE2_SLOW_PAN_ETHAN",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE2_SLOW_PAN_ETHAN":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 0x5A,
+                    commands: [
+                        .scroll(.init(targetID: "scene2_top_main1_layer", deltaX: 0x20, deltaY: 0, durationFrames: 0x5A, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_top_main0_layer", deltaX: 0x20, deltaY: 0, durationFrames: 0x5A, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_players", deltaX: -0x20, deltaY: 0, durationFrames: 0x5A, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE2_FAST_PAN_TO_LYRA",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE2_FAST_PAN_TO_LYRA":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 7,
+                    commands: [
+                        .scroll(.init(targetID: "scene2_top_main1_layer", deltaX: 0x40, deltaY: 0, durationFrames: 7, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_top_main0_layer", deltaX: 0x40, deltaY: 0, durationFrames: 7, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_players", deltaX: -0x40, deltaY: 0, durationFrames: 7, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE2_SLOW_PAN_LYRA",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE2_SLOW_PAN_LYRA":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 0x42,
+                    commands: [
+                        .scroll(.init(targetID: "scene2_top_main1_layer", deltaX: 0x20, deltaY: 0, durationFrames: 0x42, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_top_main0_layer", deltaX: 0x20, deltaY: 0, durationFrames: 0x42, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_players", deltaX: -0x20, deltaY: 0, durationFrames: 0x42, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE2_CIRCLE_WIPE_OUT",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE2_CIRCLE_WIPE_OUT":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 10,
+                    commands: [
+                        .scroll(.init(targetID: "scene2_top_main1_layer", deltaX: 0, deltaY: -0x80, durationFrames: 10, provenance: provenance)),
+                        .scroll(.init(targetID: "scene2_top_main0_layer", deltaX: 0, deltaY: -0x40, durationFrames: 5, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE2_END",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE2_END":
+                return .init(
+                    id: introSceneStateID(for: sceneID, stateName: stateName),
+                    duration: .fixedFrames(8),
+                    commands: [
+                        .circleWipe(
+                            .init(
+                                screen: .top,
+                                durationFrames: 8,
+                                colorHex: "#FFFFFF",
+                                mode: 1,
+                                revealsInside: true,
+                                provenance: provenance
+                            )
+                        )
+                    ],
+                    transitions: [],
+                    provenance: provenance
+                )
+            default:
+                return makeIntroSkeletonState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    caseNode: caseNode,
+                    context: context
+                )
+            }
+        }
+    }
+
+    private func lowerScene3States(
+        sceneID: HGSSOpeningProgramIR.SceneID,
+        enumStateNames: [String],
+        caseNodes: [String: ClangASTNode],
+        context: OpeningIRLoweringContext
+    ) -> [HGSSOpeningProgramIR.State] {
+        enumStateNames.compactMap { stateName in
+            guard let caseNode = caseNodes[stateName] else {
+                return nil
+            }
+
+            let provenance = context.provenance(for: caseNode, symbolOverride: stateName)
+
+            switch stateName {
+            case "INTRO_SCENE3_LOAD_NEWBARK":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 1,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_newbark_model", visible: true, provenance: provenance)),
+                        .circleWipe(.init(screen: .top, durationFrames: 8, colorHex: "#FFFFFF", mode: 0, revealsInside: false, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_SHOW_NEWBARK",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_SHOW_NEWBARK":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 41,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE3_LOAD_GOLDENROD",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_LOAD_GOLDENROD":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 8,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_newbark_model", visible: false, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_goldenrod_model", visible: true, provenance: provenance)),
+                        .circleWipe(.init(screen: .top, durationFrames: 8, colorHex: "#000000", mode: 2, revealsInside: false, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_SHOW_GOLDENROD",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_SHOW_GOLDENROD":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 47,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE3_LOAD_ECRUTEAK",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_LOAD_ECRUTEAK":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 8,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_goldenrod_model", visible: false, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_ecruteak_model", visible: true, provenance: provenance)),
+                        .circleWipe(.init(screen: .top, durationFrames: 8, colorHex: "#000000", mode: 2, revealsInside: false, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_WAIT_ECRUTEAK",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_WAIT_ECRUTEAK":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 99,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE3_END_3DRENDER",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_END_3DRENDER":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 8,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_ecruteak_model", visible: false, provenance: provenance)),
+                        .circleWipe(.init(screen: .top, durationFrames: 8, colorHex: "#000000", mode: 3, revealsInside: true, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_APPEAR_RIVAL",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_APPEAR_RIVAL":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 8,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_rival_panel_0_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_rival_border_layer", visible: true, provenance: provenance)),
+                        .circleWipe(.init(screen: .bottom, durationFrames: 8, colorHex: "#000000", mode: 2, revealsInside: false, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_WAIT_APPEAR_RIVAL",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_WAIT_APPEAR_RIVAL":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 8,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE3_DRAMATIC_RIVAL_PANELS",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_DRAMATIC_RIVAL_PANELS":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 93,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_silver_anim", visible: false, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_rival_panel_1_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_rival_panel_2_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_rival_panel_3_layer", visible: true, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_REMOVE_RIVAL_PANEL_BORDERS",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_REMOVE_RIVAL_PANEL_BORDERS":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 10,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_rival_border_layer", visible: false, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_rival_whole_layer", visible: true, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_CINEMATIC_ASPECT_RIVAL",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_CINEMATIC_ASPECT_RIVAL":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 44,
+                    commands: [
+                        .animateWindowMask(
+                            .init(
+                                screen: .bottom,
+                                fromRect: rect(x1: 0x00, y1: 0x00, x2: 0xFF, y2: 0xC0),
+                                toRect: rect(x1: 0x00, y1: 0x40, x2: 0xFF, y2: 0x80),
+                                durationFrames: 5,
+                                provenance: provenance
+                            )
+                        ),
+                    ],
+                    nextStateName: "INTRO_SCENE3_APPEAR_ENTEI",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_APPEAR_ENTEI":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 7,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_entei_layer", visible: true, provenance: provenance)),
+                        .animateWindowMask(
+                            .init(
+                                screen: .bottom,
+                                fromRect: rect(x1: 0xFE, y1: 0x00, x2: 0xFF, y2: 0x80),
+                                toRect: rect(x1: 0x00, y1: 0x00, x2: 0xFF, y2: 0x80),
+                                durationFrames: 7,
+                                provenance: provenance
+                            )
+                        ),
+                        .scroll(.init(targetID: "scene3_entei_layer", deltaX: 256, deltaY: 0, durationFrames: 7, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_APPEAR_RAIKOU",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_APPEAR_RAIKOU":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 1,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_raikou_layer", visible: true, provenance: provenance)),
+                        .animateWindowMask(
+                            .init(
+                                screen: .bottom,
+                                fromRect: rect(x1: 0x00, y1: 0x00, x2: 0x01, y2: 0xC0),
+                                toRect: rect(x1: 0x00, y1: 0x00, x2: 0xFF, y2: 0xC0),
+                                durationFrames: 1,
+                                provenance: provenance
+                            )
+                        ),
+                        .scroll(.init(targetID: "scene3_raikou_layer", deltaX: -256, deltaY: 0, durationFrames: 1, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_LOAD_ROCKETS",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_LOAD_ROCKETS":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 1,
+                    commands: [
+                        .setWindowMask(.init(screen: .bottom, rect: nil, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_NARROW_WINDOWS",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_NARROW_WINDOWS":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 42,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE3_WAIT_NARROW",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_WAIT_NARROW":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 3,
+                    commands: [
+                        .animateWindowMask(
+                            .init(
+                                screen: .bottom,
+                                fromRect: rect(x1: 0x00, y1: 0x00, x2: 0xFF, y2: 0xC0),
+                                toRect: rect(x1: 0x46, y1: 0x00, x2: 0xB9, y2: 0xC0),
+                                durationFrames: 3,
+                                provenance: provenance
+                            )
+                        )
+                    ],
+                    nextStateName: "INTRO_SCENE3_SPRITES_VISIBLE",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_SPRITES_VISIBLE":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 145,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_eusine_anim", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_unown_0_anim", visible: true, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_WAIT_ENTEI_EXIT",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_WAIT_ENTEI_EXIT":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 10,
+                    commands: [
+                        .scroll(.init(targetID: "scene3_entei_layer", deltaX: -116, deltaY: 0, durationFrames: 10, provenance: provenance)),
+                        .animateWindowMask(
+                            .init(
+                                screen: .bottom,
+                                fromRect: rect(x1: 0x46, y1: 0x00, x2: 0xB9, y2: 0xC0),
+                                toRect: rect(x1: 0xB9, y1: 0x00, x2: 0xB9, y2: 0xC0),
+                                durationFrames: 10,
+                                auxiliaryFromRect: rect(x1: 0x46, y1: 0x40, x2: 0xB9, y2: 0xC0),
+                                auxiliaryToRect: rect(x1: 0x46, y1: 0x40, x2: 0xB9, y2: 0xC0),
+                                provenance: provenance
+                            )
+                        ),
+                    ],
+                    nextStateName: "INTRO_SCENE3_UNOWN_RAIKOU_EXIT",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_UNOWN_RAIKOU_EXIT":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 10,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_unown_1_anim", visible: true, provenance: provenance)),
+                        .scroll(.init(targetID: "scene3_raikou_layer", deltaX: -116, deltaY: 0, durationFrames: 10, provenance: provenance)),
+                        .animateWindowMask(
+                            .init(
+                                screen: .bottom,
+                                fromRect: rect(x1: 0x46, y1: 0x40, x2: 0xB9, y2: 0xC0),
+                                toRect: rect(x1: 0xB9, y1: 0x40, x2: 0xB9, y2: 0xC0),
+                                durationFrames: 10,
+                                auxiliaryFromRect: rect(x1: 0x46, y1: 0x40, x2: 0xB9, y2: 0x80),
+                                auxiliaryToRect: rect(x1: 0x46, y1: 0x40, x2: 0xB9, y2: 0x80),
+                                provenance: provenance
+                            )
+                        ),
+                    ],
+                    nextStateName: "INTRO_SCENE3_LOAD_ROCKET_SCRNDATA",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_LOAD_ROCKET_SCRNDATA":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 1,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_rocket_0_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_rocket_1_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene3_rocket_2_layer", visible: true, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_UNOWN_SUICUNE_EXIT",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_UNOWN_SUICUNE_EXIT":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 30,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene3_unown_2_anim", visible: true, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_EXPAND_ROCKET_VIEWPORT",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_EXPAND_ROCKET_VIEWPORT":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 254,
+                    commands: [
+                        .animateWindowMask(
+                            .init(
+                                screen: .bottom,
+                                fromRect: rect(x1: 0x46, y1: 0x40, x2: 0xB9, y2: 0x80),
+                                toRect: rect(x1: 0x00, y1: 0x00, x2: 0xFF, y2: 0xC0),
+                                durationFrames: 253,
+                                provenance: provenance
+                            )
+                        ),
+                        .scroll(.init(targetID: "scene3_rocket_0_layer", deltaX: 0, deltaY: -0x30, durationFrames: 254, provenance: provenance)),
+                        .scroll(.init(targetID: "scene3_rocket_1_layer", deltaX: 0, deltaY: -0x20, durationFrames: 254, provenance: provenance)),
+                        .scroll(.init(targetID: "scene3_rocket_2_layer", deltaX: 0, deltaY: -0x08, durationFrames: 254, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE3_WAIT_ADMINS",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE3_WAIT_ADMINS":
+                return .init(
+                    id: introSceneStateID(for: sceneID, stateName: stateName),
+                    duration: .fixedFrames(254),
+                    commands: [],
+                    transitions: [],
+                    provenance: provenance
+                )
+            default:
+                return makeIntroSkeletonState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    caseNode: caseNode,
+                    context: context
+                )
+            }
+        }
+    }
+
+    private func lowerScene4States(
+        sceneID: HGSSOpeningProgramIR.SceneID,
+        enumStateNames: [String],
+        caseNodes: [String: ClangASTNode],
+        context: OpeningIRLoweringContext
+    ) -> [HGSSOpeningProgramIR.State] {
+        let scene4Timing = Scene4IRTiming.currentDeterministicBake
+
+        return enumStateNames.compactMap { stateName -> HGSSOpeningProgramIR.State? in
+            guard let caseNode = caseNodes[stateName] else {
+                return nil
+            }
+
+            let provenance = context.provenance(for: caseNode, symbolOverride: stateName)
+
+            switch stateName {
+            case "INTRO_SCENE4_FADE_IN":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 10,
+                    commands: [
+                        .setScreenSwap(.init(enabled: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_bottom_main2_phase_a", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_bottom_main3_phase_a", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_top_sub2_phase_a", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_top_sub3_phase_a", visible: true, provenance: provenance)),
+                        .fade(.init(target: .palette, startLevel: 31, endLevel: 0, durationFrames: 10, colorHex: "#000000", provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE4_WAIT_FADE_IN",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_WAIT_FADE_IN":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 1,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE4_SLIDE_IN_PLAYERS",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_SLIDE_IN_PLAYERS":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 10,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene4_top_hand_anim", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_bottom_hand_anim", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_top_sub1_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_bottom_main1_layer", visible: true, provenance: provenance)),
+                        .animateWindowMask(.init(screen: .top, fromRect: rect(x1: 255, y1: 0, x2: 255, y2: 192), toRect: rect(x1: 0, y1: 0, x2: 255, y2: 192), durationFrames: 10, provenance: provenance)),
+                        .animateWindowMask(.init(screen: .bottom, fromRect: rect(x1: 0, y1: 0, x2: 0, y2: 192), toRect: rect(x1: 0, y1: 0, x2: 255, y2: 192), durationFrames: 10, provenance: provenance)),
+                        .scroll(.init(targetID: "scene4_top_sub1_layer", deltaX: 0xC0, deltaY: 0, durationFrames: 10, provenance: provenance)),
+                        .scroll(.init(targetID: "scene4_bottom_main1_layer", deltaX: -0xC0, deltaY: 0, durationFrames: 10, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE4_WAIT_SLIDE_IN_PLAYERS",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_WAIT_SLIDE_IN_PLAYERS":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 10,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE4_HOLD_PLAYERS_GFX",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_HOLD_PLAYERS_GFX":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 26,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE4_SLIDE_OUT_PLAYERS",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_SLIDE_OUT_PLAYERS":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 10,
+                    commands: [
+                        .animateWindowMask(.init(screen: .top, fromRect: rect(x1: 0, y1: 0, x2: 255, y2: 192), toRect: rect(x1: 0, y1: 0, x2: 0, y2: 192), durationFrames: 10, provenance: provenance)),
+                        .animateWindowMask(.init(screen: .bottom, fromRect: rect(x1: 0, y1: 0, x2: 255, y2: 192), toRect: rect(x1: 255, y1: 0, x2: 255, y2: 192), durationFrames: 10, provenance: provenance)),
+                        .scroll(.init(targetID: "scene4_top_sub1_layer", deltaX: 0xC0, deltaY: 0, durationFrames: 10, provenance: provenance)),
+                        .scroll(.init(targetID: "scene4_bottom_main1_layer", deltaX: -0xC0, deltaY: 0, durationFrames: 10, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE4_WAIT_SLIDE_OUT_PLAYERS",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_WAIT_SLIDE_OUT_PLAYERS":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 10,
+                    commands: [
+                        .setLayerVisibility(.init(layerID: "scene4_top_hand_anim", visible: false, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_bottom_hand_anim", visible: false, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE4_APPEAR_CHIKORITA",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_APPEAR_CHIKORITA":
+                return makeFixedIntroState(sceneID: sceneID, stateName: stateName, durationFrames: 1, commands: [.setLayerVisibility(.init(layerID: "scene4_chikorita_anim", visible: true, provenance: provenance))], nextStateName: "INTRO_SCENE4_START_GRASS_PARTICLES", caseNode: caseNode, context: context)
+            case "INTRO_SCENE4_START_GRASS_PARTICLES":
+                return makeFixedIntroState(sceneID: sceneID, stateName: stateName, durationFrames: 1, commands: [.setLayerVisibility(.init(layerID: "scene4_grass_particles_anim", visible: true, provenance: provenance))], nextStateName: "INTRO_SCENE4_RUN_GRASS_PARTICLES", caseNode: caseNode, context: context)
+            case "INTRO_SCENE4_RUN_GRASS_PARTICLES":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: scene4Timing.grassParticleDurationFrames,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE4_FINISH_CHIKORITA",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_FINISH_CHIKORITA":
+                return makeFixedIntroState(sceneID: sceneID, stateName: stateName, durationFrames: 1, commands: [.setScreenSwap(.init(enabled: false, provenance: provenance))], nextStateName: "INTRO_SCENE4_APPEAR_CYNDAQUIL", caseNode: caseNode, context: context)
+            case "INTRO_SCENE4_APPEAR_CYNDAQUIL":
+                return makeFixedIntroState(sceneID: sceneID, stateName: stateName, durationFrames: 1, commands: [.setLayerVisibility(.init(layerID: "scene4_cyndaquil_anim", visible: true, provenance: provenance))], nextStateName: "INTRO_SCENE4_START_FIRE_PARTICLES", caseNode: caseNode, context: context)
+            case "INTRO_SCENE4_START_FIRE_PARTICLES":
+                return makeFixedIntroState(sceneID: sceneID, stateName: stateName, durationFrames: 1, commands: [.setLayerVisibility(.init(layerID: "scene4_fire_particles_anim", visible: true, provenance: provenance))], nextStateName: "INTRO_SCENE4_RUN_FIRE_PARTICLES", caseNode: caseNode, context: context)
+            case "INTRO_SCENE4_RUN_FIRE_PARTICLES":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: scene4Timing.fireParticleDurationFrames,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE4_FINISH_CYNDAQUIL",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_FINISH_CYNDAQUIL":
+                return makeFixedIntroState(sceneID: sceneID, stateName: stateName, durationFrames: 1, commands: [.setScreenSwap(.init(enabled: true, provenance: provenance))], nextStateName: "INTRO_SCENE4_APPEAR_TOTODILE", caseNode: caseNode, context: context)
+            case "INTRO_SCENE4_APPEAR_TOTODILE":
+                return makeFixedIntroState(sceneID: sceneID, stateName: stateName, durationFrames: 1, commands: [.setLayerVisibility(.init(layerID: "scene4_totodile_anim", visible: true, provenance: provenance))], nextStateName: "INTRO_SCENE4_START_WATER_PARTICLES", caseNode: caseNode, context: context)
+            case "INTRO_SCENE4_START_WATER_PARTICLES":
+                return makeFixedIntroState(sceneID: sceneID, stateName: stateName, durationFrames: 1, commands: [.setLayerVisibility(.init(layerID: "scene4_water_particles_anim", visible: true, provenance: provenance))], nextStateName: "INTRO_SCENE4_RUN_WATER_PARTICLES", caseNode: caseNode, context: context)
+            case "INTRO_SCENE4_RUN_WATER_PARTICLES":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: scene4Timing.waterParticleDurationFrames,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE4_FINISH_TOTODILE",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_FINISH_TOTODILE":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 26,
+                    commands: [
+                        .fade(.init(target: .palette, startLevel: 0, endLevel: 31, durationFrames: 26, colorHex: "#000000", provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_chikorita_anim", visible: false, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_cyndaquil_anim", visible: false, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene4_totodile_anim", visible: false, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE4_SPARKLE",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE4_SPARKLE":
+                return makeFixedIntroState(sceneID: sceneID, stateName: stateName, durationFrames: 1, commands: [.setBrightness(.init(screen: .top, startLevel: 0, endLevel: 0, durationFrames: 1, provenance: provenance)), .setLayerVisibility(.init(layerID: "scene4_sparkles_anim", visible: true, provenance: provenance))], nextStateName: "INTRO_SCENE4_WAIT_SPARKLE", caseNode: caseNode, context: context)
+            case "INTRO_SCENE4_WAIT_SPARKLE":
+                return .init(
+                    id: introSceneStateID(for: sceneID, stateName: stateName),
+                    duration: .fixedFrames(scene4Timing.sparkleDurationFrames),
+                    commands: [],
+                    transitions: [],
+                    provenance: provenance
+                )
+            default:
+                return makeIntroSkeletonState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    caseNode: caseNode,
+                    context: context
+                )
+            }
+        }
+    }
+
+    private func lowerScene5States(
+        sceneID: HGSSOpeningProgramIR.SceneID,
+        enumStateNames: [String],
+        caseNodes: [String: ClangASTNode],
+        context: OpeningIRLoweringContext
+    ) -> [HGSSOpeningProgramIR.State] {
+        enumStateNames.compactMap { stateName in
+            guard let caseNode = caseNodes[stateName] else {
+                return nil
+            }
+
+            let provenance = context.provenance(for: caseNode, symbolOverride: stateName)
+
+            switch stateName {
+            case "INTRO_SCENE5_WIPE_IN":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 18,
+                    commands: [
+                        .setScreenSwap(.init(enabled: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene5_top_main1_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene5_top_main2_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene5_bottom_sub1_layer", visible: true, provenance: provenance)),
+                        .setLayerVisibility(.init(layerID: "scene5_bottom_sub2_layer", visible: true, provenance: provenance)),
+                        .fade(.init(target: .palette, startLevel: 31, endLevel: 0, durationFrames: 18, colorHex: "#000000", provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE5_WAIT_WIPE",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE5_WAIT_WIPE":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 1,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE5_BEGIN_BG_SCROLL",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE5_BEGIN_BG_SCROLL":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 1,
+                    commands: [
+                        .scroll(.init(targetID: "scene5_top_main1_layer", deltaX: 0, deltaY: -0x40, durationFrames: 73, provenance: provenance)),
+                        .scroll(.init(targetID: "scene5_top_main2_layer", deltaX: 0, deltaY: -0x40, durationFrames: 73, provenance: provenance)),
+                        .scroll(.init(targetID: "scene5_bottom_sub1_layer", deltaX: 0, deltaY: -0x40, durationFrames: 73, provenance: provenance)),
+                        .scroll(.init(targetID: "scene5_bottom_sub2_layer", deltaX: 0, deltaY: -0x40, durationFrames: 73, provenance: provenance)),
+                    ],
+                    nextStateName: "INTRO_SCENE5_WAIT_BG_SCROLL",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE5_WAIT_BG_SCROLL":
+                return makeFixedIntroState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    durationFrames: 20,
+                    commands: [],
+                    nextStateName: "INTRO_SCENE5_WAIT_FADE_OUT",
+                    caseNode: caseNode,
+                    context: context
+                )
+            case "INTRO_SCENE5_WAIT_FADE_OUT":
+                return .init(
+                    id: introSceneStateID(for: sceneID, stateName: stateName),
+                    duration: .fixedFrames(50),
+                    commands: [
+                        .fade(
+                            .init(
+                                target: .palette,
+                                startLevel: 0,
+                                endLevel: 31,
+                                durationFrames: 50,
+                                colorHex: "#FFFFFF",
+                                provenance: provenance
+                            )
+                        )
+                    ],
+                    transitions: [],
+                    provenance: provenance
+                )
+            default:
+                return makeIntroSkeletonState(
+                    sceneID: sceneID,
+                    stateName: stateName,
+                    caseNode: caseNode,
+                    context: context
+                )
+            }
+        }
+    }
+
+    private func makeFixedIntroState(
+        sceneID: HGSSOpeningProgramIR.SceneID,
+        stateName: String,
+        durationFrames: Int,
+        commands: [HGSSOpeningProgramIR.Command],
+        nextStateName: String,
+        caseNode: ClangASTNode,
+        context: OpeningIRLoweringContext
+    ) -> HGSSOpeningProgramIR.State {
+        let provenance = context.provenance(for: caseNode, symbolOverride: stateName)
+        return .init(
+            id: introSceneStateID(for: sceneID, stateName: stateName),
+            duration: .fixedFrames(durationFrames),
+            commands: commands,
+            transitions: [
+                .init(
+                    trigger: .stateCompleted,
+                    targetStateID: introSceneStateID(for: sceneID, stateName: nextStateName),
+                    provenance: provenance
+                )
+            ],
+            provenance: provenance
+        )
+    }
+
+    private func rect(
+        x1: Int,
+        y1: Int,
+        x2: Int,
+        y2: Int
+    ) -> HGSSOpeningProgramIR.ScreenRect {
+        let originX = min(x1, x2)
+        let originY = min(y1, y2)
+        return .init(
+            x: originX,
+            y: originY,
+            width: abs(x2 - x1) + 1,
+            height: abs(y2 - y1) + 1
+        )
     }
 
     private func makeIntroSkeletonState(
@@ -1675,6 +2563,22 @@ private struct TitleExitRoute {
     let stateID: String
 }
 
+private struct Scene4IRTiming {
+    let grassParticleDurationFrames: Int
+    let fireParticleDurationFrames: Int
+    let waterParticleDurationFrames: Int
+    let sparkleDurationFrames: Int
+
+    // These match the deterministic scene 4 bake emitted by the current extractor:
+    // grass = 53, fire = 44, water = 49, sparkles = 24.
+    static let currentDeterministicBake = Scene4IRTiming(
+        grassParticleDurationFrames: 53,
+        fireParticleDurationFrames: 44,
+        waterParticleDurationFrames: 49,
+        sparkleDurationFrames: 24
+    )
+}
+
 private struct OpeningIRLoweringContext {
     private let translationUnits: [ClangTranslationUnit]
     private let sourceDocuments: [String: OpeningSourceDocument]
@@ -1831,6 +2735,50 @@ private struct OpeningIRLoweringContext {
         return value
     }
 
+    func requiredCInt(
+        _ pattern: String,
+        in text: String,
+        sourceFile: String,
+        description: String
+    ) throws -> Int {
+        let rawValue = try requiredMatch(
+            pattern,
+            in: text,
+            sourceFile: sourceFile,
+            description: description
+        )
+        return try parseCInt(
+            rawValue,
+            sourceFile: sourceFile,
+            description: description
+        )
+    }
+
+    func matchCIntegers(
+        _ pattern: String,
+        in text: String,
+        sourceFile: String,
+        description: String
+    ) throws -> [Int] {
+        let regex = try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let matches = regex.matches(in: text, range: range)
+        guard matches.isEmpty == false else {
+            throw OpeningIRLoweringError.missingPattern(sourceFile: sourceFile, description: description)
+        }
+
+        return try matches.map { match in
+            guard let captureRange = Range(match.range(at: 1), in: text) else {
+                throw OpeningIRLoweringError.missingPattern(sourceFile: sourceFile, description: description)
+            }
+            return try parseCInt(
+                String(text[captureRange]),
+                sourceFile: sourceFile,
+                description: description
+            )
+        }
+    }
+
     func requiredRGBHex(
         _ pattern: String,
         in text: String,
@@ -1925,6 +2873,29 @@ private struct OpeningIRLoweringContext {
             expand(red),
             expand(green),
             expand(blue)
+        )
+    }
+
+    private func parseCInt(
+        _ rawValue: String,
+        sourceFile: String,
+        description: String
+    ) throws -> Int {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowercase = trimmed.lowercased()
+        if lowercase.hasPrefix("-0x"), let parsed = Int(lowercase.dropFirst(3), radix: 16) {
+            return -parsed
+        }
+        if lowercase.hasPrefix("0x"), let parsed = Int(lowercase.dropFirst(2), radix: 16) {
+            return parsed
+        }
+        if let parsed = Int(trimmed) {
+            return parsed
+        }
+        throw OpeningIRLoweringError.invalidPatternInteger(
+            sourceFile: sourceFile,
+            description: description,
+            value: rawValue
         )
     }
 }

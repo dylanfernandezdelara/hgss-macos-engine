@@ -98,10 +98,99 @@ struct OpeningIRLowererTests {
             return false
         }))
 
+        let scene2 = try #require(program.scenes.first(where: { $0.id == .scene2 }))
+        #expect(scene2.states.map(\.id) == [
+            "scene2_run",
+            "scene2_start_flyin",
+            "scene2_flyin",
+            "scene2_start_slow_pan_ethan",
+            "scene2_slow_pan_ethan",
+            "scene2_fast_pan_to_lyra",
+            "scene2_slow_pan_lyra",
+            "scene2_circle_wipe_out",
+            "scene2_end",
+        ])
+        let scene2PanState = try #require(scene2.states.first(where: { $0.id == "scene2_slow_pan_ethan" }))
+        #expect(scene2PanState.duration == .fixedFrames(0x5A))
+        #expect(scene2PanState.commands.contains(where: { command in
+            if case let .scroll(payload) = command {
+                return payload.targetID == "scene2_top_main1_layer"
+                    && payload.deltaX == 0x20
+                    && payload.durationFrames == 0x5A
+            }
+            return false
+        }))
+        let scene2CircleState = try #require(scene2.states.first(where: { $0.id == "scene2_end" }))
+        #expect(scene2CircleState.commands.contains(where: { command in
+            if case let .circleWipe(payload) = command {
+                return payload.screen == .top
+                    && payload.durationFrames == 8
+                    && payload.colorHex == "#FFFFFF"
+                    && payload.mode == 1
+                    && payload.revealsInside
+            }
+            return false
+        }))
+
         let scene3 = try #require(program.scenes.first(where: { $0.id == .scene3 }))
         #expect(scene3.states.map(\.id).contains("scene3_wait_admins"))
+        let scene3ViewportState = try #require(scene3.states.first(where: { $0.id == "scene3_expand_rocket_viewport" }))
+        #expect(scene3ViewportState.duration == .fixedFrames(254))
+        #expect(scene3ViewportState.commands.contains(where: { command in
+            if case let .animateWindowMask(payload) = command {
+                return payload.screen == .bottom
+                    && payload.durationFrames == 253
+                    && payload.fromRect == .init(x: 0x46, y: 0x40, width: 0x74, height: 0x41)
+                    && payload.toRect == .init(x: 0x00, y: 0x00, width: 0x100, height: 0xC1)
+            }
+            return false
+        }))
+        #expect(scene3ViewportState.commands.contains(where: { command in
+            if case let .scroll(payload) = command {
+                return payload.targetID == "scene3_rocket_0_layer"
+                    && payload.deltaY == -0x30
+                    && payload.durationFrames == 254
+            }
+            return false
+        }))
+
         let scene4 = try #require(program.scenes.first(where: { $0.id == .scene4 }))
         #expect(scene4.states.map(\.id).contains("scene4_wait_sparkle"))
+        let scene4SlideIn = try #require(scene4.states.first(where: { $0.id == "scene4_slide_in_players" }))
+        #expect(scene4SlideIn.commands.contains(where: { command in
+            if case let .animateWindowMask(payload) = command {
+                return payload.screen == .top
+                    && payload.durationFrames == 10
+                    && payload.fromRect == .init(x: 255, y: 0, width: 1, height: 193)
+                    && payload.toRect == .init(x: 0, y: 0, width: 256, height: 193)
+            }
+            return false
+        }))
+        let scene4FadeIn = try #require(scene4.states.first(where: { $0.id == "scene4_fade_in" }))
+        #expect(scene4FadeIn.commands.contains(where: { command in
+            if case let .setScreenSwap(payload) = command {
+                return payload.enabled
+            }
+            return false
+        }))
+        let scene4GrassParticles = try #require(scene4.states.first(where: { $0.id == "scene4_run_grass_particles" }))
+        #expect(scene4GrassParticles.duration == .fixedFrames(53))
+        #expect(scene4GrassParticles.transitions.contains(where: {
+            $0.trigger == .stateCompleted && $0.targetStateID == "scene4_finish_chikorita"
+        }))
+        let scene4FireParticles = try #require(scene4.states.first(where: { $0.id == "scene4_run_fire_particles" }))
+        #expect(scene4FireParticles.duration == .fixedFrames(44))
+        #expect(scene4FireParticles.transitions.contains(where: {
+            $0.trigger == .stateCompleted && $0.targetStateID == "scene4_finish_cyndaquil"
+        }))
+        let scene4WaterParticles = try #require(scene4.states.first(where: { $0.id == "scene4_run_water_particles" }))
+        #expect(scene4WaterParticles.duration == .fixedFrames(49))
+        #expect(scene4WaterParticles.transitions.contains(where: {
+            $0.trigger == .stateCompleted && $0.targetStateID == "scene4_finish_totodile"
+        }))
+        let scene4WaitSparkle = try #require(scene4.states.first(where: { $0.id == "scene4_wait_sparkle" }))
+        #expect(scene4WaitSparkle.duration == .fixedFrames(24))
+
         let scene5 = try #require(program.scenes.first(where: { $0.id == .scene5 }))
         #expect(scene5.states.map(\.id) == [
             "scene5_run",
@@ -111,6 +200,26 @@ struct OpeningIRLowererTests {
             "scene5_wait_bg_scroll",
             "scene5_wait_fade_out",
         ])
+        let scene5WipeIn = try #require(scene5.states.first(where: { $0.id == "scene5_wipe_in" }))
+        #expect(scene5WipeIn.duration == .fixedFrames(18))
+        #expect(scene5WipeIn.commands.contains(where: { command in
+            if case let .fade(payload) = command {
+                return payload.target == .palette
+                    && payload.colorHex == "#000000"
+                    && payload.durationFrames == 18
+            }
+            return false
+        }))
+        let scene5FadeOut = try #require(scene5.states.first(where: { $0.id == "scene5_wait_fade_out" }))
+        #expect(scene5FadeOut.duration == .fixedFrames(50))
+        #expect(scene5FadeOut.commands.contains(where: { command in
+            if case let .fade(payload) = command {
+                return payload.target == .palette
+                    && payload.colorHex == "#FFFFFF"
+                    && payload.durationFrames == 50
+            }
+            return false
+        }))
 
         let titleScene = try #require(program.scenes.first(where: { $0.id == .titleScreen }))
         #expect(titleScene.initialStateID == "title_wait_fade")

@@ -59,7 +59,6 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
 
     private var playbackTask: Task<Void, Never>?
     private var dispatchedCueKeys: Set<String>
-    private var pendingTitleMenuRequest = false
     private var programFlags: [String: Int]
 
     public init(
@@ -122,7 +121,6 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         stop()
         dispatchedCueKeys.removeAll()
         audioCueLog = []
-        pendingTitleMenuRequest = false
         currentMenuSelectionID = nil
         lastConfirmedMenuSelectionID = nil
         lastConfirmedMenuDestinationID = nil
@@ -172,7 +170,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
                 guard currentProgramState?.id == "title_play" else {
                     return
                 }
-                pendingTitleMenuRequest = true
+                setProgramFlag(name: "title_menu_requested", value: 1)
                 return
             }
 
@@ -351,18 +349,6 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             return
         }
 
-        if pendingTitleMenuRequest,
-           let transition = programState.transitions.first(where: { transition in
-               if case .flagEquals(name: "title_menu_requested", value: 1) = transition.trigger {
-                   return true
-               }
-               return false
-           }) {
-            pendingTitleMenuRequest = false
-            transitionToProgramState(transition)
-            return
-        }
-
         if let transition = automaticTransitionForCurrentProgramState() {
             transitionToProgramState(transition)
             return
@@ -414,7 +400,6 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             frameInScene: 0,
             hasReachedTitleHandoff: reachedTitleHandoff
         )
-        pendingTitleMenuRequest = false
 
         if reachedTitleHandoff,
            let titleScene = loadedProgram?.program.scenes.first(where: { $0.id == .titleScreen }) {
@@ -457,7 +442,6 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
     ) {
         let nextSceneID = transition.targetSceneID ?? state.programSceneID ?? .titleScreen
         if let bundleSceneIndex = bundleSceneIndex(for: nextSceneID) {
-            pendingTitleMenuRequest = false
             currentMenuSelectionID = nil
             lastConfirmedMenuSelectionID = nil
             dispatchedCueKeys.removeAll()

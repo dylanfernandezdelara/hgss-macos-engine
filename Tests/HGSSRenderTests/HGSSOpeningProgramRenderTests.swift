@@ -56,7 +56,6 @@ struct HGSSOpeningProgramRenderTests {
         #expect(controller.isProgramLayerVisible("start_prompt") == false)
 
         controller.requestSkip()
-        controller.advanceFrame()
         #expect(controller.currentProgramState?.id == "title_proceed_flash")
         let whiteFade = try #require(controller.activeProgramFadeOverlay())
         #expect(whiteFade.colorHex == "#FFFFFF")
