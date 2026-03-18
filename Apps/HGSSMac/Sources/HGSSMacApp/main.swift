@@ -69,6 +69,22 @@ final class GameViewModel: ObservableObject {
     }
 
     func handleKeyDown(_ keyCode: UInt16) {
+        if let controller = readyState?.controller, controller.state.hasReachedOpeningMenuHandoff {
+            switch keyCode {
+            case 125:
+                controller.moveCurrentMenuSelection(delta: 1)
+                return
+            case 126:
+                controller.moveCurrentMenuSelection(delta: -1)
+                return
+            case 36, 76:
+                controller.confirmCurrentMenuSelection()
+                return
+            default:
+                break
+            }
+        }
+
         switch keyCode {
         case 0, 36, 76:
             readyState?.controller.requestSkip()
@@ -85,6 +101,10 @@ final class GameViewModel: ObservableObject {
     }
 
     func handleBottomScreenTap() {
+        if let controller = readyState?.controller, controller.state.hasReachedOpeningMenuHandoff {
+            controller.confirmCurrentMenuSelection()
+            return
+        }
         readyState?.controller.requestSkip()
     }
 
@@ -164,7 +184,7 @@ private final class GameWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
-        if [0, 2, 36, 76].contains(event.keyCode) {
+        if [0, 2, 36, 76, 125, 126].contains(event.keyCode) {
             onKeyDownHandler?(event.keyCode)
             return
         }

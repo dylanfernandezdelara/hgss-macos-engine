@@ -77,6 +77,52 @@ struct HGSSOpeningProgramRenderTests {
         #expect(controller.audioCueLog.last?.cue.action == .stopBGM)
     }
 
+    @Test("Playback controller navigates and confirms interactive menu options")
+    @MainActor
+    func playbackControllerNavigatesAndConfirmsInteractiveMenuOptions() throws {
+        let root = try makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeAsset(at: root, relativePath: "assets/title_handoff/top.png")
+        try writeAsset(at: root, relativePath: "audio/title_handoff/theme.wav")
+        try writeBundle(makeBundle(), to: root)
+        try writeProgram(makeInteractiveMenuProgram(), to: root)
+
+        let loadedBundle = try OpeningBundleLoader().load(from: root)
+        let loadedProgram = try OpeningProgramLoader().load(from: root)
+        let controller = HGSSOpeningPlaybackController(
+            loadedBundle: loadedBundle,
+            loadedProgram: loadedProgram
+        )
+
+        controller.requestSkip()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.requestSkip()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
+        controller.advanceFrame()
+
+        #expect(controller.currentProgramScene?.id == .mainMenu)
+        #expect(controller.currentProgramState?.id == "main_menu_continue")
+        #expect(controller.currentMenuSelectionID == "continue")
+
+        controller.moveCurrentMenuSelection(delta: 1)
+        #expect(controller.currentMenuSelectionID == "new_game")
+
+        controller.moveCurrentMenuSelection(delta: 1)
+        #expect(controller.currentMenuSelectionID == "continue")
+
+        controller.moveCurrentMenuSelection(delta: -1)
+        #expect(controller.currentMenuSelectionID == "new_game")
+
+        controller.confirmCurrentMenuSelection()
+        #expect(controller.lastConfirmedMenuSelectionID == "new_game")
+    }
+
     private func makeTemporaryRoot() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("hgss-opening-program-render-tests-\(UUID().uuidString)", isDirectory: true)
@@ -407,6 +453,74 @@ struct HGSSOpeningProgramRenderTests {
                     provenance: provenance
                 )
             ]
+        )
+    }
+
+    private func makeInteractiveMenuProgram() -> HGSSOpeningProgramIR {
+        let baseProgram = makeProgram()
+        let provenance = HGSSOpeningProgramIR.Provenance(
+            sourceFile: "src/application/main_menu/main_menu.c",
+            symbol: "MainMenuApp_Main"
+        )
+
+        let interactiveMainMenu = HGSSOpeningProgramIR.Scene(
+            id: .mainMenu,
+            initialStateID: "main_menu_route",
+            states: [
+                .init(
+                    id: "main_menu_route",
+                    duration: .indefinite,
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: "#6363FF", provenance: provenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: "#6363FF", provenance: provenance)
+                        )
+                    ],
+                    transitions: [
+                        .init(
+                            trigger: .flagEquals(name: "main_menu_has_save_data", value: 0),
+                            targetStateID: "main_menu_continue",
+                            provenance: provenance
+                        )
+                    ],
+                    provenance: provenance
+                ),
+                .init(
+                    id: "main_menu_continue",
+                    duration: .indefinite,
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: "#6363FF", provenance: provenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: "#6363FF", provenance: provenance)
+                        ),
+                        .setMenu(
+                            .init(
+                                screen: .bottom,
+                                options: [
+                                    .init(id: "continue", text: "CONTINUE"),
+                                    .init(id: "new_game", text: "NEW GAME")
+                                ],
+                                selectedOptionID: "continue",
+                                provenance: provenance
+                            )
+                        )
+                    ],
+                    transitions: [],
+                    provenance: provenance
+                ),
+            ],
+            provenance: provenance
+        )
+
+        return HGSSOpeningProgramIR(
+            schemaVersion: baseProgram.schemaVersion,
+            entrySceneID: baseProgram.entrySceneID,
+            sourceFiles: baseProgram.sourceFiles,
+            scenes: Array(baseProgram.scenes.dropLast()) + [interactiveMainMenu]
         )
     }
 }

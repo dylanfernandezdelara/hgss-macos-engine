@@ -53,6 +53,8 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
 
     @Published public private(set) var state: HGSSOpeningPlaybackState
     @Published public private(set) var audioCueLog: [HGSSOpeningDispatchedAudioCue]
+    @Published public private(set) var currentMenuSelectionID: String?
+    @Published public private(set) var lastConfirmedMenuSelectionID: String?
 
     private var playbackTask: Task<Void, Never>?
     private var dispatchedCueKeys: Set<String>
@@ -67,6 +69,8 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         self.loadedProgram = loadedProgram
         self.state = HGSSOpeningPlaybackState(sceneIndex: 0, frameInScene: 0, hasReachedTitleHandoff: false)
         self.audioCueLog = []
+        self.currentMenuSelectionID = nil
+        self.lastConfirmedMenuSelectionID = nil
         self.dispatchedCueKeys = []
         self.programFlags = Self.defaultProgramFlags()
         dispatchBundleAudioCuesForCurrentFrameIfNeeded()
@@ -117,6 +121,8 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         dispatchedCueKeys.removeAll()
         audioCueLog = []
         pendingTitleMenuRequest = false
+        currentMenuSelectionID = nil
+        lastConfirmedMenuSelectionID = nil
         programFlags = Self.defaultProgramFlags()
         state = HGSSOpeningPlaybackState(sceneIndex: 0, frameInScene: 0, hasReachedTitleHandoff: false)
         dispatchBundleAudioCuesForCurrentFrameIfNeeded()
@@ -153,6 +159,11 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
     }
 
     public func requestSkip() {
+        if state.hasReachedOpeningMenuHandoff {
+            confirmCurrentMenuSelection()
+            return
+        }
+
         if currentProgramScene?.id == .titleScreen {
             guard currentProgramState?.id == "title_play" else {
                 return
@@ -169,6 +180,36 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
 
         let titleSceneIndex = loadedBundle.bundle.scenes.firstIndex(where: { $0.id == .titleHandoff }) ?? loadedBundle.bundle.scenes.count - 1
         enterBundleScene(sceneIndex: titleSceneIndex)
+    }
+
+    public func moveCurrentMenuSelection(delta: Int) {
+        guard delta != 0,
+              let menu = activeMenu(screen: .bottom) ?? activeMenu(screen: .top) else {
+            return
+        }
+
+        let enabledOptions = menu.options.filter(\.enabled)
+        guard enabledOptions.isEmpty == false else {
+            return
+        }
+
+        let selectedID = currentMenuSelectionID ?? menu.selectedOptionID
+        let currentIndex = enabledOptions.firstIndex(where: { $0.id == selectedID }) ?? 0
+        let nextIndex = (currentIndex + delta).positiveModulo(enabledOptions.count)
+        currentMenuSelectionID = enabledOptions[nextIndex].id
+    }
+
+    public func confirmCurrentMenuSelection() {
+        guard let menu = activeMenu(screen: .bottom) ?? activeMenu(screen: .top) else {
+            return
+        }
+
+        let selectedID = currentMenuSelectionID ?? menu.selectedOptionID
+        guard menu.options.contains(where: { $0.id == selectedID && $0.enabled }) else {
+            return
+        }
+
+        lastConfirmedMenuSelectionID = selectedID
     }
 
     public func isProgramLayerVisible(_ layerID: String) -> Bool? {
@@ -232,6 +273,12 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             }
             return payload
         }.last
+    }
+
+    public func resolvedMenuSelectionID(
+        for menu: HGSSOpeningProgramIR.MenuCommand
+    ) -> String {
+        currentMenuSelectionID ?? menu.selectedOptionID
     }
 
     public func activeProgramFadeOverlay() -> (colorHex: String, opacity: Double)? {
@@ -320,6 +367,8 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
     private func enterBundleScene(sceneIndex: Int) {
         let scene = loadedBundle.bundle.scenes[sceneIndex]
         let reachedTitleHandoff = scene.id == .titleHandoff
+        currentMenuSelectionID = nil
+        lastConfirmedMenuSelectionID = nil
         state = HGSSOpeningPlaybackState(
             sceneIndex: sceneIndex,
             frameInScene: 0,
@@ -354,6 +403,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         )
 
         dispatchProgramAudioCommandsIfNeeded()
+        syncMenuSelectionForCurrentProgramState()
 
         if let transition = automaticTransitionForCurrentProgramState() {
             transitionToProgramState(transition, sceneFrame: sceneFrame)
@@ -383,6 +433,30 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             }
             return false
         })
+    }
+
+    private func syncMenuSelectionForCurrentProgramState() {
+        guard let menu = activeMenu(screen: .bottom) ?? activeMenu(screen: .top) else {
+            currentMenuSelectionID = nil
+            return
+        }
+
+        let enabledOptions = menu.options.filter(\.enabled)
+        guard enabledOptions.isEmpty == false else {
+            currentMenuSelectionID = nil
+            return
+        }
+
+        if let currentMenuSelectionID,
+           enabledOptions.contains(where: { $0.id == currentMenuSelectionID }) {
+            return
+        }
+
+        if enabledOptions.contains(where: { $0.id == menu.selectedOptionID }) {
+            currentMenuSelectionID = menu.selectedOptionID
+        } else {
+            currentMenuSelectionID = enabledOptions[0].id
+        }
     }
 
     private func dispatchBundleAudioCuesForCurrentFrameIfNeeded() {
@@ -506,5 +580,12 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             "check_save_message_index": -1,
             "main_menu_has_save_data": 0,
         ]
+    }
+}
+
+private extension Int {
+    func positiveModulo(_ modulus: Int) -> Int {
+        let remainder = self % modulus
+        return remainder >= 0 ? remainder : remainder + modulus
     }
 }

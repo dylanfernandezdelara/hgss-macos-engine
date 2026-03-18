@@ -209,7 +209,10 @@ public struct HGSSOpeningPlayerView: View {
             }
 
             if let menu {
-                programMenuView(menu)
+                programMenuView(
+                    menu,
+                    selectedOptionID: controller.resolvedMenuSelectionID(for: menu)
+                )
             }
 
             if let programFadeOverlay {
@@ -264,17 +267,18 @@ public struct HGSSOpeningPlayerView: View {
     }
 
     private func programMenuView(
-        _ menu: HGSSOpeningProgramIR.MenuCommand
+        _ menu: HGSSOpeningProgramIR.MenuCommand,
+        selectedOptionID: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(menu.options, id: \.id) { option in
                 HStack(spacing: 10) {
                     Circle()
-                        .fill(option.id == menu.selectedOptionID ? Color(red: 0.96, green: 0.79, blue: 0.12) : Color.clear)
+                        .fill(option.id == selectedOptionID ? Color(red: 0.96, green: 0.79, blue: 0.12) : Color.clear)
                         .frame(width: 8, height: 8)
                     Text(option.text.replacingOccurrences(of: "\\n", with: "\n"))
                         .font(.system(size: 16, weight: .heavy, design: .rounded))
-                        .foregroundStyle(option.id == menu.selectedOptionID ? Color.white : Color.white.opacity(0.7))
+                        .foregroundStyle(option.id == selectedOptionID ? Color.white : Color.white.opacity(0.7))
                 }
             }
         }
