@@ -51,10 +51,12 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
     public private(set) var loadedBundle: LoadedOpeningBundle
     public private(set) var loadedProgram: LoadedOpeningProgram?
     public var onAudioCue: ((HGSSOpeningDispatchedAudioCue) -> Void)?
+    public var onMenuDispatch: ((HGSSOpeningMenuDispatch) -> Void)?
 
     @Published public private(set) var state: HGSSOpeningPlaybackState
     @Published public private(set) var audioCueLog: [HGSSOpeningDispatchedAudioCue]
     @Published public private(set) var currentMenuSelectionID: String?
+    @Published public private(set) var lastMenuDispatch: HGSSOpeningMenuDispatch?
     @Published public private(set) var lastConfirmedMenuSelectionID: String?
     @Published public private(set) var lastConfirmedMenuDestinationID: String?
 
@@ -73,6 +75,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         self.state = HGSSOpeningPlaybackState(sceneIndex: 0, frameInScene: 0, hasReachedTitleHandoff: false)
         self.audioCueLog = []
         self.currentMenuSelectionID = nil
+        self.lastMenuDispatch = nil
         self.lastConfirmedMenuSelectionID = nil
         self.lastConfirmedMenuDestinationID = nil
         self.dispatchedCueKeys = []
@@ -126,6 +129,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         dispatchedCueKeys.removeAll()
         audioCueLog = []
         currentMenuSelectionID = nil
+        lastMenuDispatch = nil
         lastConfirmedMenuSelectionID = nil
         lastConfirmedMenuDestinationID = nil
         programFlags = Self.defaultProgramFlags(overrides: bootstrapProgramFlags)
@@ -241,8 +245,16 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             return
         }
 
+        let destinationID = menu.options.first(where: { $0.id == selectedID })?.destinationID
+        let dispatchedMenu = HGSSOpeningMenuDispatch(
+            menuStateID: currentProgramState?.id ?? "",
+            selectionID: selectedID,
+            destinationID: destinationID
+        )
+        lastMenuDispatch = dispatchedMenu
         lastConfirmedMenuSelectionID = selectedID
-        lastConfirmedMenuDestinationID = menu.options.first(where: { $0.id == selectedID })?.destinationID
+        lastConfirmedMenuDestinationID = destinationID
+        onMenuDispatch?(dispatchedMenu)
     }
 
     public func isProgramLayerVisible(_ layerID: String) -> Bool? {
@@ -389,6 +401,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         let scene = loadedBundle.bundle.scenes[sceneIndex]
         let reachedTitleHandoff = scene.id == .titleHandoff
         currentMenuSelectionID = nil
+        lastMenuDispatch = nil
         lastConfirmedMenuSelectionID = nil
         lastConfirmedMenuDestinationID = nil
         state = HGSSOpeningPlaybackState(
@@ -439,7 +452,9 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         let nextSceneID = transition.targetSceneID ?? state.programSceneID ?? .titleScreen
         if let bundleSceneIndex = bundleSceneIndex(for: nextSceneID) {
             currentMenuSelectionID = nil
+            lastMenuDispatch = nil
             lastConfirmedMenuSelectionID = nil
+            lastConfirmedMenuDestinationID = nil
             dispatchedCueKeys.removeAll()
             enterBundleScene(sceneIndex: bundleSceneIndex)
             return

@@ -140,9 +140,9 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [ ] `P3.5b` Verify the native app can transition title -> `CheckSave` -> `MainMenu` with no synthetic fallback state injection.
 - [ ] `P3.5c` Keep the first interactive menu frame stable under repeated boot/reset cycles.
 - [ ] `P3.6` Route interactive menu confirmation into real overlay/application dispatch targets instead of debug-only selection capture.
-- [ ] `P3.6a` Model post-menu destination dispatch in `HGSSCore` instead of only storing `lastConfirmedMenuDestinationID`.
+- [x] `P3.6a` Model post-menu destination dispatch in `HGSSCore` instead of only storing `lastConfirmedMenuDestinationID`.
 - [ ] `P3.6b` Add application handoff stubs for the first reachable menu overlays.
-- [ ] `P3.6c` Verify confirmation dispatch per menu option with source-backed destination IDs.
+- [x] `P3.6c` Verify confirmation dispatch per menu option with source-backed destination IDs.
 
 ### Phase 4 Todos
 

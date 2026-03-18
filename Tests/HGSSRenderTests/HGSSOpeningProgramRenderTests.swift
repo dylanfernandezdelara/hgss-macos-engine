@@ -121,6 +121,11 @@ struct HGSSOpeningProgramRenderTests {
 
         controller.confirmCurrentMenuSelection()
         #expect(controller.lastConfirmedMenuSelectionID == "new_game")
+        #expect(controller.lastMenuDispatch == .init(
+            menuStateID: "main_menu_continue",
+            selectionID: "new_game",
+            destinationID: "ov36_App_MainMenu_SelectOption_NewGame"
+        ))
     }
 
     @Test("Playback controller restarts the opening bundle on title timeout exit")
@@ -698,8 +703,16 @@ struct HGSSOpeningProgramRenderTests {
                             .init(
                                 screen: .bottom,
                                 options: [
-                                    .init(id: "continue", text: "CONTINUE"),
-                                    .init(id: "new_game", text: "NEW GAME")
+                                    .init(
+                                        id: "continue",
+                                        text: "CONTINUE",
+                                        destinationID: "ov36_App_MainMenu_SelectOption_Continue"
+                                    ),
+                                    .init(
+                                        id: "new_game",
+                                        text: "NEW GAME",
+                                        destinationID: "ov36_App_MainMenu_SelectOption_NewGame"
+                                    )
                                 ],
                                 selectedOptionID: "continue",
                                 provenance: provenance

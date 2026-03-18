@@ -124,6 +124,87 @@ struct OpeningProgramTraceTests {
         ])
     }
 
+    @Test("Menu confirmation dispatch preserves source-backed destination IDs")
+    @MainActor
+    func menuDispatchPreservesSourceBackedDestinationIDs() throws {
+        let pretRoot = repoRootURL().appendingPathComponent("External/pokeheartgold", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: pretRoot.path()) else {
+            return
+        }
+
+        let supportRoot = try makeTemporaryRoot(prefix: "hgss-opening-dispatch-support")
+        defer { try? FileManager.default.removeItem(at: supportRoot) }
+
+        let validation = try PokeheartgoldOpeningSourceValidator().validate(
+            pretRoot: pretRoot,
+            supportRoot: supportRoot
+        )
+        let program = try PokeheartgoldOpeningIRLowerer().lower(
+            validation: validation,
+            pretRoot: pretRoot
+        )
+
+        try program.validate()
+
+        let bootstrapVariants: [HGSSOpeningBootstrapState] = [
+            .init(
+                mainMenuHasSaveData: true,
+                mainMenuHasPokedex: true,
+                drawMysteryGift: true,
+                drawRanger: true,
+                drawConnectToWii: true,
+                connectedAgbGame: 1
+            ),
+            .init(
+                mainMenuHasSaveData: true,
+                mainMenuHasPokedex: true,
+                drawMysteryGift: true,
+                drawRanger: true,
+                drawConnectToWii: true,
+                connectedAgbGame: 2
+            ),
+            .init(
+                mainMenuHasSaveData: true,
+                mainMenuHasPokedex: true,
+                drawMysteryGift: true,
+                drawRanger: true,
+                drawConnectToWii: true,
+                connectedAgbGame: 3
+            ),
+            .init(
+                mainMenuHasSaveData: true,
+                mainMenuHasPokedex: true,
+                drawMysteryGift: true,
+                drawRanger: true,
+                drawConnectToWii: true,
+                connectedAgbGame: 4
+            ),
+            .init(
+                mainMenuHasSaveData: true,
+                mainMenuHasPokedex: true,
+                drawMysteryGift: true,
+                drawRanger: true,
+                drawConnectToWii: true,
+                connectedAgbGame: 5
+            ),
+        ]
+
+        for bootstrapState in bootstrapVariants {
+            let controller = try advanceToMainMenu(program: program, bootstrapState: bootstrapState)
+            let menu = try #require(controller.activeMenu(screen: .bottom))
+
+            for option in menu.options where option.enabled {
+                try selectMenuOption(option.id, on: controller, menu: menu)
+                controller.confirmCurrentMenuSelection()
+                #expect(controller.lastMenuDispatch == .init(
+                    menuStateID: "main_menu_continue",
+                    selectionID: option.id,
+                    destinationID: option.destinationID
+                ))
+            }
+        }
+    }
+
     private func traceTitleMenuExit(
         program: HGSSOpeningProgramIR,
         bootstrapState: HGSSOpeningBootstrapState
@@ -293,6 +374,51 @@ struct OpeningProgramTraceTests {
         if trace.last != nextStep {
             trace.append(nextStep)
         }
+    }
+
+    private func advanceToMainMenu(
+        program: HGSSOpeningProgramIR,
+        bootstrapState: HGSSOpeningBootstrapState
+    ) throws -> HGSSOpeningPlaybackController {
+        let controller = try makeController(program: program, bootstrapState: bootstrapState)
+        controller.requestSkip()
+
+        var requestedMenu = false
+        for _ in 0..<4_000 {
+            if controller.currentProgramState?.id == "title_play" && requestedMenu == false {
+                controller.requestSkip()
+                requestedMenu = true
+            }
+
+            if controller.currentProgramState?.id == "main_menu_continue" {
+                return controller
+            }
+
+            controller.advanceFrame()
+        }
+
+        Issue.record("Timed out waiting to reach the interactive main menu.")
+        return controller
+    }
+
+    private func selectMenuOption(
+        _ optionID: String,
+        on controller: HGSSOpeningPlaybackController,
+        menu: HGSSOpeningProgramIR.MenuCommand
+    ) throws {
+        guard menu.options.contains(where: { $0.id == optionID }) else {
+            Issue.record("Expected menu option \(optionID) to be visible.")
+            return
+        }
+
+        for _ in 0..<menu.options.count {
+            if controller.resolvedMenuSelectionID(for: menu) == optionID {
+                return
+            }
+            controller.moveCurrentMenuSelection(delta: 1)
+        }
+
+        Issue.record("Failed to select menu option \(optionID).")
     }
 
     private func makeController(
