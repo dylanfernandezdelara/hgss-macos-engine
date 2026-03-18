@@ -221,7 +221,7 @@ final class HGSSOpeningScreenCompositor {
             )
             context.saveGState()
             context.setAlpha(layer.opacity)
-            context.draw(image, in: drawRect)
+            drawImage(image, in: drawRect, context: context)
             context.restoreGState()
         }
     }
@@ -253,7 +253,7 @@ final class HGSSOpeningScreenCompositor {
             dx: scrollOffset.width,
             dy: scrollOffset.height
         )
-        context.draw(image, in: frameRect)
+        drawImage(image, in: frameRect, context: context)
     }
 
     private func drawPrompt(
@@ -276,7 +276,7 @@ final class HGSSOpeningScreenCompositor {
                 width: CGFloat(glyphImage.width),
                 height: CGFloat(glyphImage.height)
             )
-            context.draw(glyphImage, in: drawRect)
+            drawImage(glyphImage, in: drawRect, context: context)
         }
     }
 
@@ -339,7 +339,7 @@ final class HGSSOpeningScreenCompositor {
                let wifiIconSheetAssetID = chrome.wifiIconSheetAssetID,
                let wifiIcon = cropWifiIcon(assetID: wifiIconSheetAssetID, type: wirelessIconType) {
                 let iconRect = CGRect(x: rect.maxX - 16, y: rect.minY, width: 16, height: 16)
-                context.draw(wifiIcon, in: iconRect)
+                drawImage(wifiIcon, in: iconRect, context: context)
             }
 
             let textRect = CGRect(
@@ -394,7 +394,7 @@ final class HGSSOpeningScreenCompositor {
               let image = cgImage(forAssetID: frameAssetIDs[frameIndex]) else {
             return
         }
-        context.draw(image, in: rect)
+        drawImage(image, in: rect, context: context)
     }
 
     private func drawGlyphText(
@@ -420,7 +420,7 @@ final class HGSSOpeningScreenCompositor {
             width: CGFloat(glyphImage.width),
             height: CGFloat(glyphImage.height)
         )
-        context.draw(glyphImage, in: drawRect)
+        drawImage(glyphImage, in: drawRect, context: context)
     }
 
     private func drawNineSliceFrame(
@@ -451,8 +451,28 @@ final class HGSSOpeningScreenCompositor {
         ]
 
         for (tile, drawRect) in zip(tiles, drawRects) {
-            context.draw(tile, in: drawRect)
+            drawImage(tile, in: drawRect, context: context)
         }
+    }
+
+    private func drawImage(
+        _ image: CGImage,
+        in rect: CGRect,
+        context: CGContext
+    ) {
+        context.saveGState()
+        context.translateBy(x: rect.minX, y: rect.maxY)
+        context.scaleBy(x: 1, y: -1)
+        context.draw(
+            image,
+            in: CGRect(
+                x: 0,
+                y: 0,
+                width: rect.width,
+                height: rect.height
+            )
+        )
+        context.restoreGState()
     }
 
     private func clip(
