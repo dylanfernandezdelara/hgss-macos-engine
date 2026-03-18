@@ -48,6 +48,8 @@ struct PokeheartgoldOpeningIRLowerer {
 
         let introMovie = try context.translationUnit(matchingSuffix: "/src/intro_movie.c")
         let titleScreen = try context.translationUnit(matchingSuffix: "/src/title_screen.c")
+        let checkSavedata = try context.translationUnit(matchingSuffix: "/src/application/check_savedata.c")
+        let mainMenu = try context.translationUnit(matchingSuffix: "/src/application/main_menu/main_menu.c")
 
         let introInit = try context.topLevelNode(
             named: "IntroMovie_Init",
@@ -80,6 +82,26 @@ struct PokeheartgoldOpeningIRLowerer {
             kind: "FunctionDecl",
             in: titleScreen
         )
+        let checkSaveStateEnum = try context.topLevelNode(
+            named: "CheckSavedataApp_MainState",
+            kind: "EnumDecl",
+            in: checkSavedata
+        )
+        let checkSaveTask = try context.topLevelNode(
+            named: "CheckSavedataApp_DoMainTask",
+            kind: "FunctionDecl",
+            in: checkSavedata
+        )
+        let mainMenuButtons = try context.topLevelNode(
+            named: "sMainMenuButtons",
+            kind: "VarDecl",
+            in: mainMenu
+        )
+        let mainMenuMain = try context.topLevelNode(
+            named: "MainMenuApp_Main",
+            kind: "FunctionDecl",
+            in: mainMenu
+        )
 
         let introScenes = try lowerIntroScenes(
             tableNode: introSceneTable,
@@ -93,12 +115,22 @@ struct PokeheartgoldOpeningIRLowerer {
             animRunNode: titleAnimRun,
             context: context
         )
+        let checkSaveScene = try lowerCheckSaveScene(
+            stateEnumNode: checkSaveStateEnum,
+            taskNode: checkSaveTask,
+            context: context
+        )
+        let mainMenuScene = try lowerMainMenuScene(
+            buttonsNode: mainMenuButtons,
+            mainNode: mainMenuMain,
+            context: context
+        )
 
         let program = HGSSOpeningProgramIR(
             schemaVersion: 1,
             entrySceneID: .scene1,
             sourceFiles: validation.translationUnits.map { context.relativePath(for: $0.sourceFile) },
-            scenes: introScenes + [titleScene]
+            scenes: introScenes + [titleScene, checkSaveScene, mainMenuScene]
         )
         try program.validate()
         return program
@@ -380,7 +412,14 @@ struct PokeheartgoldOpeningIRLowerer {
                             )
                         )
                     ],
-                    transitions: [],
+                    transitions: [
+                        .init(
+                            trigger: .stateCompleted,
+                            targetSceneID: .checkSave,
+                            targetStateID: "check_save_route",
+                            provenance: provenance
+                        )
+                    ],
                     provenance: provenance
                 )
             default:
@@ -426,6 +465,242 @@ struct PokeheartgoldOpeningIRLowerer {
             initialStateID: titleStateID(for: "TITLESCREEN_MAIN_WAIT_FADE"),
             states: orderedStates,
             provenance: context.provenance(for: mainNode, symbolOverride: "TitleScreen_Main")
+        )
+    }
+
+    private func lowerCheckSaveScene(
+        stateEnumNode: ClangASTNode,
+        taskNode: ClangASTNode,
+        context: OpeningIRLoweringContext
+    ) throws -> HGSSOpeningProgramIR.Scene {
+        let sourceFile = context.relativePath(for: taskNode.location?.file ?? "src/application/check_savedata.c")
+        let sourceText = try context.fullSourceText(for: taskNode.location?.file ?? "")
+        let routeProvenance = context.provenance(for: taskNode, symbolOverride: "CheckSavedataApp_DoMainTask")
+        let fadeInColor = try context.requiredRGBHex(
+            #"BG_SetMaskColor\(\s*GF_BG_LYR_MAIN_0\s*,\s*RGB\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)\s*\)"#,
+            in: try context.snippet(for: taskNode),
+            sourceFile: sourceFile,
+            description: "CheckSave fade-in mask color"
+        )
+        let fadeDuration = try context.requiredInt(
+            #"BeginNormalPaletteFade\(\s*0\s*,\s*1\s*,\s*1\s*,\s*RGB_BLACK\s*,\s*([0-9]+)\s*,\s*1\s*,\s*data->heapID\s*\)"#,
+            in: try context.snippet(for: taskNode),
+            sourceFile: sourceFile,
+            description: "CheckSave fade-in duration"
+        )
+        let rawWindowFields = try context.requiredMatch(
+            #"static\s+const\s+WindowTemplate\s+sCheckSave_WindowTemplate\s*=\s*\{\s*[^}]*\.left\s*=\s*([0-9]+\s*,\s*\.top\s*=\s*[0-9]+\s*,\s*\.width\s*=\s*[0-9]+\s*,\s*\.height\s*=\s*[0-9]+)"#,
+            in: sourceText,
+            sourceFile: sourceFile,
+            description: "CheckSave window template"
+        )
+        let windowValues = rawWindowFields
+            .components(separatedBy: CharacterSet(charactersIn: "0123456789").inverted)
+            .compactMap { Int($0) }
+        let windowRect = HGSSOpeningProgramIR.ScreenRect(
+            x: (windowValues.indices.contains(0) ? windowValues[0] : 2) * 8,
+            y: (windowValues.indices.contains(1) ? windowValues[1] : 19) * 8,
+            width: (windowValues.indices.contains(2) ? windowValues[2] : 27) * 8,
+            height: (windowValues.indices.contains(3) ? windowValues[3] : 4) * 8
+        )
+
+        let messageRows = [
+            "msg_0229_00000",
+            "msg_0229_00001",
+            "msg_0229_00002",
+            "msg_0229_00003",
+            "msg_0229_00004",
+            "msg_0229_00005",
+        ]
+        let messageStates = try messageRows.enumerated().map { index, rowID -> HGSSOpeningProgramIR.State in
+            let text = try context.messageText(
+                relativePath: "files/msgdata/msg/msg_0229.gmm",
+                rowID: rowID
+            )
+            let messageProvenance = HGSSOpeningProgramIR.Provenance(
+                sourceFile: "files/msgdata/msg/msg_0229.gmm",
+                symbol: rowID
+            )
+            return .init(
+                id: "check_save_message_\(index)",
+                duration: .indefinite,
+                commands: [
+                    .setSolidFill(
+                        .init(screen: .top, colorHex: fadeInColor, provenance: routeProvenance)
+                    ),
+                    .setSolidFill(
+                        .init(screen: .bottom, colorHex: fadeInColor, provenance: routeProvenance)
+                    ),
+                    .setMessageBox(
+                        .init(
+                            id: "check_save_message",
+                            screen: .top,
+                            rect: windowRect,
+                            text: text,
+                            provenance: messageProvenance
+                        )
+                    )
+                ],
+                transitions: [],
+                provenance: messageProvenance
+            )
+        }
+
+        let routeTransitions = [
+            HGSSOpeningProgramIR.Transition(
+                trigger: .flagEquals(name: "check_save_message_index", value: -1),
+                targetSceneID: .mainMenu,
+                targetStateID: "main_menu_route",
+                provenance: routeProvenance
+            ),
+        ] + messageStates.enumerated().map { index, state in
+            HGSSOpeningProgramIR.Transition(
+                trigger: .flagEquals(name: "check_save_message_index", value: index),
+                targetStateID: state.id,
+                provenance: routeProvenance
+            )
+        }
+
+        return HGSSOpeningProgramIR.Scene(
+            id: .checkSave,
+            initialStateID: "check_save_route",
+            states: [
+                .init(
+                    id: "check_save_route",
+                    duration: .indefinite,
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: "#000000", provenance: routeProvenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: "#000000", provenance: routeProvenance)
+                        ),
+                        .fade(
+                            .init(
+                                target: .palette,
+                                startLevel: 31,
+                                endLevel: 0,
+                                durationFrames: fadeDuration,
+                                colorHex: "#000000",
+                                provenance: routeProvenance
+                            )
+                        )
+                    ],
+                    transitions: routeTransitions,
+                    provenance: routeProvenance
+                )
+            ] + messageStates,
+            provenance: context.provenance(for: stateEnumNode, symbolOverride: "CheckSavedataApp_MainState")
+        )
+    }
+
+    private func lowerMainMenuScene(
+        buttonsNode: ClangASTNode,
+        mainNode: ClangASTNode,
+        context: OpeningIRLoweringContext
+    ) throws -> HGSSOpeningProgramIR.Scene {
+        let sourceFile = context.relativePath(for: mainNode.location?.file ?? "src/application/main_menu/main_menu.c")
+        let sourceText = try context.fullSourceText(for: mainNode.location?.file ?? "")
+        let buttonsText = try context.snippet(for: buttonsNode)
+        let backgroundColor = try context.requiredRGBHex(
+            #"(?m)^#define\s+MAIN_MENU_BACKGROUND_COLOR\s+RGB\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)\s*$"#,
+            in: sourceText,
+            sourceFile: sourceFile,
+            description: "MainMenu background color"
+        )
+        let continueText = try context.messageText(
+            relativePath: "files/msgdata/msg/msg_0442.gmm",
+            rowID: "msg_0442_00000"
+        )
+        let newGameText = try context.messageText(
+            relativePath: "files/msgdata/msg/msg_0442.gmm",
+            rowID: "msg_0442_00001"
+        )
+
+        let includeContinue = buttonsText.contains("APPOPTION_CONTINUE")
+        let includeNewGame = buttonsText.contains("APPOPTION_NEW_GAME")
+        let baseOptions = [
+            includeContinue ? HGSSOpeningProgramIR.MenuOption(id: "continue", text: continueText) : nil,
+            includeNewGame ? HGSSOpeningProgramIR.MenuOption(id: "new_game", text: newGameText) : nil,
+        ].compactMap { $0 }
+        let newGameOnly = baseOptions.filter { $0.id == "new_game" }
+        let menuProvenance = context.provenance(for: mainNode, symbolOverride: "MainMenuApp_Main")
+
+        return HGSSOpeningProgramIR.Scene(
+            id: .mainMenu,
+            initialStateID: "main_menu_route",
+            states: [
+                .init(
+                    id: "main_menu_route",
+                    duration: .indefinite,
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: backgroundColor, provenance: menuProvenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: backgroundColor, provenance: menuProvenance)
+                        )
+                    ],
+                    transitions: [
+                        .init(
+                            trigger: .flagEquals(name: "main_menu_has_save_data", value: 1),
+                            targetStateID: "main_menu_continue",
+                            provenance: menuProvenance
+                        ),
+                        .init(
+                            trigger: .flagEquals(name: "main_menu_has_save_data", value: 0),
+                            targetStateID: "main_menu_new_game",
+                            provenance: menuProvenance
+                        ),
+                    ],
+                    provenance: menuProvenance
+                ),
+                .init(
+                    id: "main_menu_continue",
+                    duration: .indefinite,
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: backgroundColor, provenance: menuProvenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: backgroundColor, provenance: menuProvenance)
+                        ),
+                        .setMenu(
+                            .init(
+                                screen: .bottom,
+                                options: baseOptions,
+                                selectedOptionID: "continue",
+                                provenance: menuProvenance
+                            )
+                        )
+                    ],
+                    transitions: [],
+                    provenance: menuProvenance
+                ),
+                .init(
+                    id: "main_menu_new_game",
+                    duration: .indefinite,
+                    commands: [
+                        .setSolidFill(
+                            .init(screen: .top, colorHex: backgroundColor, provenance: menuProvenance)
+                        ),
+                        .setSolidFill(
+                            .init(screen: .bottom, colorHex: backgroundColor, provenance: menuProvenance)
+                        ),
+                        .setMenu(
+                            .init(
+                                screen: .bottom,
+                                options: newGameOnly,
+                                selectedOptionID: "new_game",
+                                provenance: menuProvenance
+                            )
+                        )
+                    ],
+                    transitions: [],
+                    provenance: menuProvenance
+                ),
+            ],
+            provenance: menuProvenance
         )
     }
 
@@ -745,6 +1020,60 @@ private struct OpeningIRLoweringContext {
         return value
     }
 
+    func requiredRGBHex(
+        _ pattern: String,
+        in text: String,
+        sourceFile: String,
+        description: String
+    ) throws -> String {
+        let regex = try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, range: range) else {
+            throw OpeningIRLoweringError.missingPattern(sourceFile: sourceFile, description: description)
+        }
+
+        let components = try (1...3).map { index -> Int in
+            guard let componentRange = Range(match.range(at: index), in: text) else {
+                throw OpeningIRLoweringError.missingPattern(sourceFile: sourceFile, description: description)
+            }
+            let rawValue = String(text[componentRange])
+            guard let value = Int(rawValue) else {
+                throw OpeningIRLoweringError.invalidPatternInteger(
+                    sourceFile: sourceFile,
+                    description: description,
+                    value: rawValue
+                )
+            }
+            return value
+        }
+
+        return rgb5Hex(red: components[0], green: components[1], blue: components[2])
+    }
+
+    func messageText(
+        relativePath: String,
+        rowID: String
+    ) throws -> String {
+        let fileURL = pretRoot.appendingPathComponent(relativePath, isDirectory: false)
+        let sourceFile = relativePath
+        let gmmText = try String(contentsOf: fileURL, encoding: .utf8)
+        let regex = try NSRegularExpression(
+            pattern: #"<row id=\""# + NSRegularExpression.escapedPattern(for: rowID) + #"\"[^>]*>.*?<language name=\"English\">(.*?)</language>"#,
+            options: [.dotMatchesLineSeparators]
+        )
+        let range = NSRange(gmmText.startIndex..<gmmText.endIndex, in: gmmText)
+        guard
+            let match = regex.firstMatch(in: gmmText, range: range),
+            let captureRange = Range(match.range(at: 1), in: gmmText)
+        else {
+            throw OpeningIRLoweringError.missingPattern(sourceFile: sourceFile, description: "message row \(rowID)")
+        }
+
+        return String(gmmText[captureRange])
+            .replacingOccurrences(of: "\r", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func matchIntegers(
         _ pattern: String,
         in text: String,
@@ -772,6 +1101,20 @@ private struct OpeningIRLoweringContext {
             }
             return value
         }
+    }
+
+    private func rgb5Hex(red: Int, green: Int, blue: Int) -> String {
+        func expand(_ component: Int) -> Int {
+            let clamped = max(0, min(component, 31))
+            return Int(round((Double(clamped) / 31.0) * 255.0))
+        }
+
+        return String(
+            format: "#%02X%02X%02X",
+            expand(red),
+            expand(green),
+            expand(blue)
+        )
     }
 }
 

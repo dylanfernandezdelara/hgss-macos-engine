@@ -27,6 +27,8 @@ struct PokeheartgoldClangConfiguration {
         "src/intro_movie_scene_4.c",
         "src/intro_movie_scene_5.c",
         "src/title_screen.c",
+        "src/application/check_savedata.c",
+        "src/application/main_menu/main_menu.c",
     ]
 
     func openingSourceFiles() -> [URL] {
@@ -109,6 +111,22 @@ final class PokeheartgoldParseSupportBuilder {
         try generateMessageHeader(
             gmmURL: pretRoot.appendingPathComponent("files/msgdata/msg/msg_0719.gmm", isDirectory: false),
             outputURL: supportRoot.appendingPathComponent("msgdata/msg/msg_0719.h", isDirectory: false)
+        )
+        try generateMessageHeader(
+            gmmURL: pretRoot.appendingPathComponent("files/msgdata/msg/msg_0229.gmm", isDirectory: false),
+            outputURL: supportRoot.appendingPathComponent("msgdata/msg/msg_0229.h", isDirectory: false)
+        )
+        try generateMessageHeader(
+            gmmURL: pretRoot.appendingPathComponent("files/msgdata/msg/msg_0442.gmm", isDirectory: false),
+            outputURL: supportRoot.appendingPathComponent("msgdata/msg/msg_0442.h", isDirectory: false)
+        )
+        try generateMessageHeader(
+            gmmURL: pretRoot.appendingPathComponent("files/msgdata/msg/msg_0017.gmm", isDirectory: false),
+            outputURL: supportRoot.appendingPathComponent("msgdata/msg/msg_0017.h", isDirectory: false)
+        )
+        try generateMessageHeader(
+            gmmURL: pretRoot.appendingPathComponent("files/msgdata/msg/msg_0800.gmm", isDirectory: false),
+            outputURL: supportRoot.appendingPathComponent("msgdata/msg/msg_0800.h", isDirectory: false)
         )
     }
 
@@ -354,6 +372,30 @@ struct PokeheartgoldOpeningSourceValidator {
             kind: "EnumDecl",
             in: translationUnits,
             matchingSuffix: "/src/title_screen.c"
+        )
+        try requireTopLevelNode(
+            named: "CheckSavedataApp_DoMainTask",
+            kind: "FunctionDecl",
+            in: translationUnits,
+            matchingSuffix: "/src/application/check_savedata.c"
+        )
+        try requireTopLevelNode(
+            named: "CheckSavedataApp_MainState",
+            kind: "EnumDecl",
+            in: translationUnits,
+            matchingSuffix: "/src/application/check_savedata.c"
+        )
+        try requireTopLevelNode(
+            named: "MainMenuApp_Main",
+            kind: "FunctionDecl",
+            in: translationUnits,
+            matchingSuffix: "/src/application/main_menu/main_menu.c"
+        )
+        try requireTopLevelNode(
+            named: "sMainMenuButtons",
+            kind: "VarDecl",
+            in: translationUnits,
+            matchingSuffix: "/src/application/main_menu/main_menu.c"
         )
 
         return PokeheartgoldOpeningParseValidation(translationUnits: translationUnits)

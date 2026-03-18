@@ -57,6 +57,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
     private var playbackTask: Task<Void, Never>?
     private var dispatchedCueKeys: Set<String>
     private var pendingTitleMenuRequest = false
+    private var programFlags: [String: Int]
 
     public init(
         loadedBundle: LoadedOpeningBundle,
@@ -67,6 +68,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         self.state = HGSSOpeningPlaybackState(sceneIndex: 0, frameInScene: 0, hasReachedTitleHandoff: false)
         self.audioCueLog = []
         self.dispatchedCueKeys = []
+        self.programFlags = Self.defaultProgramFlags()
         dispatchBundleAudioCuesForCurrentFrameIfNeeded()
     }
 
@@ -115,6 +117,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         dispatchedCueKeys.removeAll()
         audioCueLog = []
         pendingTitleMenuRequest = false
+        programFlags = Self.defaultProgramFlags()
         state = HGSSOpeningPlaybackState(sceneIndex: 0, frameInScene: 0, hasReachedTitleHandoff: false)
         dispatchBundleAudioCuesForCurrentFrameIfNeeded()
     }
@@ -124,8 +127,8 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             return
         }
 
-        if currentProgramScene?.id == .titleScreen {
-            advanceTitleProgramFrame()
+        if currentProgramScene != nil {
+            advanceProgramFrame()
             return
         }
 
@@ -198,6 +201,39 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         }.first
     }
 
+    public func activeSolidFill(
+        screen: HGSSOpeningProgramIR.ScreenID
+    ) -> HGSSOpeningProgramIR.SolidFillCommand? {
+        currentProgramState?.commands.compactMap { command in
+            guard case let .setSolidFill(payload) = command, payload.screen == screen else {
+                return nil
+            }
+            return payload
+        }.last
+    }
+
+    public func activeMessageBox(
+        screen: HGSSOpeningProgramIR.ScreenID
+    ) -> HGSSOpeningProgramIR.MessageBoxCommand? {
+        currentProgramState?.commands.compactMap { command in
+            guard case let .setMessageBox(payload) = command, payload.screen == screen else {
+                return nil
+            }
+            return payload
+        }.last
+    }
+
+    public func activeMenu(
+        screen: HGSSOpeningProgramIR.ScreenID
+    ) -> HGSSOpeningProgramIR.MenuCommand? {
+        currentProgramState?.commands.compactMap { command in
+            guard case let .setMenu(payload) = command, payload.screen == screen else {
+                return nil
+            }
+            return payload
+        }.last
+    }
+
     public func activeProgramFadeOverlay() -> (colorHex: String, opacity: Double)? {
         guard let programState = currentProgramState else {
             return nil
@@ -224,7 +260,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         return (fade.colorHex ?? "#000000", opacity)
     }
 
-    private func advanceTitleProgramFrame() {
+    private func advanceProgramFrame() {
         guard let programState = currentProgramState else {
             return
         }
@@ -237,6 +273,11 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
                return false
            }) {
             pendingTitleMenuRequest = false
+            transitionToProgramState(transition)
+            return
+        }
+
+        if let transition = automaticTransitionForCurrentProgramState() {
             transitionToProgramState(transition)
             return
         }
@@ -260,7 +301,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
                 programSceneID: state.programSceneID,
                 programStateID: state.programStateID,
                 frameInProgramState: state.frameInProgramState,
-                hasReachedOpeningMenuHandoff: true
+                hasReachedOpeningMenuHandoff: state.hasReachedOpeningMenuHandoff
             )
             return
         }
@@ -301,6 +342,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         sceneFrame: Int = 0,
         frameInProgramState: Int = 0
     ) {
+        let reachedOpeningMenu = isOpeningMenuState(sceneID: sceneID, stateID: stateID)
         state = HGSSOpeningPlaybackState(
             sceneIndex: state.sceneIndex,
             frameInScene: sceneFrame,
@@ -308,7 +350,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             programSceneID: sceneID,
             programStateID: stateID,
             frameInProgramState: frameInProgramState,
-            hasReachedOpeningMenuHandoff: false
+            hasReachedOpeningMenuHandoff: reachedOpeningMenu
         )
 
         dispatchProgramAudioCommandsIfNeeded()
@@ -336,8 +378,8 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             return nil
         }
         return programState.transitions.first(where: { transition in
-            if case .flagEquals(name: "title_anim_initialized", value: 1) = transition.trigger {
-                return true
+            if case let .flagEquals(name, value) = transition.trigger {
+                return programFlags[name] == value
             }
             return false
         })
@@ -345,7 +387,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
 
     private func dispatchBundleAudioCuesForCurrentFrameIfNeeded() {
         let scene = currentScene
-        guard !(scene.id == .titleHandoff && currentProgramScene?.id == .titleScreen) else {
+        guard !(scene.id == .titleHandoff && currentProgramScene != nil) else {
             return
         }
 
@@ -437,5 +479,32 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
 
     private func interpolate(from: Double, to: Double, progress: Double) -> Double {
         from + ((to - from) * progress)
+    }
+
+    private func isOpeningMenuState(
+        sceneID: HGSSOpeningProgramIR.SceneID,
+        stateID: String
+    ) -> Bool {
+        guard
+            let scene = loadedProgram?.program.scenes.first(where: { $0.id == sceneID }),
+            let programState = scene.states.first(where: { $0.id == stateID })
+        else {
+            return false
+        }
+
+        return programState.commands.contains { command in
+            if case .setMenu = command {
+                return true
+            }
+            return false
+        }
+    }
+
+    private static func defaultProgramFlags() -> [String: Int] {
+        [
+            "title_anim_initialized": 1,
+            "check_save_message_index": -1,
+            "main_menu_has_save_data": 0,
+        ]
     }
 }

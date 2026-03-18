@@ -91,11 +91,21 @@ struct ClangSourceParserTests {
         let titleScreen = try #require(validation.translationUnits.first(where: {
             $0.sourceFile.hasSuffix("/src/title_screen.c")
         }))
+        let checkSavedata = try #require(validation.translationUnits.first(where: {
+            $0.sourceFile.hasSuffix("/src/application/check_savedata.c")
+        }))
+        let mainMenu = try #require(validation.translationUnits.first(where: {
+            $0.sourceFile.hasSuffix("/src/application/main_menu/main_menu.c")
+        }))
 
         #expect(introMovie.containsTopLevelNode(named: "sIntroMovieSceneFuncs", kind: "VarDecl"))
         #expect(introMovie.containsTopLevelNode(named: "IntroMovie_Main", kind: "FunctionDecl"))
         #expect(titleScreen.containsTopLevelNode(named: "TitleScreen_Main", kind: "FunctionDecl"))
         #expect(titleScreen.containsTopLevelNode(named: "TitleScreenMainState", kind: "EnumDecl"))
+        #expect(checkSavedata.containsTopLevelNode(named: "CheckSavedataApp_DoMainTask", kind: "FunctionDecl"))
+        #expect(checkSavedata.containsTopLevelNode(named: "CheckSavedataApp_MainState", kind: "EnumDecl"))
+        #expect(mainMenu.containsTopLevelNode(named: "MainMenuApp_Main", kind: "FunctionDecl"))
+        #expect(mainMenu.containsTopLevelNode(named: "sMainMenuButtons", kind: "VarDecl"))
     }
 
     private func makeTemporaryRoot() throws -> URL {

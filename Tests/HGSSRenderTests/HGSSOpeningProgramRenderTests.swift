@@ -69,6 +69,10 @@ struct HGSSOpeningProgramRenderTests {
         #expect(controller.currentProgramState?.id == "title_fadeout")
 
         controller.advanceFrame()
+        #expect(controller.currentProgramScene?.id == .mainMenu)
+        #expect(controller.currentProgramState?.id == "main_menu_new_game")
+        let menu = try #require(controller.activeMenu(screen: .bottom))
+        #expect(menu.options.map(\.text) == ["NEW GAME"])
         #expect(controller.state.hasReachedOpeningMenuHandoff)
         #expect(controller.audioCueLog.last?.cue.action == .stopBGM)
     }
@@ -163,7 +167,11 @@ struct HGSSOpeningProgramRenderTests {
         return HGSSOpeningProgramIR(
             schemaVersion: 1,
             entrySceneID: .titleScreen,
-            sourceFiles: ["src/title_screen.c"],
+            sourceFiles: [
+                "src/title_screen.c",
+                "src/application/check_savedata.c",
+                "src/application/main_menu/main_menu.c",
+            ],
             scenes: [
                 .init(
                     id: .titleScreen,
@@ -302,6 +310,92 @@ struct HGSSOpeningProgramRenderTests {
                                         endLevel: 31,
                                         durationFrames: 1,
                                         colorHex: "#000000",
+                                        provenance: provenance
+                                    )
+                                )
+                            ],
+                            transitions: [
+                                .init(
+                                    trigger: .stateCompleted,
+                                    targetSceneID: .checkSave,
+                                    targetStateID: "check_save_route",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                    ],
+                    provenance: provenance
+                ),
+                .init(
+                    id: .checkSave,
+                    initialStateID: "check_save_route",
+                    states: [
+                        .init(
+                            id: "check_save_route",
+                            duration: .indefinite,
+                            commands: [
+                                .setSolidFill(
+                                    .init(screen: .top, colorHex: "#000000", provenance: provenance)
+                                ),
+                                .setSolidFill(
+                                    .init(screen: .bottom, colorHex: "#000000", provenance: provenance)
+                                )
+                            ],
+                            transitions: [
+                                .init(
+                                    trigger: .flagEquals(name: "check_save_message_index", value: -1),
+                                    targetSceneID: .mainMenu,
+                                    targetStateID: "main_menu_route",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                    ],
+                    provenance: provenance
+                ),
+                .init(
+                    id: .mainMenu,
+                    initialStateID: "main_menu_route",
+                    states: [
+                        .init(
+                            id: "main_menu_route",
+                            duration: .indefinite,
+                            commands: [
+                                .setSolidFill(
+                                    .init(screen: .top, colorHex: "#6363FF", provenance: provenance)
+                                ),
+                                .setSolidFill(
+                                    .init(screen: .bottom, colorHex: "#6363FF", provenance: provenance)
+                                )
+                            ],
+                            transitions: [
+                                .init(
+                                    trigger: .flagEquals(name: "main_menu_has_save_data", value: 0),
+                                    targetStateID: "main_menu_new_game",
+                                    provenance: provenance
+                                )
+                            ],
+                            provenance: provenance
+                        ),
+                        .init(
+                            id: "main_menu_new_game",
+                            duration: .indefinite,
+                            commands: [
+                                .setSolidFill(
+                                    .init(screen: .top, colorHex: "#6363FF", provenance: provenance)
+                                ),
+                                .setSolidFill(
+                                    .init(screen: .bottom, colorHex: "#6363FF", provenance: provenance)
+                                ),
+                                .setMenu(
+                                    .init(
+                                        screen: .bottom,
+                                        options: [
+                                            .init(id: "new_game", text: "NEW GAME")
+                                        ],
+                                        selectedOptionID: "new_game",
                                         provenance: provenance
                                     )
                                 )

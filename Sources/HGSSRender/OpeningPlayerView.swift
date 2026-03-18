@@ -78,91 +78,97 @@ public struct HGSSOpeningPlayerView: View {
         screen: HGSSOpeningBundle.ScreenID,
         size: HGSSOpeningBundle.NativeScreen
     ) -> some View {
-        let scene = controller.currentScene
-        let frame = controller.state.frameInScene
-        let screenLayers = layers(for: screen, scene: scene, frame: frame)
-        let screenSprites = spriteAnimations(for: screen, scene: scene, frame: frame)
-        let screenModels = modelAnimations(for: screen, scene: scene, frame: frame)
-        let screenBrightness = overlayForScreen(screen, scene: scene, frame: frame)
-        let maskState = maskStateForScreen(screen, scene: scene, frame: frame, size: size)
-        let circleWipeState = circleWipeStateForScreen(screen, scene: scene, frame: frame)
-        let programFadeOverlay = controller.activeProgramFadeOverlay()
-        let promptFlash = screen == .top ? controller.activePromptFlashCommand() : nil
+        let currentProgramScene = controller.currentProgramScene
+        let programSceneID = currentProgramScene?.id
+        if programSceneID == .checkSave || programSceneID == .mainMenu {
+            postTitleProgramScreenView(screen: screen, size: size)
+        } else {
+            let scene = controller.currentScene
+            let frame = controller.state.frameInScene
+            let screenLayers = layers(for: screen, scene: scene, frame: frame)
+            let screenSprites = spriteAnimations(for: screen, scene: scene, frame: frame)
+            let screenModels = modelAnimations(for: screen, scene: scene, frame: frame)
+            let screenBrightness = overlayForScreen(screen, scene: scene, frame: frame)
+            let maskState = maskStateForScreen(screen, scene: scene, frame: frame, size: size)
+            let circleWipeState = circleWipeStateForScreen(screen, scene: scene, frame: frame)
+            let programFadeOverlay = controller.activeProgramFadeOverlay()
+            let promptFlash = screen == .top ? controller.activePromptFlashCommand() : nil
 
-        ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
-                ForEach(screenLayers, id: \.id) { layer in
-                    openingLayerView(layer: layer, scene: scene, frame: frame)
-                }
+                ZStack(alignment: .topLeading) {
+                    ForEach(screenLayers, id: \.id) { layer in
+                        openingLayerView(layer: layer, scene: scene, frame: frame)
+                    }
 
-                ForEach(screenSprites, id: \.id) { animation in
-                    openingSpriteView(animation: animation, scene: scene, frame: frame)
-                }
+                    ForEach(screenSprites, id: \.id) { animation in
+                        openingSpriteView(animation: animation, scene: scene, frame: frame)
+                    }
 
-                ForEach(screenModels, id: \.id) { model in
-                    openingModelView(model: model, sceneFrame: frame)
-                }
-            }
-            .frame(width: CGFloat(size.width), height: CGFloat(size.height), alignment: .topLeading)
-            .clipped()
-            .mask(
-                screenMask(
-                    width: CGFloat(size.width),
-                    height: CGFloat(size.height),
-                    maskState: maskState
-                )
-            )
-
-            if let circleWipeState {
-                Rectangle()
-                    .fill(circleWipeState.color)
-                    .frame(width: CGFloat(size.width), height: CGFloat(size.height))
-                    .mask(
-                        circleWipeMask(
-                            width: CGFloat(size.width),
-                            height: CGFloat(size.height),
-                            state: circleWipeState
-                        )
-                    )
-            }
-
-            if let screenBrightness {
-                Rectangle()
-                    .fill(screenBrightness.color.opacity(screenBrightness.opacity))
-                    .frame(width: CGFloat(size.width), height: CGFloat(size.height))
-            }
-
-            if let promptFlash,
-               controller.isProgramLayerVisible(promptFlash.targetID) != false {
-                titlePromptView(promptFlash)
-            }
-
-            if let programFadeOverlay {
-                Rectangle()
-                    .fill(Color(hex: programFadeOverlay.colorHex).opacity(programFadeOverlay.opacity))
-                    .frame(width: CGFloat(size.width), height: CGFloat(size.height))
-            }
-
-            if showDebugOverlay {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(scene.id.rawValue)
-                    Text("frame \(frame)/\(scene.durationFrames - 1)")
-                    if let programState = controller.currentProgramState {
-                        Text("\(programState.id) @ \(controller.state.frameInProgramState)")
+                    ForEach(screenModels, id: \.id) { model in
+                        openingModelView(model: model, sceneFrame: frame)
                     }
                 }
-                .font(.system(size: 8, weight: .medium, design: .monospaced))
-                .padding(8)
-                .foregroundStyle(.white)
-                .background(Color.black.opacity(0.45))
+                .frame(width: CGFloat(size.width), height: CGFloat(size.height), alignment: .topLeading)
+                .clipped()
+                .mask(
+                    screenMask(
+                        width: CGFloat(size.width),
+                        height: CGFloat(size.height),
+                        maskState: maskState
+                    )
+                )
+
+                if let circleWipeState {
+                    Rectangle()
+                        .fill(circleWipeState.color)
+                        .frame(width: CGFloat(size.width), height: CGFloat(size.height))
+                        .mask(
+                            circleWipeMask(
+                                width: CGFloat(size.width),
+                                height: CGFloat(size.height),
+                                state: circleWipeState
+                            )
+                        )
+                }
+
+                if let screenBrightness {
+                    Rectangle()
+                        .fill(screenBrightness.color.opacity(screenBrightness.opacity))
+                        .frame(width: CGFloat(size.width), height: CGFloat(size.height))
+                }
+
+                if let promptFlash,
+                   controller.isProgramLayerVisible(promptFlash.targetID) != false {
+                    titlePromptView(promptFlash)
+                }
+
+                if let programFadeOverlay {
+                    Rectangle()
+                        .fill(Color(hex: programFadeOverlay.colorHex).opacity(programFadeOverlay.opacity))
+                        .frame(width: CGFloat(size.width), height: CGFloat(size.height))
+                }
+
+                if showDebugOverlay {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(scene.id.rawValue)
+                        Text("frame \(frame)/\(scene.durationFrames - 1)")
+                        if let programState = controller.currentProgramState {
+                            Text("\(programState.id) @ \(controller.state.frameInProgramState)")
+                        }
+                    }
+                    .font(.system(size: 8, weight: .medium, design: .monospaced))
+                    .padding(8)
+                    .foregroundStyle(.white)
+                    .background(Color.black.opacity(0.45))
+                }
             }
+            .overlay(
+                Rectangle()
+                    .stroke(Color.black.opacity(0.92), lineWidth: 4)
+            )
+            .background(Color.black)
+            .clipped()
         }
-        .overlay(
-            Rectangle()
-                .stroke(Color.black.opacity(0.92), lineWidth: 4)
-        )
-        .background(Color.black)
-        .clipped()
     }
 
     private func titlePromptView(
@@ -180,6 +186,122 @@ public struct HGSSOpeningPlayerView: View {
                 x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
                 y: CGFloat(rect.y) + (CGFloat(rect.height) / 2.0)
             )
+    }
+
+    @ViewBuilder
+    private func postTitleProgramScreenView(
+        screen: HGSSOpeningBundle.ScreenID,
+        size: HGSSOpeningBundle.NativeScreen
+    ) -> some View {
+        let programScreen = programScreenID(for: screen)
+        let fill = controller.activeSolidFill(screen: programScreen)
+        let messageBox = controller.activeMessageBox(screen: programScreen)
+        let menu = controller.activeMenu(screen: programScreen)
+        let programFadeOverlay = controller.activeProgramFadeOverlay()
+
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .fill(Color(hex: fill?.colorHex ?? "#000000"))
+                .frame(width: CGFloat(size.width), height: CGFloat(size.height))
+
+            if let messageBox {
+                programMessageBoxView(messageBox)
+            }
+
+            if let menu {
+                programMenuView(menu)
+            }
+
+            if let programFadeOverlay {
+                Rectangle()
+                    .fill(Color(hex: programFadeOverlay.colorHex).opacity(programFadeOverlay.opacity))
+                    .frame(width: CGFloat(size.width), height: CGFloat(size.height))
+            }
+
+            if showDebugOverlay {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(controller.currentProgramScene?.id.rawValue ?? "post_title")
+                    Text(controller.currentProgramState?.id ?? "<none>")
+                }
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .padding(8)
+                .foregroundStyle(.white)
+                .background(Color.black.opacity(0.45))
+            }
+        }
+        .overlay(
+            Rectangle()
+                .stroke(Color.black.opacity(0.92), lineWidth: 4)
+        )
+        .background(Color.black)
+        .clipped()
+    }
+
+    private func programMessageBoxView(
+        _ messageBox: HGSSOpeningProgramIR.MessageBoxCommand
+    ) -> some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(Color(red: 0.08, green: 0.09, blue: 0.16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.white.opacity(0.85), lineWidth: 2)
+            )
+            .frame(width: CGFloat(messageBox.rect.width), height: CGFloat(messageBox.rect.height))
+            .overlay(
+                Text(messageBox.text.replacingOccurrences(of: "\\n", with: "\n"))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .frame(
+                        width: CGFloat(messageBox.rect.width - 12),
+                        height: CGFloat(messageBox.rect.height - 8),
+                        alignment: .leading
+                    )
+            )
+            .position(
+                x: CGFloat(messageBox.rect.x) + (CGFloat(messageBox.rect.width) / 2.0),
+                y: CGFloat(messageBox.rect.y) + (CGFloat(messageBox.rect.height) / 2.0)
+            )
+    }
+
+    private func programMenuView(
+        _ menu: HGSSOpeningProgramIR.MenuCommand
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(menu.options, id: \.id) { option in
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(option.id == menu.selectedOptionID ? Color(red: 0.96, green: 0.79, blue: 0.12) : Color.clear)
+                        .frame(width: 8, height: 8)
+                    Text(option.text.replacingOccurrences(of: "\\n", with: "\n"))
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                        .foregroundStyle(option.id == menu.selectedOptionID ? Color.white : Color.white.opacity(0.7))
+                }
+            }
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 24)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.black.opacity(0.24))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                )
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 18)
+    }
+
+    private func programScreenID(
+        for screen: HGSSOpeningBundle.ScreenID
+    ) -> HGSSOpeningProgramIR.ScreenID {
+        switch screen {
+        case .top:
+            return .top
+        case .bottom:
+            return .bottom
+        }
     }
 
     private func layers(

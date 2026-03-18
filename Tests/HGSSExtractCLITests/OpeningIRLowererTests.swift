@@ -28,7 +28,7 @@ struct OpeningIRLowererTests {
         try program.validate()
         #expect(program.entrySceneID == .scene1)
         #expect(program.sourceFiles == PokeheartgoldClangConfiguration.openingSourceRelativePaths)
-        #expect(program.scenes.map(\.id) == [.scene1, .scene2, .scene3, .scene4, .scene5, .titleScreen])
+        #expect(program.scenes.map(\.id) == [.scene1, .scene2, .scene3, .scene4, .scene5, .titleScreen, .checkSave, .mainMenu])
 
         let scene1 = try #require(program.scenes.first(where: { $0.id == .scene1 }))
         let scene1State = try #require(scene1.states.first(where: { $0.id == "scene1_run" }))
@@ -106,12 +106,51 @@ struct OpeningIRLowererTests {
 
         let fadeOut = try #require(titleScene.states.first(where: { $0.id == "title_fadeout" }))
         #expect(fadeOut.duration == .fixedFrames(6))
+        #expect(fadeOut.transitions.contains(where: {
+            $0.trigger == .stateCompleted && $0.targetSceneID == .checkSave && $0.targetStateID == "check_save_route"
+        }))
         #expect(fadeOut.commands.contains(where: { command in
             if case let .dispatchAudio(payload) = command {
                 return payload.action == .stopBGM && payload.cueName == "SEQ_GS_POKEMON_THEME"
             }
             return false
         }))
+
+        let checkSaveScene = try #require(program.scenes.first(where: { $0.id == .checkSave }))
+        #expect(checkSaveScene.initialStateID == "check_save_route")
+        let checkSaveRoute = try #require(checkSaveScene.states.first(where: { $0.id == "check_save_route" }))
+        #expect(checkSaveRoute.transitions.contains(where: {
+            if case .flagEquals(name: "check_save_message_index", value: -1) = $0.trigger {
+                return $0.targetSceneID == .mainMenu && $0.targetStateID == "main_menu_route"
+            }
+            return false
+        }))
+        let messageState = try #require(checkSaveScene.states.first(where: { $0.id == "check_save_message_0" }))
+        let messageBox = try #require(messageState.commands.compactMap { command -> HGSSOpeningProgramIR.MessageBoxCommand? in
+            if case let .setMessageBox(payload) = command {
+                return payload
+            }
+            return nil
+        }.first)
+        #expect(messageBox.text == "The save file is corrupted.\\nThe previous save file will be loaded.")
+
+        let mainMenuScene = try #require(program.scenes.first(where: { $0.id == .mainMenu }))
+        let routeState = try #require(mainMenuScene.states.first(where: { $0.id == "main_menu_route" }))
+        #expect(routeState.transitions.contains(where: {
+            if case .flagEquals(name: "main_menu_has_save_data", value: 0) = $0.trigger {
+                return $0.targetStateID == "main_menu_new_game"
+            }
+            return false
+        }))
+        let newGameState = try #require(mainMenuScene.states.first(where: { $0.id == "main_menu_new_game" }))
+        let menu = try #require(newGameState.commands.compactMap { command -> HGSSOpeningProgramIR.MenuCommand? in
+            if case let .setMenu(payload) = command {
+                return payload
+            }
+            return nil
+        }.first)
+        #expect(menu.options.map(\.text) == ["NEW GAME"])
+        #expect(menu.selectedOptionID == "new_game")
     }
 
     private func makeTemporaryRoot() throws -> URL {

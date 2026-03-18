@@ -10,6 +10,8 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         case scene5
         case titleHandoff = "title_handoff"
         case titleScreen = "title_screen"
+        case checkSave = "check_save"
+        case mainMenu = "main_menu"
     }
 
     public enum ScreenID: String, Codable, Equatable, Sendable {
@@ -344,6 +346,22 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         }
     }
 
+    public struct SolidFillCommand: Codable, Equatable, Sendable {
+        public let screen: ScreenID
+        public let colorHex: String
+        public let provenance: Provenance
+
+        public init(
+            screen: ScreenID,
+            colorHex: String,
+            provenance: Provenance
+        ) {
+            self.screen = screen
+            self.colorHex = colorHex
+            self.provenance = provenance
+        }
+    }
+
     public struct PromptFlashCommand: Codable, Equatable, Sendable {
         public enum InitialPhase: String, Codable, Equatable, Sendable {
             case visible
@@ -380,6 +398,63 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         }
     }
 
+    public struct MessageBoxCommand: Codable, Equatable, Sendable {
+        public let id: String
+        public let screen: ScreenID
+        public let rect: ScreenRect
+        public let text: String
+        public let provenance: Provenance
+
+        public init(
+            id: String,
+            screen: ScreenID,
+            rect: ScreenRect,
+            text: String,
+            provenance: Provenance
+        ) {
+            self.id = id
+            self.screen = screen
+            self.rect = rect
+            self.text = text
+            self.provenance = provenance
+        }
+    }
+
+    public struct MenuOption: Codable, Equatable, Sendable {
+        public let id: String
+        public let text: String
+        public let enabled: Bool
+
+        public init(
+            id: String,
+            text: String,
+            enabled: Bool = true
+        ) {
+            self.id = id
+            self.text = text
+            self.enabled = enabled
+        }
+    }
+
+    public struct MenuCommand: Codable, Equatable, Sendable {
+        public let screen: ScreenID
+        public let options: [MenuOption]
+        public let selectedOptionID: String
+        public let provenance: Provenance
+
+        public init(
+            screen: ScreenID,
+            options: [MenuOption],
+            selectedOptionID: String,
+            provenance: Provenance
+        ) {
+            self.screen = screen
+            self.options = options
+            self.selectedOptionID = selectedOptionID
+            self.provenance = provenance
+        }
+    }
+
     public enum Command: Codable, Equatable, Sendable {
         case setLayerVisibility(LayerVisibilityCommand)
         case scroll(ScrollCommand)
@@ -388,7 +463,10 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         case setBrightness(BrightnessCommand)
         case dispatchAudio(AudioCommand)
         case setScreenSwap(ScreenSwapCommand)
+        case setSolidFill(SolidFillCommand)
         case setPromptFlash(PromptFlashCommand)
+        case setMessageBox(MessageBoxCommand)
+        case setMenu(MenuCommand)
 
         private enum CodingKeys: String, CodingKey {
             case kind
@@ -399,7 +477,10 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case brightness
             case audio
             case screenSwap
+            case solidFill
             case promptFlash
+            case messageBox
+            case menu
         }
 
         private enum Kind: String, Codable {
@@ -410,7 +491,10 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case setBrightness = "set_brightness"
             case dispatchAudio = "dispatch_audio"
             case setScreenSwap = "set_screen_swap"
+            case setSolidFill = "set_solid_fill"
             case setPromptFlash = "set_prompt_flash"
+            case setMessageBox = "set_message_box"
+            case setMenu = "set_menu"
         }
 
         public init(from decoder: Decoder) throws {
@@ -432,8 +516,14 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 self = .dispatchAudio(try container.decode(AudioCommand.self, forKey: .audio))
             case .setScreenSwap:
                 self = .setScreenSwap(try container.decode(ScreenSwapCommand.self, forKey: .screenSwap))
+            case .setSolidFill:
+                self = .setSolidFill(try container.decode(SolidFillCommand.self, forKey: .solidFill))
             case .setPromptFlash:
                 self = .setPromptFlash(try container.decode(PromptFlashCommand.self, forKey: .promptFlash))
+            case .setMessageBox:
+                self = .setMessageBox(try container.decode(MessageBoxCommand.self, forKey: .messageBox))
+            case .setMenu:
+                self = .setMenu(try container.decode(MenuCommand.self, forKey: .menu))
             }
         }
 
@@ -461,9 +551,18 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             case let .setScreenSwap(command):
                 try container.encode(Kind.setScreenSwap, forKey: .kind)
                 try container.encode(command, forKey: .screenSwap)
+            case let .setSolidFill(command):
+                try container.encode(Kind.setSolidFill, forKey: .kind)
+                try container.encode(command, forKey: .solidFill)
             case let .setPromptFlash(command):
                 try container.encode(Kind.setPromptFlash, forKey: .kind)
                 try container.encode(command, forKey: .promptFlash)
+            case let .setMessageBox(command):
+                try container.encode(Kind.setMessageBox, forKey: .kind)
+                try container.encode(command, forKey: .messageBox)
+            case let .setMenu(command):
+                try container.encode(Kind.setMenu, forKey: .kind)
+                try container.encode(command, forKey: .menu)
             }
         }
     }
@@ -677,6 +776,11 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             try validate(provenance: payload.provenance)
         case let .setScreenSwap(payload):
             try validate(provenance: payload.provenance)
+        case let .setSolidFill(payload):
+            guard payload.colorHex.isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "colorHex")
+            }
+            try validate(provenance: payload.provenance)
         case let .setPromptFlash(payload):
             guard payload.targetID.isEmpty == false else {
                 throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "targetID")
@@ -696,6 +800,33 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                     "promptFlash.hidden",
                     payload.hiddenFrames
                 )
+            }
+            try validate(provenance: payload.provenance)
+        case let .setMessageBox(payload):
+            guard payload.id.isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "messageBox.id")
+            }
+            guard payload.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "messageBox.text")
+            }
+            guard payload.rect.width > 0, payload.rect.height > 0 else {
+                throw HGSSOpeningIRValidationError.invalidMessageBoxRect(sceneID, stateID)
+            }
+            try validate(provenance: payload.provenance)
+        case let .setMenu(payload):
+            guard payload.options.isEmpty == false else {
+                throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "menu.options")
+            }
+            for option in payload.options {
+                guard option.id.isEmpty == false else {
+                    throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "menu.option.id")
+                }
+                guard option.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+                    throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "menu.option.text")
+                }
+            }
+            guard payload.options.contains(where: { $0.id == payload.selectedOptionID }) else {
+                throw HGSSOpeningIRValidationError.invalidMenuSelection(sceneID, stateID, payload.selectedOptionID)
             }
             try validate(provenance: payload.provenance)
         }
@@ -738,6 +869,8 @@ public enum HGSSOpeningIRValidationError: Error, LocalizedError, Equatable, Send
     case emptyCommandIdentifier(HGSSOpeningProgramIR.SceneID, String, String)
     case invalidCommandDuration(HGSSOpeningProgramIR.SceneID, String, String, Int)
     case invalidWindowMaskRect(HGSSOpeningProgramIR.SceneID, String)
+    case invalidMessageBoxRect(HGSSOpeningProgramIR.SceneID, String)
+    case invalidMenuSelection(HGSSOpeningProgramIR.SceneID, String, String)
     case emptyProvenanceFile
     case invalidLineSpan(String)
 
@@ -779,6 +912,10 @@ public enum HGSSOpeningIRValidationError: Error, LocalizedError, Equatable, Send
             return "Opening IR scene \(sceneID.rawValue) state \(stateID) uses invalid \(kind) duration \(frames)."
         case let .invalidWindowMaskRect(sceneID, stateID):
             return "Opening IR scene \(sceneID.rawValue) state \(stateID) uses a non-positive window mask rect."
+        case let .invalidMessageBoxRect(sceneID, stateID):
+            return "Opening IR scene \(sceneID.rawValue) state \(stateID) uses a non-positive message box rect."
+        case let .invalidMenuSelection(sceneID, stateID, optionID):
+            return "Opening IR scene \(sceneID.rawValue) state \(stateID) selects missing menu option \(optionID)."
         case .emptyProvenanceFile:
             return "Opening IR provenance sourceFile must not be empty."
         case let .invalidLineSpan(path):
