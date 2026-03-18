@@ -297,6 +297,7 @@
   "titlePrompt": {
     "hiddenFrames": 15,
     "initialPhase": "visible",
+    "letterSpacing": 1,
     "rect": {
       "height": 16,
       "width": 256,

@@ -466,6 +466,7 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         public let screen: ScreenID?
         public let rect: ScreenRect?
         public let text: String?
+        public let letterSpacing: Int
         public let initialPhase: InitialPhase
         public let provenance: Provenance
 
@@ -476,6 +477,7 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             screen: ScreenID? = nil,
             rect: ScreenRect? = nil,
             text: String? = nil,
+            letterSpacing: Int = 0,
             initialPhase: InitialPhase,
             provenance: Provenance
         ) {
@@ -485,6 +487,7 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             self.screen = screen
             self.rect = rect
             self.text = text
+            self.letterSpacing = letterSpacing
             self.initialPhase = initialPhase
             self.provenance = provenance
         }

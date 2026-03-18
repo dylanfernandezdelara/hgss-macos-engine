@@ -183,7 +183,12 @@ public struct HGSSOpeningPlayerView: View {
         let promptText = prompt.text ?? "TOUCH TO START"
         return glyphTextView(
             promptText,
-            style: .titlePrompt,
+            style: .init(
+                foregroundPaletteIndex: 1,
+                shadowPaletteIndex: 1,
+                backgroundPaletteIndex: 0,
+                letterSpacing: prompt.letterSpacing
+            ),
             fallback: {
                 Text(promptText)
                     .font(.system(size: 10, weight: .bold, design: .monospaced))

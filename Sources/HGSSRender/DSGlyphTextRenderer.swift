@@ -26,7 +26,8 @@ public struct HGSSDSGlyphTextStyle: Hashable, Sendable {
     public static let titlePrompt = HGSSDSGlyphTextStyle(
         foregroundPaletteIndex: 1,
         shadowPaletteIndex: 1,
-        backgroundPaletteIndex: 0
+        backgroundPaletteIndex: 0,
+        letterSpacing: 1
     )
 
     public static let body = HGSSDSGlyphTextStyle(

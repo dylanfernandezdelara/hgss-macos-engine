@@ -77,6 +77,7 @@ private struct OpeningProgramSurfaceSnapshot: Codable, Equatable {
         let rect: RectSnapshot
         let visibleFrames: Int
         let hiddenFrames: Int
+        let letterSpacing: Int
         let initialPhase: String
     }
 
@@ -159,6 +160,7 @@ private struct OpeningProgramSurfaceSnapshot: Codable, Equatable {
             ),
             visibleFrames: prompt.visibleFrames,
             hiddenFrames: prompt.hiddenFrames,
+            letterSpacing: prompt.letterSpacing,
             initialPhase: prompt.initialPhase.rawValue
         )
 

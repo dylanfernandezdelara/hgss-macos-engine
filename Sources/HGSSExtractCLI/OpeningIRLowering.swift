@@ -2414,6 +2414,10 @@ struct PokeheartgoldOpeningIRLowerer {
             context: context
         )
         let promptText = try titlePromptText(context: context)
+        let promptLetterSpacing = try titlePromptLetterSpacing(
+            sourceFile: titleSourceFile,
+            context: context
+        )
 
         return .init(
             targetID: "start_prompt",
@@ -2422,6 +2426,7 @@ struct PokeheartgoldOpeningIRLowerer {
             screen: .top,
             rect: promptRect,
             text: promptText,
+            letterSpacing: promptLetterSpacing,
             initialPhase: .visible,
             provenance: context.provenance(for: animRunNode, symbolOverride: "TitleScreenAnim_Run")
         )
@@ -2477,6 +2482,20 @@ struct PokeheartgoldOpeningIRLowerer {
         return rawPrompt
             .replacingOccurrences(of: "{ALN_CENTER}", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func titlePromptLetterSpacing(
+        sourceFile: String,
+        context: OpeningIRLoweringContext
+    ) throws -> Int {
+        let sourceURL = context.rootURL.appendingPathComponent("src/title_screen.c", isDirectory: false)
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        return try context.requiredInt(
+            #"AddTextPrinterParameterizedWithColorAndSpacing\([^\n]*MAKE_TEXT_COLOR\(1,\s*1,\s*0\),\s*([0-9]+)\s*,\s*[0-9]+\s*,\s*NULL\)"#,
+            in: source,
+            sourceFile: sourceFile,
+            description: "title prompt letter spacing"
+        )
     }
 
     private func switchCaseNodes(

@@ -37,7 +37,7 @@ The target is parity with the official source-backed behavior, not a handcrafted
 ### Phase 2: Finish Native Title Runtime
 
 - [ ] Replace the remaining title-screen duplicated behavior in `HGSSRender` with IR-driven sequencing and overlays.
-- [ ] Extract and render the title prompt window with source-backed text layout and exact DS-style text output.
+- [x] Extract and render the title prompt window with source-backed text layout and exact DS-style text output.
 - [ ] Reproduce title-screen palette fades, glow behavior, and screen-plane toggles without relying on ad hoc view logic.
 - [ ] Replace the current title SceneKit dependency with a source-backed native playback path or deterministic baked frames for the title subset.
 - [x] Add input handling for all title exit paths, not just the menu request path.
@@ -104,10 +104,10 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [x] `P2.1a` Remove `pendingTitleMenuRequest` as a title-specific controller escape hatch and translate title input into ordinary IR-visible flags.
 - [ ] `P2.1b` Move prompt visibility, fadeout selection, and title exit routing behind generic program-command evaluation instead of title-only helpers.
 - [x] `P2.1c` Stop deriving title-only overlay behavior from `currentProgramScene.id == .titleScreen` in the renderer.
-- [ ] `P2.2` Extract the title prompt window frame assets and replace the current SwiftUI text-only prompt overlay.
-- [ ] `P2.2a` Extract the title prompt frame/background graphics from `titledemo` into `opening_bundle.json`.
-- [ ] `P2.2b` Extend `HGSSOpeningIR` prompt metadata so the runtime can reference extracted prompt frame assets instead of drawing a synthetic label.
-- [ ] `P2.2c` Render the title prompt using extracted frame assets plus DS glyph layout instead of `titlePromptView`.
+- [x] `P2.2` Replace the current SwiftUI text-only prompt overlay with source-backed BG3 window metadata and DS glyph output.
+- [x] `P2.2a` Confirm from `title_screen.c` that the prompt is a BG3 window text draw, not separate decorative frame art.
+- [x] `P2.2b` Extend `HGSSOpeningIR` prompt metadata so the runtime carries the source-backed prompt rect and letter spacing.
+- [x] `P2.2c` Render the title prompt with extracted DS glyphs at the source-backed rect instead of a synthetic SwiftUI label.
 - [ ] `P2.3` Replace ad hoc title fade overlays with IR-driven palette/glow/screen-plane handling.
 - [ ] `P2.3a` Extend `HGSSOpeningIR` fade/brightness commands to cover title glow and plane-enable state.
 - [ ] `P2.3b` Replace `activeProgramFadeOverlay()`-only title fades with command evaluation that can compose palette fade, glow, and plane toggles.
