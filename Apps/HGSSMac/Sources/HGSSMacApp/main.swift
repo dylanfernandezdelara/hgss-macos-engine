@@ -390,74 +390,42 @@ private struct HandoffView: View {
 
 @MainActor
 private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    private enum WindowLaunchMode {
-        case fitted
-        case fullscreen
-    }
-
     private struct OpeningWindowMetrics {
-        static let chromePadding: CGFloat = 24
         static let nativeWidth = 256
         static let topHeight = 192
         static let bottomHeight = 192
         static let screenGap = 18
-
-        static var contentWidthIncrement: CGFloat {
-            CGFloat(nativeWidth)
-        }
-
-        static var contentHeightIncrement: CGFloat {
-            CGFloat(topHeight + bottomHeight + screenGap)
-        }
     }
 
     private let viewModel = GameViewModel()
     private var window: GameWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let nativeContentSize = contentSize()
+        let nativeFrameSize = frameSize(forContentSize: nativeContentSize)
         let window = GameWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 820, height: 960),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: NSRect(origin: .zero, size: nativeContentSize),
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
 
-        let launchMode = resolveLaunchMode()
         window.title = "HGSSMac"
-        window.collectionBehavior.insert(.fullScreenPrimary)
-        window.contentResizeIncrements = NSSize(
-            width: OpeningWindowMetrics.contentWidthIncrement,
-            height: OpeningWindowMetrics.contentHeightIncrement
-        )
-        window.contentAspectRatio = NSSize(
-            width: CGFloat(OpeningWindowMetrics.nativeWidth),
-            height: CGFloat(OpeningWindowMetrics.topHeight + OpeningWindowMetrics.bottomHeight + OpeningWindowMetrics.screenGap)
-        )
+        window.collectionBehavior = []
+        window.standardWindowButton(.zoomButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isEnabled = false
         window.delegate = self
         window.onKeyDownHandler = { [weak self] keyCode in
             self?.viewModel.handleKeyDown(keyCode)
         }
         window.contentView = NSHostingView(rootView: RootView(viewModel: viewModel))
-        applyPreferredSizing(to: window)
-        window.minSize = window.frameRect(
-            forContentRect: NSRect(origin: .zero, size: contentSize(forScale: 1))
-        ).size
+        window.minSize = nativeFrameSize
+        window.maxSize = nativeFrameSize
+        center(window)
         window.makeKeyAndOrderFront(nil)
 
         self.window = window
         viewModel.boot()
-
-        DispatchQueue.main.async { [weak self, weak window] in
-            guard let self, let window else {
-                return
-            }
-
-            self.applyPreferredSizing(to: window)
-
-            if launchMode == .fullscreen, !window.styleMask.contains(.fullScreen) {
-                window.toggleFullScreen(nil)
-            }
-        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -468,58 +436,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         viewModel.shutdown()
     }
 
-    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        guard sender.styleMask.contains(.fullScreen) == false else {
-            return frameSize
-        }
-
-        let proposedContentSize = sender.contentRect(forFrameRect: NSRect(origin: .zero, size: frameSize)).size
-        let snappedScale = snappedScale(forContentSize: proposedContentSize)
-        let snappedContentSize = contentSize(forScale: snappedScale)
-        return sender.frameRect(forContentRect: NSRect(origin: .zero, size: snappedContentSize)).size
-    }
-
-    private func resolveLaunchMode() -> WindowLaunchMode {
-        let value = ProcessInfo.processInfo.environment["HGSSMAC_FULLSCREEN"]?.lowercased()
-        if value == "1" || value == "true" || value == "yes" {
-            return .fullscreen
-        }
-        return .fitted
-    }
-
-    private func applyPreferredSizing(to window: NSWindow) {
+    private func center(_ window: NSWindow) {
         let visibleFrame = (NSScreen.main ?? window.screen)?.visibleFrame
             ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let margin: CGFloat = 32
-        let chromePadding = OpeningWindowMetrics.chromePadding
-        let nativeWidth = OpeningWindowMetrics.nativeWidth
-        let topHeight = OpeningWindowMetrics.topHeight
-        let bottomHeight = OpeningWindowMetrics.bottomHeight
-        let screenGap = Double(OpeningWindowMetrics.screenGap)
-
-        let minimumFrameSize = window.frameRect(
-            forContentRect: NSRect(origin: .zero, size: contentSize(forScale: 1))
-        ).size
-        let maxFrameWidth = max(minimumFrameSize.width, visibleFrame.width - (margin * 2))
-        let maxFrameHeight = max(minimumFrameSize.height, visibleFrame.height - (margin * 2))
-
-        let chromeSize = window.frameRect(forContentRect: .zero).size
-        let maxContentWidth = max(contentSize(forScale: 1).width, maxFrameWidth - chromeSize.width)
-        let maxContentHeight = max(contentSize(forScale: 1).height, maxFrameHeight - chromeSize.height)
-
-        let scale = HGSSDualScreenLayout.integerScale(
-            containerWidth: maxContentWidth - (chromePadding * 2),
-            containerHeight: maxContentHeight - (chromePadding * 2),
-            nativeWidth: nativeWidth,
-            topHeight: topHeight,
-            bottomHeight: bottomHeight,
-            screenGap: screenGap
-        )
-
-        let preferredContentSize = contentSize(forScale: scale)
-
-        window.setContentSize(preferredContentSize)
-        let frameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: preferredContentSize)).size
+        let frameSize = frameSize(forContentSize: contentSize())
         let frameOrigin = NSPoint(
             x: visibleFrame.midX - (frameSize.width / 2.0),
             y: visibleFrame.midY - (frameSize.height / 2.0)
@@ -528,27 +448,19 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         window.setFrame(frame, display: false)
     }
 
-    private func contentSize(forScale scale: Int) -> NSSize {
-        let clampedScale = max(1, scale)
+    private func contentSize() -> NSSize {
         return NSSize(
-            width: CGFloat(OpeningWindowMetrics.nativeWidth * clampedScale) + (OpeningWindowMetrics.chromePadding * 2),
-            height: CGFloat((OpeningWindowMetrics.topHeight + OpeningWindowMetrics.bottomHeight + OpeningWindowMetrics.screenGap) * clampedScale) + (OpeningWindowMetrics.chromePadding * 2)
+            width: CGFloat(OpeningWindowMetrics.nativeWidth),
+            height: CGFloat(OpeningWindowMetrics.topHeight + OpeningWindowMetrics.bottomHeight + OpeningWindowMetrics.screenGap)
         )
     }
 
-    private func snappedScale(forContentSize contentSize: NSSize) -> Int {
-        let chromePadding = OpeningWindowMetrics.chromePadding * 2
-        let scaleByWidth = Int(
-            round(
-                max(1.0, (contentSize.width - chromePadding) / OpeningWindowMetrics.contentWidthIncrement)
-            )
-        )
-        let scaleByHeight = Int(
-            round(
-                max(1.0, (contentSize.height - chromePadding) / OpeningWindowMetrics.contentHeightIncrement)
-            )
-        )
-        return max(1, min(scaleByWidth, scaleByHeight))
+    private func frameSize(forContentSize contentSize: NSSize) -> NSSize {
+        window?.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize)).size
+            ?? NSWindow.contentRect(
+                forFrameRect: NSRect(origin: .zero, size: contentSize),
+                styleMask: [.titled, .closable, .miniaturizable]
+            ).size
     }
 }
 

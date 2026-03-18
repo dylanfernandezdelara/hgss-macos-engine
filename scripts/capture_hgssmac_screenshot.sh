@@ -14,7 +14,6 @@ REFRESH_CONTENT=0
 SKIP_EXTRACT=0
 KEEP_RUNNING=0
 FULL_DISPLAY=0
-FULLSCREEN=0
 CAPTURE_DELAY="2.0"
 WAIT_TIMEOUT="20.0"
 OUTPUT_PATH=""
@@ -36,7 +35,6 @@ Options:
   --timeout SECONDS       Maximum time to wait for the window. Default: ${WAIT_TIMEOUT}
   --output PATH           Write the screenshot to PATH.
   --full-display          Capture the main display instead of the HGSSMac window.
-  --fullscreen           Launch HGSSMac in fullscreen mode before capture.
   --keep-running          Leave the app running after the screenshot is saved.
   --help                  Show this help text.
 EOF
@@ -94,9 +92,6 @@ while [[ $# -gt 0 ]]; do
     --full-display)
       FULL_DISPLAY=1
       ;;
-    --fullscreen)
-      FULLSCREEN=1
-      ;;
     --help)
       usage
       exit 0
@@ -141,7 +136,6 @@ APP_LOG="$(mktemp -t hgssmac-capture-log.XXXXXX)"
 echo "Launching HGSSMac for screenshot capture..."
 HGSS_REPO_ROOT="$ROOT_DIR" \
 HGSS_CONTENT_ROOT="$ROOT_DIR/Content/Local/Boot/HeartGold" \
-HGSSMAC_FULLSCREEN="$FULLSCREEN" \
 "${SWIFT[@]}" run --scratch-path "$APP_SCRATCH" --package-path Apps/HGSSMac HGSSMac >"$APP_LOG" 2>&1 &
 APP_PID=$!
 
@@ -190,12 +184,6 @@ PY
 done
 
 sleep "$CAPTURE_DELAY"
-
-if [[ "$FULLSCREEN" -eq 1 && "$FULL_DISPLAY" -eq 0 ]]; then
-  if updated_window_id="$(find_window_id 2>/dev/null)"; then
-    window_id="$updated_window_id"
-  fi
-fi
 
 if [[ "$FULL_DISPLAY" -eq 1 ]]; then
   screencapture -x -m "$OUTPUT_PATH"

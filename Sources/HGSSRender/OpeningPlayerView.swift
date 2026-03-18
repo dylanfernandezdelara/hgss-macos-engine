@@ -5,6 +5,10 @@ import HGSSOpeningIR
 import SwiftUI
 
 public struct HGSSOpeningPlayerView: View {
+    private enum NativeMetrics {
+        static let screenGap: CGFloat = 18
+    }
+
     @ObservedObject private var controller: HGSSOpeningPlaybackController
     private let loadedBundle: LoadedOpeningBundle
     private let compositor: HGSSOpeningScreenCompositor
@@ -25,64 +29,33 @@ public struct HGSSOpeningPlayerView: View {
     }
 
     public var body: some View {
-        GeometryReader { geometry in
-            let topScreen = loadedBundle.bundle.topScreen
-            let bottomScreen = loadedBundle.bundle.bottomScreen
-            let chromePadding: CGFloat = 24
-            let availableWidth = max(0, geometry.size.width - (chromePadding * 2))
-            let availableHeight = max(0, geometry.size.height - (chromePadding * 2))
-            let scale = HGSSDualScreenLayout.integerScale(
-                containerWidth: availableWidth,
-                containerHeight: availableHeight,
-                nativeWidth: topScreen.width,
-                topHeight: topScreen.height,
-                bottomHeight: bottomScreen.height,
-                screenGap: 18
-            )
-            let scaledWidth = CGFloat(topScreen.width * scale)
-            let scaledHeight = CGFloat((topScreen.height + bottomScreen.height) * scale) + (18 * CGFloat(scale))
-            let scaledGap = CGFloat(18 * scale)
+        let topScreen = loadedBundle.bundle.topScreen
+        let bottomScreen = loadedBundle.bundle.bottomScreen
 
-            VStack(spacing: scaledGap) {
-                openingScreenView(screen: .top, size: topScreen, displayScale: scale)
-                    .frame(width: CGFloat(topScreen.width * scale), height: CGFloat(topScreen.height * scale))
+        VStack(spacing: NativeMetrics.screenGap) {
+            openingScreenView(screen: .top, size: topScreen)
+                .frame(width: CGFloat(topScreen.width), height: CGFloat(topScreen.height))
 
-                openingScreenView(screen: .bottom, size: bottomScreen, displayScale: scale)
-                    .frame(width: CGFloat(bottomScreen.width * scale), height: CGFloat(bottomScreen.height * scale))
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        onBottomScreenTap()
-                    }
-            }
-            .frame(
-                width: scaledWidth,
-                height: scaledHeight
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            .padding(chromePadding)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(hex: "#040507"),
-                        Color(hex: "#111014"),
-                        Color(hex: "#20160E")
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            openingScreenView(screen: .bottom, size: bottomScreen)
+                .frame(width: CGFloat(bottomScreen.width), height: CGFloat(bottomScreen.height))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    onBottomScreenTap()
+                }
         }
+        .frame(
+            width: CGFloat(topScreen.width),
+            height: CGFloat(topScreen.height + bottomScreen.height) + NativeMetrics.screenGap,
+            alignment: .top
+        )
+        .background(Color.black)
     }
 
     @ViewBuilder
     private func openingScreenView(
         screen: HGSSOpeningBundle.ScreenID,
-        size: HGSSOpeningBundle.NativeScreen,
-        displayScale: Int
+        size: HGSSOpeningBundle.NativeScreen
     ) -> some View {
-        let scaledWidth = CGFloat(size.width * displayScale)
-        let scaledHeight = CGFloat(size.height * displayScale)
-
         ZStack(alignment: .topLeading) {
             if let renderedImage = compositor.renderCGImage(
                 screen: screen,
@@ -90,12 +63,11 @@ public struct HGSSOpeningPlayerView: View {
                 controller: controller
             ) {
                 Image(decorative: renderedImage, scale: 1, orientation: .up)
-                    .resizable()
                     .interpolation(.none)
-                    .frame(width: scaledWidth, height: scaledHeight, alignment: .topLeading)
+                    .frame(width: CGFloat(size.width), height: CGFloat(size.height), alignment: .topLeading)
             } else {
                 Color.black
-                    .frame(width: scaledWidth, height: scaledHeight, alignment: .topLeading)
+                    .frame(width: CGFloat(size.width), height: CGFloat(size.height), alignment: .topLeading)
             }
 
             if showDebugOverlay {
@@ -106,16 +78,12 @@ public struct HGSSOpeningPlayerView: View {
                         Text("\(programState.id) @ \(controller.state.frameInProgramState)")
                     }
                 }
-                .font(.system(size: CGFloat(8 * displayScale), weight: .medium, design: .monospaced))
-                .padding(CGFloat(8 * displayScale))
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .padding(8)
                 .foregroundStyle(.white)
                 .background(Color.black.opacity(0.45))
             }
         }
-        .overlay(
-            Rectangle()
-                .stroke(Color.black.opacity(0.92), lineWidth: CGFloat(4 * displayScale))
-        )
         .background(Color.black)
         .clipped()
     }
