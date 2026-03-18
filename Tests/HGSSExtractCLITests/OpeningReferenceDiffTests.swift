@@ -18,8 +18,13 @@ struct OpeningReferenceDiffTests {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3", isDirectory: false)
+        let scriptURL = URL(fileURLWithPath: #filePath, isDirectory: false)
+            .deletingLastPathComponent() // HGSSExtractCLITests
+            .deletingLastPathComponent() // Tests
+            .deletingLastPathComponent() // repo root
+            .appendingPathComponent("scripts/opening_reference_diff.py", isDirectory: false)
         process.arguments = [
-            "/Users/dylanfdl/Projects/hgss-macos-engine/scripts/opening_reference_diff.py",
+            scriptURL.path(),
             "--expected", expectedRoot.path(),
             "--actual", actualRoot.path(),
         ]
