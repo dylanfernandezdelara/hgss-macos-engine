@@ -11,4 +11,8 @@ fi
 SWIFT=(xcrun swift)
 
 echo "Running Swift tests..."
-"${SWIFT[@]}" test
+if ! "${SWIFT[@]}" test; then
+  echo "Retrying after cleaning stale SwiftPM artifacts..."
+  "${SWIFT[@]}" package clean
+  "${SWIFT[@]}" test
+fi

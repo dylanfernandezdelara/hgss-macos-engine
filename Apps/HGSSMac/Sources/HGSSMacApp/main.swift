@@ -1,14 +1,14 @@
 import AppKit
 import Foundation
-import HGSSCore
 import HGSSRender
 import SwiftUI
 
 @MainActor
 final class GameViewModel: ObservableObject {
     struct ReadyState {
-        let loadedBundle: LoadedRenderBundle
-        let presentation: HGSSDualScreenPresentation
+        let loadedBundle: LoadedOpeningBundle
+        let controller: HGSSOpeningPlaybackController
+        let audioPlayer: HGSSOpeningAudioPlayer
     }
 
     enum Phase {
@@ -19,12 +19,11 @@ final class GameViewModel: ObservableObject {
 
     @Published private(set) var phase: Phase = .loading
 
-    private var runtime: HGSSCoreRuntime?
     private var readyState: ReadyState?
     private var showDeveloperOverlay = false
 
     func boot() {
-        guard runtime == nil else {
+        guard readyState == nil else {
             return
         }
 
@@ -33,25 +32,24 @@ final class GameViewModel: ObservableObject {
         Task { @MainActor in
             do {
                 let contentRoot = try resolveContentRoot()
-                let loadedBundle = try RenderBundleLoader().load(from: contentRoot)
-                let runtime = try await HGSSCoreRuntime.bootWithStubContent(stubRoot: contentRoot)
-                let snapshot = await runtime.snapshot()
-                let cameraOrigin = HGSSRenderCamera.clampedOrigin(
-                    for: HGSSRenderDisplayPoint(tile: snapshot.playerPosition),
-                    snapshot: snapshot,
-                    camera: loadedBundle.bundle.topScreen.camera
-                )
+                let loadedBundle = try OpeningBundleLoader().load(from: contentRoot)
+                let controller = HGSSOpeningPlaybackController(loadedBundle: loadedBundle)
+                let audioPlayer = HGSSOpeningAudioPlayer(loadedBundle: loadedBundle)
+                controller.onAudioCue = { dispatchedCue in
+                    audioPlayer.handle(dispatchedCue)
+                }
+                for dispatchedCue in controller.audioCueLog {
+                    audioPlayer.handle(dispatchedCue)
+                }
+                controller.start()
 
-                self.runtime = runtime
-                self.readyState = ReadyState(
+                let readyState = ReadyState(
                     loadedBundle: loadedBundle,
-                    presentation: HGSSDualScreenPresentation(
-                        snapshot: snapshot,
-                        cameraOrigin: cameraOrigin,
-                        showDeveloperOverlay: self.showDeveloperOverlay
-                    )
+                    controller: controller,
+                    audioPlayer: audioPlayer
                 )
-                self.phase = .ready(self.readyState!)
+                self.readyState = readyState
+                self.phase = .ready(readyState)
             } catch {
                 phase = .error(errorMessage(for: error))
             }
@@ -59,19 +57,37 @@ final class GameViewModel: ObservableObject {
     }
 
     func shutdown() {
-        let runtime = self.runtime
-        self.runtime = nil
+        readyState?.audioPlayer.stopAll()
+        readyState?.controller.stop()
         readyState = nil
-
-        Task {
-            await runtime?.stop()
-        }
     }
 
     func handleKeyDown(_ keyCode: UInt16) {
-        if keyCode == 2 {
-            toggleDeveloperOverlay()
+        switch keyCode {
+        case 0, 36, 76:
+            readyState?.controller.requestSkip()
+        case 2:
+            if developerOverlayEnabled {
+                showDeveloperOverlay.toggle()
+                if case let .ready(state) = phase {
+                    phase = .ready(state)
+                }
+            }
+        default:
+            return
         }
+    }
+
+    func handleBottomScreenTap() {
+        readyState?.controller.requestSkip()
+    }
+
+    var developerOverlayEnabled: Bool {
+        ProcessInfo.processInfo.environment["HGSS_OPENING_DEBUG_OVERLAY"] == "1"
+    }
+
+    var shouldShowDeveloperOverlay: Bool {
+        developerOverlayEnabled && showDeveloperOverlay
     }
 
     private func resolveContentRoot() throws -> URL {
@@ -85,10 +101,10 @@ final class GameViewModel: ObservableObject {
         if let override = environment["HGSS_CONTENT_ROOT"], !override.isEmpty {
             candidates.append(URL(fileURLWithPath: override, isDirectory: true))
         }
-        candidates.append(repoRoot.appendingPathComponent("Content/Local/StubExtract", isDirectory: true))
+        candidates.append(repoRoot.appendingPathComponent("Content/Local/Boot/HeartGold", isDirectory: true))
 
         for candidate in candidates {
-            if hasRenderableContent(at: candidate) {
+            if hasOpeningContent(at: candidate) {
                 return candidate
             }
         }
@@ -98,34 +114,14 @@ final class GameViewModel: ObservableObject {
             code: 1,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "No renderable extracted content found. Run ./scripts/run_extractor_stub.sh before launching the app."
+                    "No HeartGold opening content found. Run ./scripts/run_extractor_stub.sh before launching the app."
             ]
         )
     }
 
-    private func hasRenderableContent(at root: URL) -> Bool {
-        let manifestURL = root.appendingPathComponent("manifest.json", isDirectory: false)
-        let renderBundleURL = root.appendingPathComponent("render_bundle.json", isDirectory: false)
-        return FileManager.default.fileExists(atPath: manifestURL.path()) &&
-            FileManager.default.fileExists(atPath: renderBundleURL.path())
-    }
-
-    private func toggleDeveloperOverlay() {
-        showDeveloperOverlay.toggle()
-        guard let current = readyState else {
-            return
-        }
-
-        let updated = ReadyState(
-            loadedBundle: current.loadedBundle,
-            presentation: HGSSDualScreenPresentation(
-                snapshot: current.presentation.snapshot,
-                cameraOrigin: current.presentation.cameraOrigin,
-                showDeveloperOverlay: showDeveloperOverlay
-            )
-        )
-        readyState = updated
-        phase = .ready(updated)
+    private func hasOpeningContent(at root: URL) -> Bool {
+        let bundleURL = root.appendingPathComponent("opening_bundle.json", isDirectory: false)
+        return FileManager.default.fileExists(atPath: bundleURL.path())
     }
 
     private func errorMessage(for error: Error) -> String {
@@ -138,11 +134,11 @@ final class GameViewModel: ObservableObject {
             .path()
 
         return """
-        Failed to boot the dual-screen shell: \(error.localizedDescription)
+        Failed to boot the HeartGold opening player: \(error.localizedDescription)
 
-        Expected extracted content under Content/Local/StubExtract.
+        Expected extracted content under Content/Local/Boot/HeartGold.
         Run ./scripts/run_extractor_stub.sh first.
-        For pret-backed assets, ensure POKEHEARTGOLD_ROOT points to a local clone such as:
+        For pret-backed extraction, ensure POKEHEARTGOLD_ROOT points to a local clone such as:
         \(defaultPretRoot)
         """
     }
@@ -160,7 +156,7 @@ private final class GameWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 2 || [123, 124, 125, 126].contains(event.keyCode) {
+        if [0, 2, 36, 76].contains(event.keyCode) {
             onKeyDownHandler?(event.keyCode)
             return
         }
@@ -172,12 +168,12 @@ private final class GameWindow: NSWindow {
 private struct LoadingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("HGSS Dual-Screen Shell")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+            Text("HeartGold Opening")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
             ProgressView()
                 .tint(.white)
-            Text("Loading extracted New Bark parity assets and the deterministic core snapshot.")
+            Text("Loading the extracted HeartGold intro movie scenes and title handoff.")
                 .foregroundStyle(Color.white.opacity(0.82))
         }
         .padding(28)
@@ -185,8 +181,8 @@ private struct LoadingView: View {
         .background(
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.12, blue: 0.17),
-                    Color(red: 0.10, green: 0.20, blue: 0.26)
+                    Color(red: 0.11, green: 0.07, blue: 0.04),
+                    Color(red: 0.22, green: 0.15, blue: 0.07)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -200,8 +196,8 @@ private struct ErrorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("HGSS Dual-Screen Shell")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+            Text("HeartGold Opening")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
             Text(message)
                 .foregroundStyle(Color.white.opacity(0.92))
@@ -230,9 +226,11 @@ private struct RootView: View {
             case .loading:
                 LoadingView()
             case let .ready(state):
-                HGSSDualScreenView(
+                HGSSOpeningPlayerView(
                     loadedBundle: state.loadedBundle,
-                    presentation: state.presentation
+                    controller: state.controller,
+                    showDebugOverlay: viewModel.shouldShowDeveloperOverlay,
+                    onBottomScreenTap: viewModel.handleBottomScreenTap
                 )
                 .background(Color.black)
             case let .error(message):
@@ -259,13 +257,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         window.center()
         window.minSize = NSSize(width: 360, height: 620)
         window.delegate = self
-        window.isReleasedWhenClosed = false
         window.onKeyDownHandler = { [weak self] keyCode in
             self?.viewModel.handleKeyDown(keyCode)
         }
         window.contentView = NSHostingView(rootView: RootView(viewModel: viewModel))
         window.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate(ignoringOtherApps: true)
 
         self.window = window
         viewModel.boot()
@@ -278,20 +274,16 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     func applicationWillTerminate(_ notification: Notification) {
         viewModel.shutdown()
     }
-
-    func windowWillClose(_ notification: Notification) {
-        viewModel.shutdown()
-    }
 }
 
 @main
 struct HGSSMacApp {
-    @MainActor
     static func main() {
         let application = NSApplication.shared
         let delegate = AppDelegate()
-        application.setActivationPolicy(.regular)
         application.delegate = delegate
+        application.setActivationPolicy(.regular)
+        application.activate(ignoringOtherApps: true)
         application.run()
     }
 }

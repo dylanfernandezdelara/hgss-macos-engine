@@ -8,39 +8,78 @@ Native macOS Pokemon HeartGold/SoulSilver engine scaffold (Swift + SPM), with a 
 - `Sources/HGSSDataModel`: shared schema/domain types
 - `Sources/HGSSContent`: content loading
 - `Sources/HGSSCore`: headless runtime
-- `Sources/HGSSRender`: DS-style render contract loading and dual-screen presentation
+- `Sources/HGSSRender`: DS-style render contract loading plus a dedicated HeartGold opening-sequence player
 - `Sources/HGSSTelemetry`: telemetry/event sink
-- `Sources/HGSSExtractCLI`: offline extractor stub
+- `Sources/HGSSExtractCLI`: offline extractor pipeline for the HeartGold opening boot path
 - `DevContent/Stub`: tiny checked-in synthetic content
 - `Content/Local`: local extracted content (ignored)
 
-The current render bundle is parity-oriented and emits fixed local-only assets:
+## Current Visual Milestone
 
-- `Content/Local/StubExtract/manifest.json`
-- `Content/Local/StubExtract/render_bundle.json`
-- `Content/Local/StubExtract/assets/top_boot_frame.png`
-- `Content/Local/StubExtract/assets/bottom_idle_overworld.png`
-- `Content/Local/StubExtract/assets/ethan_overworld.png`
+The canonical first visual target is the HeartGold opening movie boot path:
+
+- scenes `scene1` through `scene5`
+- terminal `title_handoff`
+- deterministic local-only output under `Content/Local/Boot/HeartGold`
+
+The New Bark normalized content slice remains in-repo for non-default tests and later traversal work, but it is no longer the app's default boot experience.
+
+The opening extractor emits local-only assets and metadata:
+
+- `Content/Local/Boot/HeartGold/opening_bundle.json`
+- `Content/Local/Boot/HeartGold/opening_provenance.json`
+- `Content/Local/Boot/HeartGold/opening_reference.json`
+- `Content/Local/Boot/HeartGold/opening_extract_report.json`
+- `Content/Local/Boot/HeartGold/assets/<scene>/...`
+- `Content/Local/Boot/HeartGold/audio/<scene>/...`
+- `Content/Local/Boot/HeartGold/intermediate/{nitro2d,model3d,audio}/...`
 
 ## Quick Start
 
 ```bash
 ./scripts/bootstrap.sh
-./scripts/test.sh
 ./scripts/run_extractor_stub.sh
+./scripts/run_opening_reference_harness.sh
 ./scripts/run_app.sh
+./scripts/test.sh
 ./scripts/check_repo.sh
 ```
 
-Optional upstream-informed extractor run:
+`run_extractor_stub.sh` now defaults to `--mode opening-heartgold` and requires a local `pret/pokeheartgold` clone. The script will auto-use `External/pokeheartgold` when it exists.
+
+Explicit pret-backed extractor run:
 
 ```bash
 POKEHEARTGOLD_ROOT=/path/to/pokeheartgold ./scripts/run_extractor_stub.sh
 ```
 
-If `External/pokeheartgold` exists, the extractor and app scripts use it automatically so the dual-screen shell can load local-only visual assets.
+To regenerate the opening reference contract and enriched audio traces, run:
 
-The macOS shell now boots in a static dual-screen parity mode by default. Press `D` to toggle developer overlays for collision, warps, placements, and entry points.
+```bash
+./scripts/run_opening_reference_harness.sh
+```
+
+To diff the current opening extraction against an earlier local reference root or a copied `opening_reference.json`, pass it as the first argument:
+
+```bash
+./scripts/run_opening_reference_harness.sh /path/to/previous/HeartGold
+```
+
+The extractor resolves Nitro and audio tooling offline:
+
+- `nitrogfx` for Nitro 2D decode
+- `apicula` for 3D model conversion
+- `ndspy` from the repo-local venv at `Content/Local/Tooling/ndspy-venv`
+
+The reference harness is dev-only. It produces scene/timing metadata plus per-cue audio trace JSON under `Content/Local/Boot/HeartGold/intermediate/audio/...` so native playback changes can be compared against a stable extracted contract without shipping emulator code in the app.
+
+The macOS shell now boots into the HeartGold opening player by default. Skip requests map to `A`, `Return`, and bottom-screen click. Developer overlays remain opt-in via `HGSS_OPENING_DEBUG_OVERLAY=1`, then toggle with `D`.
+
+## Reference Model
+
+- [`pret/pokeheartgold`](https://github.com/pret/pokeheartgold) is the sole source of truth for HeartGold opening scene behavior, timing, assets, provenance, and audio cue positions.
+- [`PokeSwift`](https://github.com/Dimillian/PokeSwift) is an architectural reference only for the offline-extractor-plus-native-runtime pattern.
+- The implementation model is extraction, not direct porting. The app plays a deterministic `HGSSOpeningBundle`; it does not translate DS C code into Swift line-by-line at runtime.
 
 ## Content and Legal Hygiene
 
@@ -57,7 +96,7 @@ See `docs/LEGAL_AND_ASSET_HYGIENE.md`.
 - Include proof-of-work in PRs.
 - Keep game logic in `Sources/`, not in `Apps/HGSSMac`.
 
-See `docs/ENGINE_CONTRACT.md`, `WORKFLOW.md`, `AGENTS.md`, and `.github/pull_request_template.md`.
+See `docs/HEARTGOLD_OPENING_PARITY.md`, `docs/ENGINE_CONTRACT.md`, `WORKFLOW.md`, `AGENTS.md`, and `.github/pull_request_template.md`.
 
 ## Symphony
 

@@ -18,4 +18,7 @@ echo "Resolving root package dependencies..."
 echo "Resolving app package dependencies..."
 "${SWIFT[@]}" package resolve --package-path Apps/HGSSMac
 
+echo "Preparing offline python extractor tools..."
+"$ROOT_DIR/scripts/ensure_python_tools.sh"
+
 echo "Bootstrap complete."

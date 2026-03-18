@@ -5,9 +5,14 @@ import HGSSDataModel
 public enum HGSSRenderError: LocalizedError {
     case bundleMissing(path: String)
     case bundleDecodeFailed(underlying: Error)
+    case openingBundleMissing(path: String)
+    case openingBundleDecodeFailed(underlying: Error)
     case duplicateAssetID(String)
     case unknownAssetID(String)
     case missingAssetFile(assetID: String, path: String)
+    case invalidOpeningSceneOrder(expected: [String], actual: [String])
+    case invalidOpeningSkipWindow(sceneID: String, skipAllowedFromFrame: Int, durationFrames: Int)
+    case invalidTitleHandoffDuration
 
     public var errorDescription: String? {
         switch self {
@@ -15,12 +20,24 @@ public enum HGSSRenderError: LocalizedError {
             return "Missing render bundle at \(path)."
         case let .bundleDecodeFailed(underlying):
             return "Failed to decode render bundle: \(underlying.localizedDescription)"
+        case let .openingBundleMissing(path):
+            return "Missing opening bundle at \(path)."
+        case let .openingBundleDecodeFailed(underlying):
+            return "Failed to decode opening bundle: \(underlying.localizedDescription)"
         case let .duplicateAssetID(assetID):
             return "Render bundle contains duplicate asset id '\(assetID)'."
         case let .unknownAssetID(assetID):
             return "Render bundle does not define asset id '\(assetID)'."
         case let .missingAssetFile(assetID, path):
             return "Render bundle asset '\(assetID)' is missing file '\(path)'."
+        case let .invalidOpeningSceneOrder(expected, actual):
+            let expectedOrder = expected.joined(separator: ", ")
+            let actualOrder = actual.joined(separator: ", ")
+            return "Opening bundle scene order mismatch. Expected \(expectedOrder), got \(actualOrder)."
+        case let .invalidOpeningSkipWindow(sceneID, skipAllowedFromFrame, durationFrames):
+            return "Opening scene '\(sceneID)' has invalid skip frame \(skipAllowedFromFrame) for duration \(durationFrames)."
+        case .invalidTitleHandoffDuration:
+            return "Opening bundle title handoff must be a one-frame terminal scene."
         }
     }
 

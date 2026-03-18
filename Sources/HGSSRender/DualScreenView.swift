@@ -17,14 +17,19 @@ public struct HGSSDualScreenView: View {
         GeometryReader { geometry in
             let topScreen = loadedBundle.bundle.topScreen.nativeScreen
             let bottomScreen = loadedBundle.bundle.bottomScreen.nativeScreen
+            let chromePadding: CGFloat = 24
+            let availableWidth = max(0, geometry.size.width - (chromePadding * 2))
+            let availableHeight = max(0, geometry.size.height - (chromePadding * 2))
             let scale = HGSSDualScreenLayout.integerScale(
-                containerWidth: geometry.size.width,
-                containerHeight: geometry.size.height,
+                containerWidth: availableWidth,
+                containerHeight: availableHeight,
                 nativeWidth: topScreen.width,
                 topHeight: topScreen.height,
                 bottomHeight: bottomScreen.height,
                 screenGap: 18
             )
+            let scaledWidth = CGFloat(topScreen.width * scale)
+            let scaledHeight = CGFloat((topScreen.height + bottomScreen.height) * scale) + (18 * CGFloat(scale))
 
             VStack(spacing: 18) {
                 HGSSTopScreenView(
@@ -37,15 +42,15 @@ public struct HGSSDualScreenView: View {
                     loadedBundle: loadedBundle,
                     presentation: presentation
                 )
-                .frame(width: CGFloat(bottomScreen.width), height: CGFloat(bottomScreen.height))
+                    .frame(width: CGFloat(bottomScreen.width), height: CGFloat(bottomScreen.height))
             }
-            .scaleEffect(CGFloat(scale), anchor: .top)
+            .scaleEffect(CGFloat(scale), anchor: .center)
             .frame(
-                width: CGFloat(topScreen.width * scale),
-                height: CGFloat((topScreen.height + bottomScreen.height) * scale) + (18 * CGFloat(scale))
+                width: scaledWidth,
+                height: scaledHeight
             )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .padding(chromePadding)
             .background(
                 LinearGradient(
                     colors: [

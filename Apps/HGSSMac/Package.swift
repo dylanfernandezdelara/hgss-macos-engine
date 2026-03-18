@@ -13,7 +13,6 @@ let package = Package(
         .executableTarget(
             name: "HGSSMac",
             dependencies: [
-                .product(name: "HGSSCore", package: "HGSSEngine"),
                 .product(name: "HGSSRender", package: "HGSSEngine")
             ],
             path: "Sources/HGSSMacApp"

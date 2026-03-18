@@ -18,6 +18,7 @@ required=(
   "docs/ARCHITECTURE.md"
   "docs/CONTENT_SCHEMA.md"
   "docs/FIRST_PLAYABLE_SLICE.md"
+  "docs/HEARTGOLD_OPENING_PARITY.md"
   "docs/LEGAL_AND_ASSET_HYGIENE.md"
   "DevContent/Stub/manifest.json"
 )
@@ -35,8 +36,12 @@ echo "Building shared package..."
 echo "Building app shell package..."
 "${SWIFT[@]}" build --package-path Apps/HGSSMac
 
-echo "Running extractor stub dry-run check..."
-"${SWIFT[@]}" run HGSSExtractCLI --input "$ROOT_DIR/DevContent/Stub" --output "$ROOT_DIR/Content/Local/CheckRepoExtract" --dry-run
+echo "Running HeartGold opening extractor dry-run check..."
+"${SWIFT[@]}" run HGSSExtractCLI \
+  --mode opening-heartgold \
+  --input "$ROOT_DIR/DevContent/Stub" \
+  --output "$ROOT_DIR/Content/Local/CheckRepoExtract" \
+  --dry-run
 
 echo "Verifying ignore rules for local content..."
 if ! git check-ignore -q Content/Local/example_extracted_asset.bin; then

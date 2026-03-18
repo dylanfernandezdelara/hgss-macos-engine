@@ -1,5 +1,7 @@
 # First Playable Slice
 
+This document still tracks the New Bark normalized traversal slice. It is no longer the default visual boot milestone; that role now belongs to `docs/HEARTGOLD_OPENING_PARITY.md`.
+
 ## Scope
 
 The first slice is a New Bark-centered multi-map excerpt backed by a normalized content contract.
