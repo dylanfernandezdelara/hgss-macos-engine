@@ -78,9 +78,7 @@ public struct HGSSOpeningPlayerView: View {
         screen: HGSSOpeningBundle.ScreenID,
         size: HGSSOpeningBundle.NativeScreen
     ) -> some View {
-        let currentProgramScene = controller.currentProgramScene
-        if let currentProgramScene,
-           currentProgramScene.id != .titleScreen {
+        if hasProgramSurfaceContent(for: screen) {
             postTitleProgramScreenView(screen: screen, size: size)
         } else {
             let scene = controller.currentScene
@@ -169,6 +167,13 @@ public struct HGSSOpeningPlayerView: View {
             .background(Color.black)
             .clipped()
         }
+    }
+
+    private func hasProgramSurfaceContent(for screen: HGSSOpeningBundle.ScreenID) -> Bool {
+        let programScreen = programScreenID(for: screen)
+        return controller.activeSolidFill(screen: programScreen) != nil
+            || controller.activeMessageBox(screen: programScreen) != nil
+            || controller.activeMenu(screen: programScreen) != nil
     }
 
     private func titlePromptView(

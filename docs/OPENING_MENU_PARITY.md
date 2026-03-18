@@ -102,7 +102,7 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [ ] `P2.1` Remove the remaining title-specific branching from `HGSSRender` and drive title sequencing entirely from IR triggers and commands.
 - [x] `P2.1a` Remove `pendingTitleMenuRequest` as a title-specific controller escape hatch and translate title input into ordinary IR-visible flags.
 - [ ] `P2.1b` Move prompt visibility, fadeout selection, and title exit routing behind generic program-command evaluation instead of title-only helpers.
-- [ ] `P2.1c` Stop deriving title-only overlay behavior from `currentProgramScene.id == .titleScreen` in the renderer.
+- [x] `P2.1c` Stop deriving title-only overlay behavior from `currentProgramScene.id == .titleScreen` in the renderer.
 - [ ] `P2.2` Extract the title prompt window frame assets and replace the current SwiftUI text-only prompt overlay.
 - [ ] `P2.2a` Extract the title prompt frame/background graphics from `titledemo` into `opening_bundle.json`.
 - [ ] `P2.2b` Extend `HGSSOpeningIR` prompt metadata so the runtime can reference extracted prompt frame assets instead of drawing a synthetic label.
