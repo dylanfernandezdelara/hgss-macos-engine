@@ -1,5 +1,17 @@
 // swift-tools-version: 5.10
+import Foundation
 import PackageDescription
+
+let llvmPrefix = resolvedLLVMPrefix()
+let llvmIncludePath = "\(llvmPrefix)/include"
+let llvmLibraryPath = "\(llvmPrefix)/lib"
+let libclangLinkerSettings: [LinkerSetting] = [
+    .unsafeFlags(["-L", llvmLibraryPath]),
+    .linkedLibrary("clang"),
+]
+let libclangSwiftSettings: [SwiftSetting] = [
+    .unsafeFlags(["-Xcc", "-I\(llvmIncludePath)"]),
+]
 
 let package = Package(
     name: "HGSSEngine",
@@ -19,6 +31,14 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-testing.git", from: "0.9.0")
     ],
     targets: [
+        .target(
+            name: "CClangC",
+            path: "Sources/CClangC",
+            publicHeadersPath: "include",
+            cSettings: [
+                .unsafeFlags(["-I", llvmIncludePath]),
+            ]
+        ),
         .target(
             name: "HGSSDataModel",
             path: "Sources/HGSSDataModel"
@@ -49,8 +69,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "HGSSExtractCLI",
-            dependencies: ["HGSSContent", "HGSSDataModel"],
-            path: "Sources/HGSSExtractCLI"
+            dependencies: ["CClangC", "HGSSContent", "HGSSDataModel"],
+            path: "Sources/HGSSExtractCLI",
+            swiftSettings: libclangSwiftSettings,
+            linkerSettings: libclangLinkerSettings
         ),
         .testTarget(
             name: "HGSSOpeningIRTests",
@@ -94,7 +116,38 @@ let package = Package(
                 "HGSSDataModel",
                 .product(name: "Testing", package: "swift-testing")
             ],
-            path: "Tests/HGSSExtractCLITests"
+            path: "Tests/HGSSExtractCLITests",
+            swiftSettings: libclangSwiftSettings,
+            linkerSettings: libclangLinkerSettings
         )
     ]
 )
+
+private func resolvedLLVMPrefix() -> String {
+    if let environmentPrefix = ProcessInfo.processInfo.environment["LLVM_PREFIX"], !environmentPrefix.isEmpty {
+        return environmentPrefix
+    }
+
+    let candidatePrefixes = [
+        "/opt/homebrew/opt/llvm",
+        "/usr/local/opt/llvm",
+        "/opt/local/libexec/llvm-22",
+        "/opt/local/libexec/llvm-21",
+    ]
+    let fileManager = FileManager.default
+
+    for prefix in candidatePrefixes {
+        let headerPath = "\(prefix)/include/clang-c/Index.h"
+        if fileManager.fileExists(atPath: headerPath) {
+            return prefix
+        }
+    }
+
+    fatalError(
+        """
+        Unable to locate an LLVM install that provides clang-c/Index.h.
+        Set LLVM_PREFIX to the LLVM/Homebrew prefix, for example:
+          export LLVM_PREFIX=/opt/homebrew/opt/llvm
+        """
+    )
+}

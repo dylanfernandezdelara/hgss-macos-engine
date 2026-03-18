@@ -312,6 +312,11 @@ struct OpeningHeartGoldExtractor {
         }
 
         try validateOpeningInputs(pretRoot: pretRoot)
+        let parseSupportRoot = PokeheartgoldOpeningSourceValidator.defaultSupportRoot(repoRoot: repoRoot)
+        _ = try PokeheartgoldOpeningSourceValidator().validate(
+            pretRoot: pretRoot,
+            supportRoot: parseSupportRoot
+        )
         let scene3SourceURL = pretRoot.appendingPathComponent("src/intro_movie_scene_3.c", isDirectory: false)
         let scene4SourceURL = pretRoot.appendingPathComponent("src/intro_movie_scene_4.c", isDirectory: false)
         let titleScreenSourceURL = pretRoot.appendingPathComponent("src/title_screen.c", isDirectory: false)
