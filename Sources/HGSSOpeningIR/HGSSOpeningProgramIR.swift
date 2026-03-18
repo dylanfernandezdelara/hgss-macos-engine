@@ -145,15 +145,18 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
 
     public struct Transition: Codable, Equatable, Sendable {
         public let trigger: Trigger
+        public let targetSceneID: SceneID?
         public let targetStateID: String
         public let provenance: Provenance
 
         public init(
             trigger: Trigger,
+            targetSceneID: SceneID? = nil,
             targetStateID: String,
             provenance: Provenance
         ) {
             self.trigger = trigger
+            self.targetSceneID = targetSceneID
             self.targetStateID = targetStateID
             self.provenance = provenance
         }
@@ -479,19 +482,24 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         }
 
         var seenSceneIDs = Set<SceneID>()
+        var sceneStatesByID: [SceneID: Set<String>] = [:]
         for scene in scenes {
             guard seenSceneIDs.insert(scene.id).inserted else {
                 throw HGSSOpeningIRValidationError.duplicateSceneID(scene.id)
             }
-            try validate(scene: scene)
+            sceneStatesByID[scene.id] = try collectStateIDs(in: scene)
         }
 
         guard seenSceneIDs.contains(entrySceneID) else {
             throw HGSSOpeningIRValidationError.missingEntryScene(entrySceneID)
         }
+
+        for scene in scenes {
+            try validate(scene: scene, sceneStatesByID: sceneStatesByID)
+        }
     }
 
-    private func validate(scene: Scene) throws {
+    private func collectStateIDs(in scene: Scene) throws -> Set<String> {
         guard scene.initialStateID.isEmpty == false else {
             throw HGSSOpeningIRValidationError.emptyInitialState(scene.id)
         }
@@ -515,15 +523,26 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             throw HGSSOpeningIRValidationError.missingInitialState(scene.id, scene.initialStateID)
         }
 
+        return stateIDs
+    }
+
+    private func validate(
+        scene: Scene,
+        sceneStatesByID: [SceneID: Set<String>]
+    ) throws {
         for state in scene.states {
-            try validate(state: state, sceneID: scene.id, validStateIDs: stateIDs)
+            try validate(
+                state: state,
+                sceneID: scene.id,
+                sceneStatesByID: sceneStatesByID
+            )
         }
     }
 
     private func validate(
         state: State,
         sceneID: SceneID,
-        validStateIDs: Set<String>
+        sceneStatesByID: [SceneID: Set<String>]
     ) throws {
         try validate(provenance: state.provenance)
 
@@ -537,10 +556,26 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         }
 
         for transition in state.transitions {
-            guard validStateIDs.contains(transition.targetStateID) else {
-                throw HGSSOpeningIRValidationError.missingTransitionTarget(
+            let targetSceneID = transition.targetSceneID ?? sceneID
+            guard let targetStateIDs = sceneStatesByID[targetSceneID] else {
+                throw HGSSOpeningIRValidationError.missingTransitionScene(
                     sceneID,
                     state.id,
+                    targetSceneID
+                )
+            }
+            guard targetStateIDs.contains(transition.targetStateID) else {
+                if targetSceneID == sceneID {
+                    throw HGSSOpeningIRValidationError.missingTransitionTarget(
+                        sceneID,
+                        state.id,
+                        transition.targetStateID
+                    )
+                }
+                throw HGSSOpeningIRValidationError.missingCrossSceneTransitionTarget(
+                    sceneID,
+                    state.id,
+                    targetSceneID,
                     transition.targetStateID
                 )
             }
@@ -683,7 +718,9 @@ public enum HGSSOpeningIRValidationError: Error, LocalizedError, Equatable, Send
     case duplicateStateID(HGSSOpeningProgramIR.SceneID, String)
     case missingInitialState(HGSSOpeningProgramIR.SceneID, String)
     case invalidFixedDuration(HGSSOpeningProgramIR.SceneID, String, Int)
+    case missingTransitionScene(HGSSOpeningProgramIR.SceneID, String, HGSSOpeningProgramIR.SceneID)
     case missingTransitionTarget(HGSSOpeningProgramIR.SceneID, String, String)
+    case missingCrossSceneTransitionTarget(HGSSOpeningProgramIR.SceneID, String, HGSSOpeningProgramIR.SceneID, String)
     case negativeTriggerFrame(HGSSOpeningProgramIR.SceneID, String, Int)
     case emptyTriggerFlagName(HGSSOpeningProgramIR.SceneID, String)
     case emptyCommandIdentifier(HGSSOpeningProgramIR.SceneID, String, String)
@@ -714,8 +751,12 @@ public enum HGSSOpeningIRValidationError: Error, LocalizedError, Equatable, Send
             return "Opening IR scene \(sceneID.rawValue) initial state \(stateID) is missing."
         case let .invalidFixedDuration(sceneID, stateID, frames):
             return "Opening IR scene \(sceneID.rawValue) state \(stateID) has invalid fixed duration \(frames)."
+        case let .missingTransitionScene(sceneID, stateID, targetSceneID):
+            return "Opening IR scene \(sceneID.rawValue) state \(stateID) transitions to missing scene \(targetSceneID.rawValue)."
         case let .missingTransitionTarget(sceneID, stateID, targetStateID):
             return "Opening IR scene \(sceneID.rawValue) state \(stateID) transitions to missing state \(targetStateID)."
+        case let .missingCrossSceneTransitionTarget(sceneID, stateID, targetSceneID, targetStateID):
+            return "Opening IR scene \(sceneID.rawValue) state \(stateID) transitions to missing state \(targetStateID) in scene \(targetSceneID.rawValue)."
         case let .negativeTriggerFrame(sceneID, stateID, frame):
             return "Opening IR scene \(sceneID.rawValue) state \(stateID) uses negative trigger frame \(frame)."
         case let .emptyTriggerFlagName(sceneID, stateID):

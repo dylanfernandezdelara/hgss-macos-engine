@@ -1,5 +1,6 @@
 import Foundation
 import HGSSDataModel
+import HGSSOpeningIR
 @testable import HGSSExtractCLI
 import Testing
 
@@ -12,6 +13,7 @@ struct OpeningHeartGoldArtifactWriterTests {
         let artifacts = try makeArtifacts(in: root)
         try OpeningHeartGoldArtifactWriter().write(
             bundle: artifacts.bundle,
+            programIR: artifacts.programIR,
             provenance: artifacts.provenance,
             reference: artifacts.reference,
             report: artifacts.report,
@@ -21,6 +23,11 @@ struct OpeningHeartGoldArtifactWriterTests {
         let bundleURL = root.appendingPathComponent("opening_bundle.json", isDirectory: false)
         let bundleData = try Data(contentsOf: bundleURL)
         let decodedBundle = try JSONDecoder().decode(HGSSOpeningBundle.self, from: bundleData)
+        let programIRURL = root.appendingPathComponent("opening_program_ir.json", isDirectory: false)
+        let decodedProgramIR = try JSONDecoder().decode(
+            HGSSOpeningProgramIR.self,
+            from: Data(contentsOf: programIRURL)
+        )
         let referenceURL = root.appendingPathComponent("opening_reference.json", isDirectory: false)
         let decodedReference = try JSONDecoder().decode(
             OpeningReferenceDocument.self,
@@ -28,6 +35,7 @@ struct OpeningHeartGoldArtifactWriterTests {
         )
 
         #expect(decodedBundle.scenes.map(\.id) == HGSSOpeningBundle.SceneID.allCases)
+        try decodedProgramIR.validate()
         for asset in decodedBundle.assets {
             let assetURL = root.appendingPathComponent(asset.relativePath, isDirectory: false)
             #expect(FileManager.default.fileExists(atPath: assetURL.path()))
@@ -47,6 +55,7 @@ struct OpeningHeartGoldArtifactWriterTests {
         let artifacts = try makeArtifacts(in: root)
         try OpeningHeartGoldArtifactWriter().write(
             bundle: artifacts.bundle,
+            programIR: artifacts.programIR,
             provenance: artifacts.provenance,
             reference: artifacts.reference,
             report: artifacts.report,
@@ -79,6 +88,7 @@ struct OpeningHeartGoldArtifactWriterTests {
 
         try writer.write(
             bundle: artifacts.bundle,
+            programIR: artifacts.programIR,
             provenance: artifacts.provenance,
             reference: artifacts.reference,
             report: artifacts.report,
@@ -86,12 +96,14 @@ struct OpeningHeartGoldArtifactWriterTests {
         )
 
         let bundleURL = root.appendingPathComponent("opening_bundle.json", isDirectory: false)
+        let programIRURL = root.appendingPathComponent("opening_program_ir.json", isDirectory: false)
         let provenanceURL = root.appendingPathComponent("opening_provenance.json", isDirectory: false)
         let referenceURL = root.appendingPathComponent("opening_reference.json", isDirectory: false)
         let reportURL = root.appendingPathComponent("opening_extract_report.json", isDirectory: false)
         let assetURL = root.appendingPathComponent("assets/scene3/scene3_top.png", isDirectory: false)
 
         let firstBundleBytes = try Data(contentsOf: bundleURL)
+        let firstProgramIRBytes = try Data(contentsOf: programIRURL)
         let firstProvenanceBytes = try Data(contentsOf: provenanceURL)
         let firstReferenceBytes = try Data(contentsOf: referenceURL)
         let firstReportBytes = try Data(contentsOf: reportURL)
@@ -99,6 +111,7 @@ struct OpeningHeartGoldArtifactWriterTests {
 
         try writer.write(
             bundle: artifacts.bundle,
+            programIR: artifacts.programIR,
             provenance: artifacts.provenance,
             reference: artifacts.reference,
             report: artifacts.report,
@@ -106,6 +119,7 @@ struct OpeningHeartGoldArtifactWriterTests {
         )
 
         #expect(try Data(contentsOf: bundleURL) == firstBundleBytes)
+        #expect(try Data(contentsOf: programIRURL) == firstProgramIRBytes)
         #expect(try Data(contentsOf: provenanceURL) == firstProvenanceBytes)
         #expect(try Data(contentsOf: referenceURL) == firstReferenceBytes)
         #expect(try Data(contentsOf: reportURL) == firstReportBytes)
@@ -138,6 +152,7 @@ struct OpeningHeartGoldArtifactWriterTests {
         do {
             try OpeningHeartGoldArtifactWriter().write(
                 bundle: artifacts.bundle,
+                programIR: artifacts.programIR,
                 provenance: artifacts.provenance,
                 reference: artifacts.reference,
                 report: artifacts.report,
@@ -159,13 +174,14 @@ struct OpeningHeartGoldArtifactWriterTests {
         let root = try makeTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
-        var artifacts = try makeArtifacts(in: root)
+        let artifacts = try makeArtifacts(in: root)
         let missingTrace = root.appendingPathComponent("intermediate/audio/scene1/seq_gs_title.json", isDirectory: false)
         try FileManager.default.removeItem(at: missingTrace)
 
         do {
             try OpeningHeartGoldArtifactWriter().write(
                 bundle: artifacts.bundle,
+                programIR: artifacts.programIR,
                 provenance: artifacts.provenance,
                 reference: artifacts.reference,
                 report: artifacts.report,
@@ -183,6 +199,7 @@ struct OpeningHeartGoldArtifactWriterTests {
 
     private func makeArtifacts(in root: URL) throws -> (
         bundle: HGSSOpeningBundle,
+        programIR: HGSSOpeningProgramIR,
         provenance: OpeningProvenanceDocument,
         reference: OpeningReferenceDocument,
         report: OpeningExtractReport
@@ -297,6 +314,82 @@ struct OpeningHeartGoldArtifactWriterTests {
             }
         )
 
+        let programIR = HGSSOpeningProgramIR(
+            schemaVersion: 1,
+            entrySceneID: .scene1,
+            sourceFiles: [
+                fixtureRoot.appendingPathComponent("src/intro_movie.c", isDirectory: false).path(),
+                fixtureRoot.appendingPathComponent("src/title_screen.c", isDirectory: false).path(),
+            ],
+            scenes: [
+                .init(
+                    id: .scene1,
+                    initialStateID: "scene1_run",
+                    states: [
+                        .init(
+                            id: "scene1_run",
+                            duration: .indefinite,
+                            commands: [
+                                .setScreenSwap(
+                                    .init(
+                                        enabled: true,
+                                        provenance: .init(sourceFile: fixtureRoot.appendingPathComponent("src/intro_movie.c", isDirectory: false).path())
+                                    )
+                                )
+                            ],
+                            transitions: [
+                                .init(
+                                    trigger: .flagEquals(name: "scene1_complete", value: 1),
+                                    targetSceneID: .titleScreen,
+                                    targetStateID: "title_wait_fade",
+                                    provenance: .init(sourceFile: fixtureRoot.appendingPathComponent("src/intro_movie.c", isDirectory: false).path())
+                                )
+                            ],
+                            provenance: .init(sourceFile: fixtureRoot.appendingPathComponent("src/intro_movie.c", isDirectory: false).path())
+                        )
+                    ],
+                    provenance: .init(sourceFile: fixtureRoot.appendingPathComponent("src/intro_movie.c", isDirectory: false).path())
+                ),
+                .init(
+                    id: .titleScreen,
+                    initialStateID: "title_wait_fade",
+                    states: [
+                        .init(
+                            id: "title_wait_fade",
+                            duration: .indefinite,
+                            commands: [],
+                            transitions: [
+                                .init(
+                                    trigger: .flagEquals(name: "title_anim_initialized", value: 1),
+                                    targetStateID: "title_play",
+                                    provenance: .init(sourceFile: fixtureRoot.appendingPathComponent("src/title_screen.c", isDirectory: false).path())
+                                )
+                            ],
+                            provenance: .init(sourceFile: fixtureRoot.appendingPathComponent("src/title_screen.c", isDirectory: false).path())
+                        ),
+                        .init(
+                            id: "title_play",
+                            duration: .fixedFrames(45),
+                            commands: [
+                                .setPromptFlash(
+                                    .init(
+                                        targetID: "start_prompt",
+                                        visibleFrames: 30,
+                                        hiddenFrames: 15,
+                                        initialPhase: .visible,
+                                        provenance: .init(sourceFile: fixtureRoot.appendingPathComponent("src/title_screen.c", isDirectory: false).path())
+                                    )
+                                )
+                            ],
+                            transitions: [],
+                            provenance: .init(sourceFile: fixtureRoot.appendingPathComponent("src/title_screen.c", isDirectory: false).path())
+                        ),
+                    ],
+                    provenance: .init(sourceFile: fixtureRoot.appendingPathComponent("src/title_screen.c", isDirectory: false).path())
+                )
+            ]
+        )
+
         let provenance = OpeningProvenanceDocument(
             mode: "opening-heartgold",
             canonicalVariant: HGSSOpeningBundle.CanonicalVariant.heartGold.rawValue,
@@ -380,7 +473,7 @@ struct OpeningHeartGoldArtifactWriterTests {
             pretRoot: fixtureRoot.path()
         )
 
-        return (bundle, provenance, reference, report)
+        return (bundle, programIR, provenance, reference, report)
     }
 
     private func fixtureRoot() throws -> URL {

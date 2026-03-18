@@ -69,7 +69,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "HGSSExtractCLI",
-            dependencies: ["CClangC", "HGSSContent", "HGSSDataModel"],
+            dependencies: ["CClangC", "HGSSContent", "HGSSDataModel", "HGSSOpeningIR"],
             path: "Sources/HGSSExtractCLI",
             swiftSettings: libclangSwiftSettings,
             linkerSettings: libclangLinkerSettings
@@ -114,6 +114,7 @@ let package = Package(
             dependencies: [
                 "HGSSExtractCLI",
                 "HGSSDataModel",
+                "HGSSOpeningIR",
                 .product(name: "Testing", package: "swift-testing")
             ],
             path: "Tests/HGSSExtractCLITests",

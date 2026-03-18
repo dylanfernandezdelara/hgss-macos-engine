@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import HGSSDataModel
+import HGSSOpeningIR
 import SceneKit
 
 private struct HelperSpriteManifest: Decodable {
@@ -313,9 +314,13 @@ struct OpeningHeartGoldExtractor {
 
         try validateOpeningInputs(pretRoot: pretRoot)
         let parseSupportRoot = PokeheartgoldOpeningSourceValidator.defaultSupportRoot(repoRoot: repoRoot)
-        _ = try PokeheartgoldOpeningSourceValidator().validate(
+        let parseValidation = try PokeheartgoldOpeningSourceValidator().validate(
             pretRoot: pretRoot,
             supportRoot: parseSupportRoot
+        )
+        let programIR = try PokeheartgoldOpeningIRLowerer().lower(
+            validation: parseValidation,
+            pretRoot: pretRoot
         )
         let scene3SourceURL = pretRoot.appendingPathComponent("src/intro_movie_scene_3.c", isDirectory: false)
         let scene4SourceURL = pretRoot.appendingPathComponent("src/intro_movie_scene_4.c", isDirectory: false)
@@ -1300,6 +1305,7 @@ struct OpeningHeartGoldExtractor {
         )
         try OpeningHeartGoldArtifactWriter().write(
             bundle: bundle,
+            programIR: programIR,
             provenance: provenance,
             reference: reference,
             report: report,
