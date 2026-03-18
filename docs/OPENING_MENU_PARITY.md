@@ -125,17 +125,17 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [ ] `P3.1b` Extend the program scene payloads to reference extracted `CheckSave` surfaces instead of plain solid fills.
 - [ ] `P3.1c` Render the `CheckSave` message box with extracted frame art and DS glyph layout.
 - [ ] `P3.2` Add a save-status provider that derives `CheckSave` flags from real save data instead of synthetic controller defaults.
-- [ ] `P3.2a` Define a native `CheckSave` save-status model in `HGSSCore`.
+- [x] `P3.2a` Define a native `CheckSave` save-status model in `HGSSCore`.
 - [ ] `P3.2b` Read save flags from real local save data or stub-free validated fixtures.
-- [ ] `P3.2c` Plumb those flags into `HGSSOpeningPlaybackController` without defaulting to synthetic status masks.
+- [x] `P3.2c` Plumb those flags into `HGSSOpeningPlaybackController` without defaulting to synthetic status masks.
 - [ ] `P3.3` Replace the semantic `MainMenu` stand-in with extracted menu borders, arrow sprites, and source-backed option layout.
 - [ ] `P3.3a` Extract the main menu border/background/arrow assets referenced by `main_menu.c`.
 - [ ] `P3.3b` Extend `HGSSOpeningIR.MenuCommand` so the runtime can bind extracted chrome assets and option anchor positions.
 - [ ] `P3.3c` Replace `programMenuView` with asset-backed menu rendering that follows source-backed layout and scroll behavior.
 - [ ] `P3.4` Add a main-menu feature-availability provider that derives menu flags from real save data and feature toggles.
-- [ ] `P3.4a` Define the save-derived menu availability inputs in `HGSSCore`.
+- [x] `P3.4a` Define the save-derived menu availability inputs in `HGSSCore`.
 - [ ] `P3.4b` Compute `main_menu_*` flags from real save data instead of hardcoded controller defaults.
-- [ ] `P3.4c` Add tests that the menu provider reproduces the source-backed availability matrix.
+- [x] `P3.4c` Add tests that the menu provider reproduces the source-backed availability matrix.
 - [ ] `P3.5` Reach the first stable interactive `MainMenu` state from real post-title flags, not synthetic defaults.
 - [ ] `P3.5a` Start the post-title path with real save-derived flags in app boot.
 - [ ] `P3.5b` Verify the native app can transition title -> `CheckSave` -> `MainMenu` with no synthetic fallback state injection.

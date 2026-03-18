@@ -79,7 +79,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         self.lastConfirmedMenuSelectionID = nil
         self.lastConfirmedMenuDestinationID = nil
         self.dispatchedCueKeys = []
-        self.bootstrapProgramFlags = bootstrapState.programFlags()
+        self.bootstrapProgramFlags = bootstrapState.postTitleState.programFlags
         self.programFlags = Self.defaultProgramFlags(overrides: self.bootstrapProgramFlags)
         dispatchBundleAudioCuesForCurrentFrameIfNeeded()
     }
@@ -718,14 +718,9 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
     private static func defaultProgramFlags(overrides: [String: Int] = [:]) -> [String: Int] {
         [
             "title_anim_initialized": 1,
-            "check_save_status_flags": 0,
             "program_confirm_requested": 0,
-            "main_menu_has_save_data": 0,
-            "main_menu_has_pokedex": 0,
-            "main_menu_draw_mystery_gift": 0,
-            "main_menu_draw_ranger": 0,
-            "main_menu_draw_connect_to_wii": 0,
-            "main_menu_connected_agb_game": 0,
+            "title_clear_save_requested": 0,
+            "title_mic_test_requested": 0,
         ].merging(overrides) { _, override in override }
     }
 }

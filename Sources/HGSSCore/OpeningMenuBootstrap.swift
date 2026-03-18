@@ -27,18 +27,47 @@ public struct HGSSOpeningBootstrapState: Codable, Equatable, Sendable {
         self.connectedAgbGame = connectedAgbGame
     }
 
+    public init(
+        checkSaveStatus: HGSSCheckSaveStatus = [],
+        mainMenu: HGSSOpeningMainMenuAvailability = .noSave
+    ) {
+        self.init(
+            checkSaveStatusFlags: checkSaveStatus.rawValue,
+            mainMenuHasSaveData: mainMenu.hasSaveData,
+            mainMenuHasPokedex: mainMenu.hasPokedex,
+            drawMysteryGift: mainMenu.drawMysteryGift,
+            drawRanger: mainMenu.drawRanger,
+            drawConnectToWii: mainMenu.drawConnectToWii,
+            connectedAgbGame: mainMenu.connectedAGBGame.rawValue
+        )
+    }
+
     public static let noSave = HGSSOpeningBootstrapState()
 
+    public var checkSaveStatus: HGSSCheckSaveStatus {
+        HGSSCheckSaveStatus(rawValue: checkSaveStatusFlags)
+    }
+
+    public var mainMenuAvailability: HGSSOpeningMainMenuAvailability {
+        HGSSOpeningMainMenuAvailability(
+            hasSaveData: mainMenuHasSaveData,
+            hasPokedex: mainMenuHasPokedex,
+            drawMysteryGift: drawMysteryGift,
+            drawRanger: drawRanger,
+            drawConnectToWii: drawConnectToWii,
+            connectedAGBGame: HGSSOpeningAGBGame(rawValue: connectedAgbGame) ?? .none
+        )
+    }
+
+    public var postTitleState: HGSSOpeningPostTitleState {
+        HGSSOpeningPostTitleState(
+            checkSaveStatus: checkSaveStatus,
+            mainMenu: mainMenuAvailability
+        )
+    }
+
     public func programFlags() -> [String: Int] {
-        [
-            "check_save_status_flags": checkSaveStatusFlags,
-            "main_menu_has_save_data": mainMenuHasSaveData ? 1 : 0,
-            "main_menu_has_pokedex": mainMenuHasPokedex ? 1 : 0,
-            "main_menu_draw_mystery_gift": drawMysteryGift ? 1 : 0,
-            "main_menu_draw_ranger": drawRanger ? 1 : 0,
-            "main_menu_draw_connect_to_wii": drawConnectToWii ? 1 : 0,
-            "main_menu_connected_agb_game": connectedAgbGame,
-        ]
+        postTitleState.programFlags
     }
 }
 

@@ -236,7 +236,7 @@ struct HGSSOpeningProgramRenderTests {
         #expect(controller.currentProgramState?.id == "main_menu_new_game")
     }
 
-    @Test("Playback controller consumes bootstrap flags from core state")
+    @Test("Playback controller consumes typed bootstrap flags from core state")
     @MainActor
     func playbackControllerConsumesBootstrapFlags() throws {
         let root = try makeTemporaryRoot()
@@ -253,13 +253,15 @@ struct HGSSOpeningProgramRenderTests {
             loadedBundle: loadedBundle,
             loadedProgram: loadedProgram,
             bootstrapState: .init(
-                checkSaveStatusFlags: 0,
-                mainMenuHasSaveData: true,
-                mainMenuHasPokedex: true,
-                drawMysteryGift: true,
-                drawRanger: false,
-                drawConnectToWii: false,
-                connectedAgbGame: 1
+                checkSaveStatus: [],
+                mainMenu: .init(
+                    hasSaveData: true,
+                    hasPokedex: true,
+                    drawMysteryGift: true,
+                    drawRanger: false,
+                    drawConnectToWii: false,
+                    connectedAGBGame: .ruby
+                )
             )
         )
 
