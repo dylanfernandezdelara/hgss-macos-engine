@@ -73,6 +73,15 @@ let package = Package(
                 .product(name: "Testing", package: "swift-testing")
             ],
             path: "Tests/HGSSRenderTests"
+        ),
+        .testTarget(
+            name: "HGSSExtractCLITests",
+            dependencies: [
+                "HGSSExtractCLI",
+                "HGSSDataModel",
+                .product(name: "Testing", package: "swift-testing")
+            ],
+            path: "Tests/HGSSExtractCLITests"
         )
     ]
 )

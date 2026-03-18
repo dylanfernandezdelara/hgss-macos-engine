@@ -9,6 +9,25 @@ if [[ -d /Applications/Xcode.app/Contents/Developer ]]; then
 fi
 
 SWIFT=(xcrun swift)
+TEST_LOG="$(mktemp -t hgss-swift-test.XXXXXX)"
+
+cleanup() {
+  rm -f "$TEST_LOG"
+}
+
+clean_stale_swiftpm_artifacts() {
+  "${SWIFT[@]}" package clean
+  find .build -type d -name Modules-tool -prune -exec rm -rf {} +
+}
+
+trap cleanup EXIT
 
 echo "Running Swift tests..."
-"${SWIFT[@]}" test
+if ! "${SWIFT[@]}" test 2>&1 | tee "$TEST_LOG"; then
+  if grep -q "compiled module was created by a different version of the compiler" "$TEST_LOG"; then
+    echo "Detected stale SwiftPM macro artifacts from a different compiler build."
+  fi
+  echo "Retrying after cleaning stale SwiftPM artifacts..."
+  clean_stale_swiftpm_artifacts
+  "${SWIFT[@]}" test
+fi

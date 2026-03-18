@@ -4,7 +4,13 @@ import Foundation
 import HGSSContent
 import HGSSDataModel
 
+enum ExtractMode: String {
+    case stubNewBark = "stub-new-bark"
+    case openingHeartGold = "opening-heartgold"
+}
+
 struct ExtractConfiguration {
+    let mode: ExtractMode
     let input: URL
     let output: URL
     let pretRoot: URL?
@@ -14,9 +20,12 @@ struct ExtractConfiguration {
 enum ExtractCLIError: Error, LocalizedError {
     case missingValue(flag: String)
     case unsupportedFlag(String)
+    case unsupportedMode(String)
+    case missingPretRoot
     case missingPretFile(path: String)
     case missingPretRenderAsset(path: String)
     case missingTool(path: String)
+    case missingScript(path: String)
     case commandFailed(command: String, status: Int32, stderr: String)
     case imageWriteFailed(path: String)
 
@@ -26,12 +35,18 @@ enum ExtractCLIError: Error, LocalizedError {
             return "Missing value for \(flag)."
         case let .unsupportedFlag(flag):
             return "Unsupported flag: \(flag)."
+        case let .unsupportedMode(mode):
+            return "Unsupported extractor mode: \(mode)."
+        case .missingPretRoot:
+            return "opening-heartgold requires a local pret/pokeheartgold clone. Set --pret-root or POKEHEARTGOLD_ROOT."
         case let .missingPretFile(path):
             return "Required pret/pokeheartgold file not found: \(path)."
         case let .missingPretRenderAsset(path):
             return "Required render asset not found in pret/pokeheartgold clone: \(path)."
         case let .missingTool(path):
             return "Required extractor tool not found: \(path)."
+        case let .missingScript(path):
+            return "Required helper script not found: \(path)."
         case let .commandFailed(command, status, stderr):
             return "Extractor tool failed (\(status)) for '\(command)': \(stderr)"
         case let .imageWriteFailed(path):
@@ -45,16 +60,18 @@ private func usage() {
     HGSSExtractCLI
 
     Usage:
-      swift run HGSSExtractCLI --input <path> --output <path> [--pret-root <path>] [--dry-run]
+      swift run HGSSExtractCLI [--mode opening-heartgold|stub-new-bark] [--input <path>] [--output <path>] [--pret-root <path>] [--dry-run]
 
     Notes:
-      - Without --pret-root, the extractor copies the checked-in normalized fixture and emits fallback render assets.
-      - With --pret-root, it rebuilds the New Bark manifest from local pret/pokeheartgold files and emits a parity-oriented render bundle.
+      - `opening-heartgold` is the default mode and emits Content/Local/Boot/HeartGold outputs.
+      - `stub-new-bark` preserves the existing normalized manifest plus render bundle flow.
+      - `opening-heartgold` requires a local pret/pokeheartgold clone for non-dry-run extraction.
     """)
 }
 
 private func parseArguments(_ args: [String]) throws -> ExtractConfiguration {
     var index = 0
+    var mode: ExtractMode = .openingHeartGold
     var inputPath: String?
     var outputPath: String?
     var pretRootPath: String?
@@ -62,6 +79,15 @@ private func parseArguments(_ args: [String]) throws -> ExtractConfiguration {
 
     while index < args.count {
         switch args[index] {
+        case "--mode":
+            index += 1
+            guard index < args.count else {
+                throw ExtractCLIError.missingValue(flag: "--mode")
+            }
+            guard let parsedMode = ExtractMode(rawValue: args[index]) else {
+                throw ExtractCLIError.unsupportedMode(args[index])
+            }
+            mode = parsedMode
         case "--input":
             index += 1
             guard index < args.count else {
@@ -90,10 +116,21 @@ private func parseArguments(_ args: [String]) throws -> ExtractConfiguration {
 
     let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     let input = URL(fileURLWithPath: inputPath ?? "DevContent/Stub", relativeTo: cwd).standardizedFileURL
-    let output = URL(fileURLWithPath: outputPath ?? "Content/Local/StubExtract", relativeTo: cwd).standardizedFileURL
-    let pretRoot = pretRootPath.map { URL(fileURLWithPath: $0, relativeTo: cwd).standardizedFileURL }
+    let defaultOutputPath: String
+    switch mode {
+    case .stubNewBark:
+        defaultOutputPath = "Content/Local/StubExtract"
+    case .openingHeartGold:
+        defaultOutputPath = "Content/Local/Boot/HeartGold"
+    }
+    let output = URL(fileURLWithPath: outputPath ?? defaultOutputPath, relativeTo: cwd).standardizedFileURL
+    let pretRoot = pretRootPath
+        .map { URL(fileURLWithPath: $0, relativeTo: cwd).standardizedFileURL }
+        ?? ProcessInfo.processInfo.environment["POKEHEARTGOLD_ROOT"].map {
+            URL(fileURLWithPath: $0, relativeTo: cwd).standardizedFileURL
+        }
 
-    return ExtractConfiguration(input: input, output: output, pretRoot: pretRoot, dryRun: dryRun)
+    return ExtractConfiguration(mode: mode, input: input, output: output, pretRoot: pretRoot, dryRun: dryRun)
 }
 
 private func loadPretManifest(
@@ -417,7 +454,7 @@ private func exportNewBarkFieldTextures(pretRoot: URL) throws -> [String: NSImag
     return textures
 }
 
-private func resolveApiculaBinary() throws -> URL {
+func resolveApiculaBinary() throws -> URL {
     let environment = ProcessInfo.processInfo.environment
     if let override = environment["APICULA_BIN"], !override.isEmpty {
         let path = URL(fileURLWithPath: override, isDirectory: false)
@@ -435,7 +472,7 @@ private func resolveApiculaBinary() throws -> URL {
     return defaultPath
 }
 
-private func runProcess(
+func runProcess(
     executable: URL,
     arguments: [String],
     commandLabel: String
@@ -449,11 +486,47 @@ private func runProcess(
     process.standardOutput = stdoutPipe
     process.standardError = stderrPipe
 
+    let stdoutBuffer = NSMutableData()
+    let stderrBuffer = NSMutableData()
+    let bufferLock = NSLock()
+
+    func installDrain(for handle: FileHandle, buffer: NSMutableData) {
+        handle.readabilityHandler = { readableHandle in
+            let data = readableHandle.availableData
+            guard !data.isEmpty else {
+                readableHandle.readabilityHandler = nil
+                return
+            }
+            bufferLock.lock()
+            buffer.append(data)
+            bufferLock.unlock()
+        }
+    }
+
+    installDrain(for: stdoutPipe.fileHandleForReading, buffer: stdoutBuffer)
+    installDrain(for: stderrPipe.fileHandleForReading, buffer: stderrBuffer)
+
     try process.run()
     process.waitUntilExit()
+    stdoutPipe.fileHandleForReading.readabilityHandler = nil
+    stderrPipe.fileHandleForReading.readabilityHandler = nil
+
+    let stdoutTail = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+    if !stdoutTail.isEmpty {
+        bufferLock.lock()
+        stdoutBuffer.append(stdoutTail)
+        bufferLock.unlock()
+    }
+
+    let stderrTail = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+    if !stderrTail.isEmpty {
+        bufferLock.lock()
+        stderrBuffer.append(stderrTail)
+        bufferLock.unlock()
+    }
 
     guard process.terminationStatus == 0 else {
-        let stderr = String(data: stderrPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let stderr = String(data: stderrBuffer as Data, encoding: .utf8) ?? ""
         throw ExtractCLIError.commandFailed(
             command: ([executable.lastPathComponent] + arguments).joined(separator: " "),
             status: process.terminationStatus,
@@ -462,7 +535,7 @@ private func runProcess(
     }
 }
 
-private func loadImage(at url: URL) throws -> NSImage {
+func loadImage(at url: URL) throws -> NSImage {
     guard let image = NSImage(contentsOf: url) else {
         throw ExtractCLIError.missingPretRenderAsset(path: url.path())
     }
@@ -566,68 +639,71 @@ private func writeReport(
     try summary.appending("\n").write(to: reportURL, atomically: true, encoding: .utf8)
 }
 
-@main
-struct HGSSExtractCLI {
-    static func main() {
-        let rawArgs = Array(CommandLine.arguments.dropFirst())
-        if rawArgs.contains("--help") || rawArgs.contains("-h") {
-            usage()
-            return
+private func runStubNewBarkExtraction(config: ExtractConfiguration) throws {
+    let loader = StubContentLoader()
+    let profileManifest = try loader.loadManifest(from: config.input)
+
+    let modeLabel: String
+    let extractedManifest: HGSSManifest
+    if let pretRoot = config.pretRoot {
+        modeLabel = "pret-new-bark"
+        extractedManifest = try loadPretManifest(profileManifest: profileManifest, pretRoot: pretRoot)
+    } else {
+        modeLabel = "profile-copy"
+        extractedManifest = profileManifest
+    }
+
+    let renderBundle = try buildRenderBundle(
+        manifest: extractedManifest,
+        output: config.output,
+        pretRoot: config.pretRoot,
+        dryRun: config.dryRun
+    )
+
+    if !config.dryRun {
+        try FileManager.default.createDirectory(at: config.output, withIntermediateDirectories: true)
+        try writeManifest(extractedManifest, to: config.output)
+        try writeRenderBundle(renderBundle, to: config.output)
+        try writeReport(
+            mode: modeLabel,
+            manifest: extractedManifest,
+            renderBundle: renderBundle,
+            output: config.output,
+            pretRoot: config.pretRoot
+        )
+    }
+
+    let initialMap = extractedManifest.maps.first(where: { $0.mapID == extractedManifest.initialMapID })
+
+    print("Extractor complete.")
+    print("Mode: \(modeLabel)")
+    print("Input profile: \(config.input.path())")
+    print("Output: \(config.output.path())")
+    print("Dry run: \(config.dryRun ? "yes" : "no")")
+    print("Initial map: \(extractedManifest.initialMapID)")
+    print("Initial warps: \(initialMap?.warps.count ?? 0)")
+    print("Initial placements: \(initialMap?.placements.count ?? 0)")
+    print("Render assets: \(renderBundle.assets.count)")
+    if let pretRoot = config.pretRoot {
+        print("Pret root: \(pretRoot.path())")
+    }
+}
+
+let rawArgs = Array(CommandLine.arguments.dropFirst())
+if rawArgs.contains("--help") || rawArgs.contains("-h") {
+    usage()
+} else {
+    do {
+        let config = try parseArguments(rawArgs)
+        switch config.mode {
+        case .stubNewBark:
+            try runStubNewBarkExtraction(config: config)
+        case .openingHeartGold:
+            try OpeningHeartGoldExtractor().run(config: config)
         }
-
-        do {
-            let config = try parseArguments(rawArgs)
-            let loader = StubContentLoader()
-            let profileManifest = try loader.loadManifest(from: config.input)
-
-            let mode: String
-            let extractedManifest: HGSSManifest
-            if let pretRoot = config.pretRoot {
-                mode = "pret-new-bark"
-                extractedManifest = try loadPretManifest(profileManifest: profileManifest, pretRoot: pretRoot)
-            } else {
-                mode = "profile-copy"
-                extractedManifest = profileManifest
-            }
-
-            let renderBundle = try buildRenderBundle(
-                manifest: extractedManifest,
-                output: config.output,
-                pretRoot: config.pretRoot,
-                dryRun: config.dryRun
-            )
-
-            if !config.dryRun {
-                try FileManager.default.createDirectory(at: config.output, withIntermediateDirectories: true)
-                try writeManifest(extractedManifest, to: config.output)
-                try writeRenderBundle(renderBundle, to: config.output)
-                try writeReport(
-                    mode: mode,
-                    manifest: extractedManifest,
-                    renderBundle: renderBundle,
-                    output: config.output,
-                    pretRoot: config.pretRoot
-                )
-            }
-
-            let initialMap = extractedManifest.maps.first(where: { $0.mapID == extractedManifest.initialMapID })
-
-            print("Extractor complete.")
-            print("Mode: \(mode)")
-            print("Input profile: \(config.input.path())")
-            print("Output: \(config.output.path())")
-            print("Dry run: \(config.dryRun ? "yes" : "no")")
-            print("Initial map: \(extractedManifest.initialMapID)")
-            print("Initial warps: \(initialMap?.warps.count ?? 0)")
-            print("Initial placements: \(initialMap?.placements.count ?? 0)")
-            print("Render assets: \(renderBundle.assets.count)")
-            if let pretRoot = config.pretRoot {
-                print("Pret root: \(pretRoot.path())")
-            }
-        } catch {
-            fputs("HGSSExtractCLI error: \(error.localizedDescription)\n", stderr)
-            usage()
-            exit(1)
-        }
+    } catch {
+        fputs("HGSSExtractCLI error: \(error.localizedDescription)\n", stderr)
+        usage()
+        exit(1)
     }
 }
