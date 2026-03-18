@@ -62,7 +62,7 @@ The target is parity with the official source-backed behavior, not a handcrafted
 
 - [ ] Add per-frame visual diffing for opening scenes, title states, `CheckSave`, and `MainMenu`.
 - [ ] Add audio waveform and trace diffs for title/opening cue playback.
-- [ ] Add extracted trace comparisons for title exit mode, `CheckSave` routing, and menu setup state.
+- [x] Add extracted trace comparisons for title exit mode, `CheckSave` routing, and menu setup state.
 - [x] Add snapshot tests for the committed IR surface: scene order, state order, title prompt metadata, `CheckSave` message routing, and `MainMenu` option routing.
 - [ ] Do not call the milestone complete until the native app reaches `MainMenu` with no known visual, timing, or audio regressions against the extracted references.
 
@@ -184,11 +184,11 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [ ] `P5.5` Add audio waveform and event-trace diffs for opening/title cue playback.
 - [ ] `P5.5a` Emit native audio event traces for opening/title playback.
 - [ ] `P5.5b` Compare those traces and rendered waveforms against extracted references.
-- [ ] `P5.6` Add extracted state-trace diffs for title exit mode selection, `CheckSave` routing, and `MainMenu` setup.
-- [ ] `P5.6a` Capture runtime state traces for title exit requests.
-- [ ] `P5.6b` Capture runtime state traces for `CheckSave` routing.
-- [ ] `P5.6c` Capture runtime state traces for `MainMenu` setup and initial selection.
-- [ ] `P5.6d` Diff the captured traces against parser/extractor-derived expectations.
+- [x] `P5.6` Add extracted state-trace diffs for title exit mode selection, `CheckSave` routing, and `MainMenu` setup.
+- [x] `P5.6a` Capture runtime state traces for title exit requests.
+- [x] `P5.6b` Capture runtime state traces for `CheckSave` routing.
+- [x] `P5.6c` Capture runtime state traces for `MainMenu` setup and initial selection.
+- [x] `P5.6d` Diff the captured traces against parser/extractor-derived expectations.
 - [x] `P5.7` Keep committed IR surface snapshots for scene order, title metadata, `CheckSave`, and `MainMenu` routing.
 - [ ] `P5.8` Gate milestone completion on passing the parity harness across visuals, timing, and audio.
 - [ ] `P5.8a` Add a single scriptable parity target that runs the visual, audio, and trace harnesses together.

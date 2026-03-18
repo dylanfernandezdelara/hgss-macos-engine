@@ -114,8 +114,10 @@ let package = Package(
             name: "HGSSExtractCLITests",
             dependencies: [
                 "HGSSExtractCLI",
+                "HGSSCore",
                 "HGSSDataModel",
                 "HGSSOpeningIR",
+                "HGSSRender",
                 .product(name: "Testing", package: "swift-testing")
             ],
             path: "Tests/HGSSExtractCLITests",
