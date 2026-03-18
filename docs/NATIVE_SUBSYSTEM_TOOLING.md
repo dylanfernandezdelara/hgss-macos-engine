@@ -26,10 +26,18 @@ The current repo can extract and approximate those systems, but exact parity req
 
 Purpose: convert upstream C scene logic into a deterministic native intermediate representation without hand-authored timing or guessed offsets.
 
+Current repo state:
+
+- `HGSSExtractCLI` now has a working `clang-c` parser path backed by Homebrew LLVM headers and `libclang`
+- the extractor now validates the upstream opening/title sources through that parser before continuing with the existing extraction flow
+- local parser-only support headers are generated under `Content/Local/Tooling/pokeheartgold_parse_support/`
+- remaining work is AST-to-IR lowering and replacing the remaining regex-derived metadata
+
 Required tools:
 
-- `clang` or `libclang` for C AST parsing
-- or `tree-sitter-c` if a lighter parser is easier to integrate
+- `clang-c` / `libclang` for C AST parsing
+- Homebrew LLVM or another LLVM install that provides `clang-c/Index.h`
+- optional `LLVM_PREFIX` override if LLVM is not installed in a standard local prefix
 - a repo-local extraction layer that parses:
   - `src/intro_movie.c`
   - `src/intro_movie_scene_1.c` through `src/intro_movie_scene_5.c`
@@ -175,7 +183,13 @@ Why it is needed:
 ### Parser / Extraction
 
 - `libclang`
-- `tree-sitter-c`
+- `clang-c/Index.h`
+- local parser-support generation for:
+  - `nitro/fx/fx_const.h`
+  - `demo/opening/gs_opening.naix`
+  - `demo/title/titledemo.naix`
+  - `msgdata/msg.naix`
+  - `msgdata/msg/msg_0719.h`
 - helper scripts or a small native parser binary for extracting scene logic IR
 
 ### Asset Decoding
@@ -220,7 +234,7 @@ These remain useful, but they are not sufficient by themselves for exact parity.
 
 ## Recommended Order
 
-1. Build the source extraction parser and replace remaining hand-authored opening/title metadata.
+1. Finish AST-to-IR lowering from the now-working `clang-c` parser path and replace remaining hand-authored opening/title metadata.
 2. Extend the title target from a single frozen handoff frame to the real title-screen play state with flashing start prompt.
 3. Build the native audio core for the opening/title cue set.
 4. Replace parity-critical SceneKit usage with native 3D playback or deterministic baked frames.
