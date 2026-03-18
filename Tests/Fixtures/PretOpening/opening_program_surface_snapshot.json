@@ -60,14 +60,148 @@
       "main_menu_continue": {
         "options": [
           {
+            "destinationID": "ov36_App_MainMenu_SelectOption_Continue",
             "enabled": true,
             "id": "continue",
+            "requiredFlags": [
+              {
+                "name": "main_menu_has_save_data",
+                "value": 1
+              }
+            ],
             "text": "CONTINUE"
           },
           {
+            "destinationID": "ov36_App_MainMenu_SelectOption_NewGame",
             "enabled": true,
             "id": "new_game",
+            "requiredFlags": [],
             "text": "NEW GAME"
+          },
+          {
+            "destinationID": "ov112_App_MainMenu_SelectOption_ConnectToPokewalker",
+            "enabled": true,
+            "id": "pokewalker",
+            "requiredFlags": [],
+            "text": "CONNECT TO POK\u00E9WALKER"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MysteryGift",
+            "enabled": true,
+            "id": "mystery_gift",
+            "requiredFlags": [
+              {
+                "name": "main_menu_draw_mystery_gift",
+                "value": 1
+              },
+              {
+                "name": "main_menu_has_pokedex",
+                "value": 1
+              }
+            ],
+            "text": "MYSTERY GIFT"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_ConnectToRanger",
+            "enabled": true,
+            "id": "ranger",
+            "requiredFlags": [
+              {
+                "name": "main_menu_draw_ranger",
+                "value": 1
+              },
+              {
+                "name": "main_menu_has_pokedex",
+                "value": 1
+              }
+            ],
+            "text": "CONNECT TO POK\u00E9MON RANGER"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_ruby",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 1
+              }
+            ],
+            "text": "MIGRATE FROM RUBY"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_sapphire",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 2
+              }
+            ],
+            "text": "MIGRATE FROM SAPPHIRE"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_leafgreen",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 3
+              }
+            ],
+            "text": "MIGRATE FROM LEAFGREEN"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_firered",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 4
+              }
+            ],
+            "text": "MIGRATE FROM FIRERED"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_emerald",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 5
+              }
+            ],
+            "text": "MIGRATE FROM EMERALD"
+          },
+          {
+            "destinationID": "sub_02027098:data/eoo.dat",
+            "enabled": true,
+            "id": "connect_to_wii",
+            "requiredFlags": [
+              {
+                "name": "main_menu_draw_connect_to_wii",
+                "value": 1
+              }
+            ],
+            "text": "CONNECT TO Wii"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_NintendoWFCSetup",
+            "enabled": true,
+            "id": "wfc",
+            "requiredFlags": [],
+            "text": "NINTENDO WI-FI\\nCONNECTION SETTINGS"
+          },
+          {
+            "destinationID": "ov75_App_MainMenu_SelectOption_WiiMessageSettings",
+            "enabled": true,
+            "id": "wii_settings",
+            "requiredFlags": [],
+            "text": "Wii MESSAGE SETTINGS"
           }
         ],
         "selectedOptionID": "continue"
@@ -75,8 +209,10 @@
       "main_menu_new_game": {
         "options": [
           {
+            "destinationID": "ov36_App_MainMenu_SelectOption_NewGame",
             "enabled": true,
             "id": "new_game",
+            "requiredFlags": [],
             "text": "NEW GAME"
           }
         ],

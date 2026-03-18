@@ -179,6 +179,39 @@ struct OpeningIRLowererTests {
             }
             return false
         }))
+        let continueState = try #require(mainMenuScene.states.first(where: { $0.id == "main_menu_continue" }))
+        let continueMenu = try #require(continueState.commands.compactMap { command -> HGSSOpeningProgramIR.MenuCommand? in
+            if case let .setMenu(payload) = command {
+                return payload
+            }
+            return nil
+        }.first)
+        #expect(continueMenu.options.map(\.id) == [
+            "continue",
+            "new_game",
+            "pokewalker",
+            "mystery_gift",
+            "ranger",
+            "migrate_ruby",
+            "migrate_sapphire",
+            "migrate_leafgreen",
+            "migrate_firered",
+            "migrate_emerald",
+            "connect_to_wii",
+            "wfc",
+            "wii_settings",
+        ])
+        let mysteryGift = try #require(continueMenu.options.first(where: { $0.id == "mystery_gift" }))
+        #expect(mysteryGift.requiredFlags == [
+            .init(name: "main_menu_draw_mystery_gift", value: 1),
+            .init(name: "main_menu_has_pokedex", value: 1),
+        ])
+        #expect(mysteryGift.destinationID == "gApp_MainMenu_SelectOption_MysteryGift")
+        let migrateRuby = try #require(continueMenu.options.first(where: { $0.id == "migrate_ruby" }))
+        #expect(migrateRuby.requiredFlags == [
+            .init(name: "main_menu_connected_agb_game", value: 1)
+        ])
+        #expect(migrateRuby.destinationID == "gApp_MainMenu_SelectOption_MigrateFromAgb")
         let newGameState = try #require(mainMenuScene.states.first(where: { $0.id == "main_menu_new_game" }))
         let menu = try #require(newGameState.commands.compactMap { command -> HGSSOpeningProgramIR.MenuCommand? in
             if case let .setMenu(payload) = command {

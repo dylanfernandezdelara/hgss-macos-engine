@@ -101,9 +101,16 @@ private struct OpeningProgramSurfaceSnapshot: Codable, Equatable {
     }
 
     struct MenuOptionSnapshot: Codable, Equatable {
+        struct FlagRequirementSnapshot: Codable, Equatable {
+            let name: String
+            let value: Int
+        }
+
         let id: String
         let text: String
         let enabled: Bool
+        let requiredFlags: [FlagRequirementSnapshot]
+        let destinationID: String?
     }
 
     struct MenuStateSnapshot: Codable, Equatable {
@@ -194,7 +201,11 @@ private struct OpeningProgramSurfaceSnapshot: Codable, Equatable {
                                 MenuOptionSnapshot(
                                     id: option.id,
                                     text: option.text,
-                                    enabled: option.enabled
+                                    enabled: option.enabled,
+                                    requiredFlags: option.requiredFlags.map {
+                                        .init(name: $0.name, value: $0.value)
+                                    },
+                                    destinationID: option.destinationID
                                 )
                             }
                         )

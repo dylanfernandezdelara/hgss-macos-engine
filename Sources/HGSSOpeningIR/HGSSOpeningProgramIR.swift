@@ -423,18 +423,34 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
     }
 
     public struct MenuOption: Codable, Equatable, Sendable {
+        public struct FlagRequirement: Codable, Equatable, Sendable {
+            public let name: String
+            public let value: Int
+
+            public init(name: String, value: Int) {
+                self.name = name
+                self.value = value
+            }
+        }
+
         public let id: String
         public let text: String
         public let enabled: Bool
+        public let requiredFlags: [FlagRequirement]
+        public let destinationID: String?
 
         public init(
             id: String,
             text: String,
-            enabled: Bool = true
+            enabled: Bool = true,
+            requiredFlags: [FlagRequirement] = [],
+            destinationID: String? = nil
         ) {
             self.id = id
             self.text = text
             self.enabled = enabled
+            self.requiredFlags = requiredFlags
+            self.destinationID = destinationID
         }
     }
 
@@ -825,6 +841,15 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
                 }
                 guard option.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
                     throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "menu.option.text")
+                }
+                for requirement in option.requiredFlags {
+                    guard requirement.name.isEmpty == false else {
+                        throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "menu.option.requiredFlags.name")
+                    }
+                }
+                if let destinationID = option.destinationID,
+                   destinationID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    throw HGSSOpeningIRValidationError.emptyCommandIdentifier(sceneID, stateID, "menu.option.destinationID")
                 }
             }
             guard payload.options.contains(where: { $0.id == payload.selectedOptionID }) else {

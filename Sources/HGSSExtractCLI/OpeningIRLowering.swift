@@ -635,22 +635,145 @@ struct PokeheartgoldOpeningIRLowerer {
             sourceFile: sourceFile,
             description: "MainMenu background color"
         )
-        let continueText = try context.messageText(
-            relativePath: "files/msgdata/msg/msg_0442.gmm",
-            rowID: "msg_0442_00000"
-        )
-        let newGameText = try context.messageText(
-            relativePath: "files/msgdata/msg/msg_0442.gmm",
-            rowID: "msg_0442_00001"
-        )
+        let messageTextByRow: [String: String] = try [
+            "msg_0442_00000",
+            "msg_0442_00001",
+            "msg_0442_00002",
+            "msg_0442_00003",
+            "msg_0442_00004",
+            "msg_0442_00005",
+            "msg_0442_00006",
+            "msg_0442_00007",
+            "msg_0442_00008",
+            "msg_0442_00009",
+            "msg_0442_00010",
+            "msg_0442_00011",
+            "msg_0442_00012",
+        ].reduce(into: [:]) { result, rowID in
+            result[rowID] = try context.messageText(
+                relativePath: "files/msgdata/msg/msg_0442.gmm",
+                rowID: rowID
+            )
+        }
 
-        let includeContinue = buttonsText.contains("APPOPTION_CONTINUE")
-        let includeNewGame = buttonsText.contains("APPOPTION_NEW_GAME")
-        let baseOptions = [
-            includeContinue ? HGSSOpeningProgramIR.MenuOption(id: "continue", text: continueText) : nil,
-            includeNewGame ? HGSSOpeningProgramIR.MenuOption(id: "new_game", text: newGameText) : nil,
-        ].compactMap { $0 }
-        let newGameOnly = baseOptions.filter { $0.id == "new_game" }
+        func requires(_ flags: (String, Int)...) -> [HGSSOpeningProgramIR.MenuOption.FlagRequirement] {
+            flags.map { name, value in
+                .init(name: name, value: value)
+            }
+        }
+
+        var continueMenuOptions: [HGSSOpeningProgramIR.MenuOption] = []
+        continueMenuOptions.append(
+            .init(
+                id: "continue",
+                text: messageTextByRow["msg_0442_00000"] ?? "CONTINUE",
+                requiredFlags: requires(("main_menu_has_save_data", 1)),
+                destinationID: "ov36_App_MainMenu_SelectOption_Continue"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "new_game",
+                text: messageTextByRow["msg_0442_00001"] ?? "NEW GAME",
+                destinationID: "ov36_App_MainMenu_SelectOption_NewGame"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "pokewalker",
+                text: messageTextByRow["msg_0442_00009"] ?? "POKEWALKER",
+                destinationID: "ov112_App_MainMenu_SelectOption_ConnectToPokewalker"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "mystery_gift",
+                text: messageTextByRow["msg_0442_00002"] ?? "MYSTERY GIFT",
+                requiredFlags: requires(
+                    ("main_menu_draw_mystery_gift", 1),
+                    ("main_menu_has_pokedex", 1)
+                ),
+                destinationID: "gApp_MainMenu_SelectOption_MysteryGift"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "ranger",
+                text: messageTextByRow["msg_0442_00003"] ?? "CONNECT TO RANGER",
+                requiredFlags: requires(
+                    ("main_menu_draw_ranger", 1),
+                    ("main_menu_has_pokedex", 1)
+                ),
+                destinationID: "gApp_MainMenu_SelectOption_ConnectToRanger"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "migrate_ruby",
+                text: messageTextByRow["msg_0442_00004"] ?? "MIGRATE FROM RUBY",
+                requiredFlags: requires(("main_menu_connected_agb_game", 1)),
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "migrate_sapphire",
+                text: messageTextByRow["msg_0442_00005"] ?? "MIGRATE FROM SAPPHIRE",
+                requiredFlags: requires(("main_menu_connected_agb_game", 2)),
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "migrate_leafgreen",
+                text: messageTextByRow["msg_0442_00006"] ?? "MIGRATE FROM LEAFGREEN",
+                requiredFlags: requires(("main_menu_connected_agb_game", 3)),
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "migrate_firered",
+                text: messageTextByRow["msg_0442_00007"] ?? "MIGRATE FROM FIRERED",
+                requiredFlags: requires(("main_menu_connected_agb_game", 4)),
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "migrate_emerald",
+                text: messageTextByRow["msg_0442_00008"] ?? "MIGRATE FROM EMERALD",
+                requiredFlags: requires(("main_menu_connected_agb_game", 5)),
+                destinationID: "gApp_MainMenu_SelectOption_MigrateFromAgb"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "connect_to_wii",
+                text: messageTextByRow["msg_0442_00011"] ?? "CONNECT TO Wii",
+                requiredFlags: requires(("main_menu_draw_connect_to_wii", 1)),
+                destinationID: "sub_02027098:data/eoo.dat"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "wfc",
+                text: messageTextByRow["msg_0442_00012"] ?? "NINTENDO WFC SETTINGS",
+                destinationID: "gApp_MainMenu_SelectOption_NintendoWFCSetup"
+            )
+        )
+        continueMenuOptions.append(
+            .init(
+                id: "wii_settings",
+                text: messageTextByRow["msg_0442_00010"] ?? "Wii MESSAGE SETTINGS",
+                destinationID: "ov75_App_MainMenu_SelectOption_WiiMessageSettings"
+            )
+        )
+        continueMenuOptions = continueMenuOptions.filter { option in
+            let appOptionSymbol = mainMenuAppOptionSymbol(for: option.id)
+            return buttonsText.contains(appOptionSymbol)
+        }
+        let newGameOnly = continueMenuOptions.filter { $0.id == "new_game" }
         let menuProvenance = context.provenance(for: mainNode, symbolOverride: "MainMenuApp_Main")
 
         return HGSSOpeningProgramIR.Scene(
@@ -695,7 +818,7 @@ struct PokeheartgoldOpeningIRLowerer {
                         .setMenu(
                             .init(
                                 screen: .bottom,
-                                options: baseOptions,
+                                options: continueMenuOptions,
                                 selectedOptionID: "continue",
                                 provenance: menuProvenance
                             )
@@ -757,6 +880,33 @@ struct PokeheartgoldOpeningIRLowerer {
             ],
             provenance: provenance
         )
+    }
+
+    private func mainMenuAppOptionSymbol(
+        for optionID: String
+    ) -> String {
+        switch optionID {
+        case "continue":
+            return "APPOPTION_CONTINUE"
+        case "new_game":
+            return "APPOPTION_NEW_GAME"
+        case "pokewalker":
+            return "APPOPTION_POKEWALKER"
+        case "mystery_gift":
+            return "APPOPTION_MYSTERY_GIFT"
+        case "ranger":
+            return "APPOPTION_RANGER"
+        case "migrate_ruby", "migrate_sapphire", "migrate_leafgreen", "migrate_firered", "migrate_emerald":
+            return "APPOPTION_MIGRATE_AGB"
+        case "connect_to_wii":
+            return "APPOPTION_CONNECT_TO_WII"
+        case "wfc":
+            return "APPOPTION_WFC"
+        case "wii_settings":
+            return "APPOPTION_WII_SETTINGS"
+        default:
+            return ""
+        }
     }
 
     private func makeTitleFadeoutState(

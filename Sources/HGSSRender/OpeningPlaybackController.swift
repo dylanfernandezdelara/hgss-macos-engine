@@ -55,6 +55,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
     @Published public private(set) var audioCueLog: [HGSSOpeningDispatchedAudioCue]
     @Published public private(set) var currentMenuSelectionID: String?
     @Published public private(set) var lastConfirmedMenuSelectionID: String?
+    @Published public private(set) var lastConfirmedMenuDestinationID: String?
 
     private var playbackTask: Task<Void, Never>?
     private var dispatchedCueKeys: Set<String>
@@ -71,6 +72,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         self.audioCueLog = []
         self.currentMenuSelectionID = nil
         self.lastConfirmedMenuSelectionID = nil
+        self.lastConfirmedMenuDestinationID = nil
         self.dispatchedCueKeys = []
         self.programFlags = Self.defaultProgramFlags()
         dispatchBundleAudioCuesForCurrentFrameIfNeeded()
@@ -123,6 +125,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         pendingTitleMenuRequest = false
         currentMenuSelectionID = nil
         lastConfirmedMenuSelectionID = nil
+        lastConfirmedMenuDestinationID = nil
         programFlags = Self.defaultProgramFlags()
         state = HGSSOpeningPlaybackState(sceneIndex: 0, frameInScene: 0, hasReachedTitleHandoff: false)
         dispatchBundleAudioCuesForCurrentFrameIfNeeded()
@@ -228,6 +231,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         }
 
         lastConfirmedMenuSelectionID = selectedID
+        lastConfirmedMenuDestinationID = menu.options.first(where: { $0.id == selectedID })?.destinationID
     }
 
     public func isProgramLayerVisible(_ layerID: String) -> Bool? {
@@ -289,7 +293,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             guard case let .setMenu(payload) = command, payload.screen == screen else {
                 return nil
             }
-            return payload
+            return resolvedMenu(payload)
         }.last
     }
 
@@ -387,6 +391,7 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
         let reachedTitleHandoff = scene.id == .titleHandoff
         currentMenuSelectionID = nil
         lastConfirmedMenuSelectionID = nil
+        lastConfirmedMenuDestinationID = nil
         state = HGSSOpeningPlaybackState(
             sceneIndex: sceneIndex,
             frameInScene: 0,
@@ -482,6 +487,37 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             currentMenuSelectionID = menu.selectedOptionID
         } else {
             currentMenuSelectionID = enabledOptions[0].id
+        }
+    }
+
+    private func resolvedMenu(
+        _ menu: HGSSOpeningProgramIR.MenuCommand
+    ) -> HGSSOpeningProgramIR.MenuCommand? {
+        let visibleOptions = menu.options.filter(isMenuOptionVisible)
+        guard visibleOptions.isEmpty == false else {
+            return nil
+        }
+
+        let selectedOptionID: String
+        if visibleOptions.contains(where: { $0.id == menu.selectedOptionID }) {
+            selectedOptionID = menu.selectedOptionID
+        } else {
+            selectedOptionID = visibleOptions[0].id
+        }
+
+        return .init(
+            screen: menu.screen,
+            options: visibleOptions,
+            selectedOptionID: selectedOptionID,
+            provenance: menu.provenance
+        )
+    }
+
+    private func isMenuOptionVisible(
+        _ option: HGSSOpeningProgramIR.MenuOption
+    ) -> Bool {
+        option.requiredFlags.allSatisfy { requirement in
+            programFlags[requirement.name] == requirement.value
         }
     }
 
@@ -627,6 +663,11 @@ public final class HGSSOpeningPlaybackController: ObservableObject {
             "title_anim_initialized": 1,
             "check_save_message_index": -1,
             "main_menu_has_save_data": 0,
+            "main_menu_has_pokedex": 0,
+            "main_menu_draw_mystery_gift": 0,
+            "main_menu_draw_ranger": 0,
+            "main_menu_draw_connect_to_wii": 0,
+            "main_menu_connected_agb_game": 0,
         ]
     }
 }
