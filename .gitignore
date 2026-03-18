@@ -3,6 +3,7 @@
 
 # Swift / Xcode
 .build/
+.build-*/
 .swiftpm/
 DerivedData/
 *.xcworkspace

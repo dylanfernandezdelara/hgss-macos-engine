@@ -340,6 +340,25 @@ struct OpeningHeartGoldExtractor {
             throw ExtractCLIError.missingPretRoot
         }
 
+        let extractorStart = CFAbsoluteTimeGetCurrent()
+
+        func formattedDuration(since startedAt: CFAbsoluteTime) -> String {
+            let elapsedSeconds = Int(CFAbsoluteTimeGetCurrent() - startedAt)
+            let minutes = elapsedSeconds / 60
+            let seconds = elapsedSeconds % 60
+            return String(format: "%02dm%02ds", minutes, seconds)
+        }
+
+        func logPhaseStart(_ label: String) -> CFAbsoluteTime {
+            print("[opening-heartgold] \(label)...")
+            return CFAbsoluteTimeGetCurrent()
+        }
+
+        func logPhaseEnd(_ label: String, startedAt: CFAbsoluteTime) {
+            print("[opening-heartgold] \(label) completed in \(formattedDuration(since: startedAt)).")
+        }
+
+        let sourcePhaseStart = logPhaseStart("Validating source inputs and lowering opening IR")
         try validateOpeningInputs(pretRoot: pretRoot)
         let parseSupportRoot = PokeheartgoldOpeningSourceValidator.defaultSupportRoot(repoRoot: repoRoot)
         let parseValidation = try PokeheartgoldOpeningSourceValidator().validate(
@@ -356,6 +375,9 @@ struct OpeningHeartGoldExtractor {
         let scene3Source = try parseScene3Source(from: scene3SourceURL)
         let scene4Source = try parseScene4Source(from: scene4SourceURL)
         let titleHandoffSource = try parseTitleHandoffSource(from: titleScreenSourceURL)
+        logPhaseEnd("Validating source inputs and lowering opening IR", startedAt: sourcePhaseStart)
+
+        let toolingPhaseStart = logPhaseStart("Preparing Python tooling")
         try runProcess(
             executable: ensureToolsScript,
             arguments: [],
@@ -369,7 +391,9 @@ struct OpeningHeartGoldExtractor {
         }
 
         let apicula = try resolveApiculaBinary()
+        logPhaseEnd("Preparing Python tooling", startedAt: toolingPhaseStart)
 
+        let outputPhaseStart = logPhaseStart("Preparing extractor output directories")
         let outputRoot = config.output
         if FileManager.default.fileExists(atPath: outputRoot.path()) {
             try FileManager.default.removeItem(at: outputRoot)
@@ -386,12 +410,14 @@ struct OpeningHeartGoldExtractor {
         for directory in [assetsRoot, audioRoot, nitro2DRoot, model3DRoot, intermediateAudioRoot, intermediateParticleRoot] {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
+        logPhaseEnd("Preparing extractor output directories", startedAt: outputPhaseStart)
 
         let openingDir = pretRoot.appendingPathComponent("files/demo/opening/gs_opening", isDirectory: true)
         let titleDir = pretRoot.appendingPathComponent("files/demo/title/titledemo", isDirectory: true)
         let soundArchive = pretRoot.appendingPathComponent("files/data/sound/gs_sound_data.sdat", isDirectory: false)
         let particleArchive = pretRoot.appendingPathComponent("files/a/0/5/9", isDirectory: false)
 
+        let particlePhaseStart = logPhaseStart("Generating particle intermediates")
         try runPythonHelper(
             pythonTool: pythonTool,
             helperScript: helperScript,
@@ -402,6 +428,7 @@ struct OpeningHeartGoldExtractor {
                 "--output-dir", intermediateParticleRoot.appendingPathComponent("scene4", isDirectory: true).path()
             ]
         )
+        logPhaseEnd("Generating particle intermediates", startedAt: particlePhaseStart)
 
         var assets: [HGSSOpeningBundle.Asset] = []
         var provenanceSources: [OpeningProvenanceDocument.AssetSource] = []
@@ -431,6 +458,7 @@ struct OpeningHeartGoldExtractor {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
 
+        let assetPhaseStart = logPhaseStart("Extracting scene, title, and post-title visual assets")
         let scene1Sub0 = try decodeTilemap(
             assetID: "scene1_bottom_sub0",
             outputName: "scene1_bottom_sub0.png",
@@ -1286,6 +1314,9 @@ struct OpeningHeartGoldExtractor {
             sequence.assets.forEach { registerAsset($0, upstreamFiles: sequence.upstreamFiles) }
         }
 
+        logPhaseEnd("Extracting scene, title, and post-title visual assets", startedAt: assetPhaseStart)
+
+        let audioPhaseStart = logPhaseStart("Rendering opening/title audio references")
         let scene1AudioCue = try renderAudioCue(
             cueName: "SEQ_GS_TITLE",
             sceneID: "scene1",
@@ -1327,7 +1358,9 @@ struct OpeningHeartGoldExtractor {
                 provenance: titleAudioCue.upstreamFiles
             )
         )
+        logPhaseEnd("Rendering opening/title audio references", startedAt: audioPhaseStart)
 
+        let finalizePhaseStart = logPhaseStart("Finalizing baked scenes and writing artifacts")
         assets.sort { lhs, rhs in lhs.id < rhs.id }
         provenanceSources.sort { lhs, rhs in lhs.assetID < rhs.assetID }
 
@@ -1449,6 +1482,7 @@ struct OpeningHeartGoldExtractor {
             report: report,
             outputRoot: outputRoot
         )
+        logPhaseEnd("Finalizing baked scenes and writing artifacts", startedAt: finalizePhaseStart)
 
         print("Extractor complete.")
         print("Mode: \(config.mode.rawValue)")
@@ -1458,6 +1492,7 @@ struct OpeningHeartGoldExtractor {
         print("Assets: \(bundle.assets.count)")
         print("Audio cues: \(audioCueCount)")
         print("Pret root: \(pretRoot.path())")
+        print("Total time: \(formattedDuration(since: extractorStart))")
     }
 
     private func buildScenes(

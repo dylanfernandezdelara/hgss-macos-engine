@@ -26,18 +26,34 @@ struct OpeningIRSnapshotTests {
 
         try program.validate()
 
+        let actualDigest = try sha256Hex(of: encoded(program))
+        let actualSurface = OpeningProgramSurfaceSnapshot(program: program)
+
+        if shouldRecordFixtures {
+            let fixturesRoot = fixturesRootURL()
+            try actualDigest.write(
+                to: fixturesRoot.appendingPathComponent("opening_program_ir.sha256", isDirectory: false),
+                atomically: true,
+                encoding: .utf8
+            )
+            try writeJSON(
+                actualSurface,
+                to: fixturesRoot.appendingPathComponent("opening_program_surface_snapshot.json", isDirectory: false)
+            )
+            return
+        }
+
         let expectedDigest = try String(
             contentsOf: fixturesRootURL().appendingPathComponent("opening_program_ir.sha256", isDirectory: false),
             encoding: .utf8
         ).trimmingCharacters(in: .whitespacesAndNewlines)
-        let actualDigest = try sha256Hex(of: encoded(program))
         #expect(actualDigest == expectedDigest)
 
         let expectedSurface = try JSONDecoder().decode(
             OpeningProgramSurfaceSnapshot.self,
             from: Data(contentsOf: fixturesRootURL().appendingPathComponent("opening_program_surface_snapshot.json", isDirectory: false))
         )
-        #expect(OpeningProgramSurfaceSnapshot(program: program) == expectedSurface)
+        #expect(actualSurface == expectedSurface)
     }
 
     private func encoded(_ program: HGSSOpeningProgramIR) throws -> Data {
@@ -48,6 +64,18 @@ struct OpeningIRSnapshotTests {
 
     private func sha256Hex(of data: Data) throws -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func writeJSON<T: Encodable>(_ value: T, to url: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(value)
+        try data.write(to: url)
+    }
+
+    private var shouldRecordFixtures: Bool {
+        let value = ProcessInfo.processInfo.environment["HGSS_RECORD_OPENING_IR_SNAPSHOT"]?.lowercased()
+        return value == "1" || value == "true" || value == "yes"
     }
 
     private func makeTemporaryRoot() throws -> URL {
