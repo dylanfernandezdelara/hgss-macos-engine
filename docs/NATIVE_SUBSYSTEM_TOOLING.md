@@ -201,13 +201,12 @@ These remain useful, but they are not sufficient by themselves for exact parity.
 
 ### New docs
 
-- `docs/NATIVE_SUBSYSTEM_TOOLING.md`
 - `docs/PARITY_HARNESS.md`
 - `docs/OPENING_RUNTIME_IR.md`
 
-### New source modules or targets
+### Source modules or targets
 
-- `Sources/HGSSOpeningIR`
+- `Sources/HGSSOpeningIR` (now present as the source-backed opening/title translation boundary)
 - `Sources/HGSSNative2D`
 - `Sources/HGSSNative3D`
 - `Sources/HGSSNativeAudio`

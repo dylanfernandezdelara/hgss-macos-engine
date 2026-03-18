@@ -3,6 +3,7 @@
 ## Current Modules
 
 - `HGSSDataModel`: shared schema types for normalized content and tooling.
+- `HGSSOpeningIR`: source-backed intermediate representation for opening/title scene, state, timing, and command extraction.
 - `HGSSContent`: loads checked-in fixtures today and will normalize extractor output later.
 - `HGSSCore`: authoritative simulation loop, state updates, and render snapshots.
 - `HGSSRender`: render-bundle loading, DS screen layout rules, dual-screen presentation helpers, and the HeartGold opening-sequence player.
@@ -15,6 +16,7 @@
 - App shell depends on render for the default HeartGold opening boot path.
 - Core depends on content, telemetry, and shared data model.
 - Render depends on data model and still imports core for the legacy New Bark-oriented dual-screen shell.
+- Opening IR is a pure data module and must not depend on AppKit, SceneKit, or app-shell code.
 - Content depends on data model.
 - Extractor depends on content and data model.
 
@@ -32,6 +34,9 @@ There are now two active runtime tracks:
 4. `Apps/HGSSMac` boots directly into that opening player and owns only shell concerns such as windowing, skip-input routing, and dev-only overlays.
 5. The older normalized-content path remains in parallel: `HGSSContent` decodes the New Bark-centered fixture, `HGSSCore` owns authoritative traversal state, and the legacy dual-screen render helpers remain available for non-default tests and follow-on work.
 
+`HGSSOpeningIR` is now the intended translation boundary for source-backed opening/title work.
+The parser and extractor will lower upstream C scene logic into IR first, then future runtime and parity tooling will consume that IR rather than re-encoding behavior directly from parser output.
+
 ## Normalization Boundary
 
 - Upstream `MapHeader` fields are preserved as metadata.
@@ -46,8 +51,10 @@ This keeps the runtime stable while letting the extractor evolve around upstream
 Potential future targets once implementation warrants them:
 
 - `HGSSScriptVM`
-- `HGSSAudio`
-- `HGSSHarness`
+- `HGSSNative2D`
+- `HGSSNative3D`
+- `HGSSNativeAudio`
+- `HGSSParityHarness`
 
 ## Extraction Direction
 
