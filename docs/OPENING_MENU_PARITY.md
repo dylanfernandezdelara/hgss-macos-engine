@@ -193,5 +193,6 @@ This milestone is done when the native macOS app can be launched from the repo a
 - [x] `P5.7` Keep committed IR surface snapshots for scene order, title metadata, `CheckSave`, and `MainMenu` routing.
 - [ ] `P5.8` Gate milestone completion on passing the parity harness across visuals, timing, and audio.
 - [ ] `P5.8a` Add a single scriptable parity target that runs the visual, audio, and trace harnesses together.
+  Current partial script: `./scripts/run_opening_menu_parity_harness.sh` runs extraction plus the IR, trace, and controller checks, but it does not yet include per-frame visual diffs.
 - [ ] `P5.8b` Fail milestone completion when any parity harness section reports drift.
 - [ ] `P5.8c` Record the final no-known-regressions proof run in docs once the harness is green.

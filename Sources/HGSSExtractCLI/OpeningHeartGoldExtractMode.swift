@@ -1235,6 +1235,7 @@ struct OpeningHeartGoldExtractor {
             bundle = try bakeModelScreens(
                 bundle: initialBundle,
                 outputRoot: outputRoot,
+                sceneIDs: sceneKitBakeSceneIDs(for: initialBundle),
                 provenanceSources: &provenanceSources
             )
         } else {
@@ -2861,9 +2862,16 @@ struct OpeningHeartGoldExtractor {
         )
     }
 
+    private func sceneKitBakeSceneIDs(
+        for bundle: HGSSOpeningBundle
+    ) -> Set<HGSSOpeningBundle.SceneID> {
+        Set(bundle.scenes.filter { !$0.modelAnimations.isEmpty }.map(\.id))
+    }
+
     private func bakeModelScreens(
         bundle: HGSSOpeningBundle,
         outputRoot: URL,
+        sceneIDs: Set<HGSSOpeningBundle.SceneID>,
         provenanceSources: inout [OpeningProvenanceDocument.AssetSource]
     ) throws -> HGSSOpeningBundle {
         let assetByID = Dictionary(uniqueKeysWithValues: bundle.assets.map { ($0.id, $0) })
@@ -2873,7 +2881,7 @@ struct OpeningHeartGoldExtractor {
         var scenes: [HGSSOpeningBundle.Scene] = []
 
         for scene in bundle.scenes {
-            guard !scene.modelAnimations.isEmpty else {
+            guard !scene.modelAnimations.isEmpty, sceneIDs.contains(scene.id) else {
                 scenes.append(scene)
                 continue
             }

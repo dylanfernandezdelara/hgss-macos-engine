@@ -97,6 +97,7 @@ The required checks for this milestone are:
 - `./scripts/test.sh`
 - `./scripts/run_extractor_stub.sh`
 - `./scripts/run_opening_reference_harness.sh` when opening timing, transition, or audio behavior changes
+- `./scripts/run_opening_menu_parity_harness.sh` when parser-backed opening/menu IR or post-title runtime behavior changes
 - `./scripts/run_app.sh` for app-shell or opening-player changes
 
 The reference harness may also be used in diff mode:

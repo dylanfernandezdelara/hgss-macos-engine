@@ -65,7 +65,18 @@ let package = Package(
         .target(
             name: "HGSSRender",
             dependencies: ["HGSSCore", "HGSSDataModel", "HGSSOpeningIR"],
-            path: "Sources/HGSSRender"
+            path: "Sources/HGSSRender",
+            sources: [
+                "DSGlyphTextRenderer.swift",
+                "DualScreenView.swift",
+                "OpeningAudioPlayer.swift",
+                "OpeningBundleLoader.swift",
+                "OpeningPlaybackController.swift",
+                "OpeningPlayerView.swift",
+                "OpeningProgramLoader.swift",
+                "RenderBundleLoader.swift",
+                "SceneModelView.swift",
+            ]
         ),
         .executableTarget(
             name: "HGSSExtractCLI",
