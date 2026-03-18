@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import HGSSDataModel
+import HGSSOpeningIR
 import SceneKit
 import SwiftUI
 
@@ -85,6 +86,8 @@ public struct HGSSOpeningPlayerView: View {
         let screenBrightness = overlayForScreen(screen, scene: scene, frame: frame)
         let maskState = maskStateForScreen(screen, scene: scene, frame: frame, size: size)
         let circleWipeState = circleWipeStateForScreen(screen, scene: scene, frame: frame)
+        let programFadeOverlay = controller.activeProgramFadeOverlay()
+        let promptFlash = screen == .top ? controller.activePromptFlashCommand() : nil
 
         ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
@@ -129,10 +132,24 @@ public struct HGSSOpeningPlayerView: View {
                     .frame(width: CGFloat(size.width), height: CGFloat(size.height))
             }
 
+            if let promptFlash,
+               controller.isProgramLayerVisible(promptFlash.targetID) != false {
+                titlePromptView(promptFlash)
+            }
+
+            if let programFadeOverlay {
+                Rectangle()
+                    .fill(Color(hex: programFadeOverlay.colorHex).opacity(programFadeOverlay.opacity))
+                    .frame(width: CGFloat(size.width), height: CGFloat(size.height))
+            }
+
             if showDebugOverlay {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(scene.id.rawValue)
                     Text("frame \(frame)/\(scene.durationFrames - 1)")
+                    if let programState = controller.currentProgramState {
+                        Text("\(programState.id) @ \(controller.state.frameInProgramState)")
+                    }
                 }
                 .font(.system(size: 8, weight: .medium, design: .monospaced))
                 .padding(8)
@@ -146,6 +163,23 @@ public struct HGSSOpeningPlayerView: View {
         )
         .background(Color.black)
         .clipped()
+    }
+
+    private func titlePromptView(
+        _ prompt: HGSSOpeningProgramIR.PromptFlashCommand
+    ) -> some View {
+        let rect = prompt.rect ?? .init(x: 0, y: 144, width: 256, height: 16)
+        let promptText = prompt.text ?? "TOUCH TO START"
+        return Text(promptText)
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .tracking(0.8)
+            .foregroundStyle(Color(red: 0.86, green: 0.55, blue: 0.09))
+            .shadow(color: .black.opacity(0.85), radius: 0, x: 1, y: 1)
+            .frame(width: CGFloat(rect.width), height: CGFloat(rect.height))
+            .position(
+                x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
+                y: CGFloat(rect.y) + (CGFloat(rect.height) / 2.0)
+            )
     }
 
     private func layers(

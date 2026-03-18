@@ -183,6 +183,8 @@ struct PokeheartgoldOpeningIRLowerer {
         animRunNode: ClangASTNode,
         context: OpeningIRLoweringContext
     ) throws -> HGSSOpeningProgramIR.Scene {
+        let titleSourceFile = context.relativePath(for: mainNode.location?.file ?? "src/title_screen.c")
+        let titleSourceText = try context.fullSourceText(for: mainNode.location?.file ?? "")
         let stateNames = stateEnumNode.children
             .filter { $0.kind == "EnumConstantDecl" }
             .map(\.spelling)
@@ -190,22 +192,48 @@ struct PokeheartgoldOpeningIRLowerer {
         let initialDelayFrames = try context.requiredInt(
             #"initialDelay\s*=\s*([0-9]+)\s*;"#,
             in: try context.snippet(for: mainNode),
-            sourceFile: context.relativePath(for: mainNode.location?.file ?? "src/title_screen.c"),
+            sourceFile: titleSourceFile,
             description: "title initial delay"
         )
         let titleScreenDuration = try context.requiredInt(
             #"(?m)^#define\s+TITLE_SCREEN_DURATION\s+([0-9]+)\s*$"#,
-            in: try context.fullSourceText(for: mainNode.location?.file ?? ""),
-            sourceFile: context.relativePath(for: mainNode.location?.file ?? "src/title_screen.c"),
+            in: titleSourceText,
+            sourceFile: titleSourceFile,
             description: "title screen duration"
         )
-        let promptFlash = try lowerPromptFlash(animRunNode: animRunNode, context: context)
+        let promptFlash = try lowerPromptFlash(
+            animRunNode: animRunNode,
+            titleSourceFile: titleSourceFile,
+            titleSourceText: titleSourceText,
+            context: context
+        )
         let titleBGM = try context.requiredMatch(
             #"Sound_SetSceneAndPlayBGM\(\s*[0-9]+\s*,\s*([A-Z0-9_]+)\s*,\s*[0-9]+\s*\)"#,
             in: try context.snippet(for: mainNode),
-            sourceFile: context.relativePath(for: mainNode.location?.file ?? "src/title_screen.c"),
+            sourceFile: titleSourceFile,
             description: "title BGM cue"
         )
+        let playCaseNode = try caseNode(named: "TITLESCREEN_MAIN_PLAY", from: caseNodes)
+        let playCaseText = try context.snippet(for: playCaseNode)
+        let fadeOutDuration = try context.requiredInt(
+            #"BeginNormalPaletteFade\([^\n]*RGB_BLACK,\s*([0-9]+)\s*,\s*1\s*,\s*(?:data->heapID|HEAP_ID_TITLE_SCREEN)\s*\)"#,
+            in: playCaseText,
+            sourceFile: titleSourceFile,
+            description: "title fade-out duration"
+        )
+        let whiteFlashDuration = try context.requiredInt(
+            #"BeginNormalPaletteFade\([^\n]*RGB_WHITE,\s*([0-9]+)\s*,\s*1\s*,\s*HEAP_ID_TITLE_SCREEN\)"#,
+            in: playCaseText,
+            sourceFile: titleSourceFile,
+            description: "title menu white flash duration"
+        )
+        let bgmFadeDuration = try context.requiredInt(
+            #"GF_SndStartFadeOutBGM\(\s*0\s*,\s*([0-9]+)\s*\)"#,
+            in: playCaseText,
+            sourceFile: titleSourceFile,
+            description: "title BGM fade duration"
+        )
+        let postFlashFadeDuration = max(1, bgmFadeDuration - whiteFlashDuration)
 
         let states = try stateNames.map { stateName -> HGSSOpeningProgramIR.State in
             let caseNode = try caseNode(named: stateName, from: caseNodes)
@@ -281,17 +309,24 @@ struct PokeheartgoldOpeningIRLowerer {
             case "TITLESCREEN_MAIN_PROCEED_FLASH":
                 return .init(
                     id: titleStateID(for: stateName),
-                    duration: .indefinite,
-                    commands: [hiddenPromptCommand],
+                    duration: .fixedFrames(whiteFlashDuration),
+                    commands: [
+                        hiddenPromptCommand,
+                        .fade(
+                            .init(
+                                target: .palette,
+                                startLevel: 0,
+                                endLevel: 31,
+                                durationFrames: whiteFlashDuration,
+                                colorHex: "#FFFFFF",
+                                provenance: provenance
+                            )
+                        )
+                    ],
                     transitions: [
                         .init(
-                            trigger: .flagEquals(name: "title_white_flash_finished", value: 1),
+                            trigger: .stateCompleted,
                             targetStateID: titleStateID(for: "TITLESCREEN_MAIN_PROCEED_FLASH_2"),
-                            provenance: provenance
-                        ),
-                        .init(
-                            trigger: .flagEquals(name: "title_bgm_fade_complete", value: 1),
-                            targetStateID: titleStateID(for: "TITLESCREEN_MAIN_FADEOUT"),
                             provenance: provenance
                         ),
                     ],
@@ -300,11 +335,11 @@ struct PokeheartgoldOpeningIRLowerer {
             case "TITLESCREEN_MAIN_PROCEED_FLASH_2":
                 return .init(
                     id: titleStateID(for: stateName),
-                    duration: .indefinite,
+                    duration: .fixedFrames(postFlashFadeDuration),
                     commands: [hiddenPromptCommand],
                     transitions: [
                         .init(
-                            trigger: .flagEquals(name: "title_bgm_fade_complete", value: 1),
+                            trigger: .stateCompleted,
                             targetStateID: titleStateID(for: "TITLESCREEN_MAIN_FADEOUT"),
                             provenance: provenance
                         )
@@ -314,11 +349,11 @@ struct PokeheartgoldOpeningIRLowerer {
             case "TITLESCREEN_MAIN_PROCEED_NOFLASH":
                 return .init(
                     id: titleStateID(for: stateName),
-                    duration: .indefinite,
+                    duration: .fixedFrames(bgmFadeDuration),
                     commands: [hiddenPromptCommand],
                     transitions: [
                         .init(
-                            trigger: .flagEquals(name: "title_bgm_fade_complete", value: 1),
+                            trigger: .stateCompleted,
                             targetStateID: titleStateID(for: "TITLESCREEN_MAIN_FADEOUT"),
                             provenance: provenance
                         )
@@ -328,8 +363,23 @@ struct PokeheartgoldOpeningIRLowerer {
             case "TITLESCREEN_MAIN_FADEOUT":
                 return .init(
                     id: titleStateID(for: stateName),
-                    duration: .indefinite,
-                    commands: [hiddenPromptCommand],
+                    duration: .fixedFrames(fadeOutDuration),
+                    commands: [
+                        hiddenPromptCommand,
+                        .dispatchAudio(
+                            .init(action: .stopBGM, cueName: titleBGM, provenance: provenance)
+                        ),
+                        .fade(
+                            .init(
+                                target: .palette,
+                                startLevel: 0,
+                                endLevel: 31,
+                                durationFrames: fadeOutDuration,
+                                colorHex: "#000000",
+                                provenance: provenance
+                            )
+                        )
+                    ],
                     transitions: [],
                     provenance: provenance
                 )
@@ -381,21 +431,22 @@ struct PokeheartgoldOpeningIRLowerer {
 
     private func lowerPromptFlash(
         animRunNode: ClangASTNode,
+        titleSourceFile: String,
+        titleSourceText: String,
         context: OpeningIRLoweringContext
     ) throws -> HGSSOpeningProgramIR.PromptFlashCommand {
-        let sourceFile = context.relativePath(for: animRunNode.location?.file ?? "src/title_screen.c")
         let animRunText = try context.snippet(for: animRunNode)
         let equalityMatches = try context.matchIntegers(
             #"startInstructionFlashTimer\s*==\s*([0-9]+)"#,
             in: animRunText,
-            sourceFile: sourceFile,
+            sourceFile: titleSourceFile,
             description: "title prompt flash thresholds"
         )
         let visibleFrames = equalityMatches.max() ?? 0
         let cycleFrames = try context.requiredInt(
             #"startInstructionFlashTimer\s*>=\s*([0-9]+)"#,
             in: animRunText,
-            sourceFile: sourceFile,
+            sourceFile: titleSourceFile,
             description: "title prompt flash cycle length"
         )
         guard visibleFrames > 0, cycleFrames > visibleFrames else {
@@ -404,14 +455,74 @@ struct PokeheartgoldOpeningIRLowerer {
                 cycleFrames: cycleFrames
             )
         }
+        let promptRect = try titlePromptRect(
+            sourceFile: titleSourceFile,
+            titleSourceText: titleSourceText,
+            context: context
+        )
+        let promptText = try titlePromptText(context: context)
 
         return .init(
             targetID: "start_prompt",
             visibleFrames: visibleFrames,
             hiddenFrames: cycleFrames - visibleFrames,
+            screen: .top,
+            rect: promptRect,
+            text: promptText,
             initialPhase: .visible,
             provenance: context.provenance(for: animRunNode, symbolOverride: "TitleScreenAnim_Run")
         )
+    }
+
+    private func titlePromptRect(
+        sourceFile: String,
+        titleSourceText: String,
+        context: OpeningIRLoweringContext
+    ) throws -> HGSSOpeningProgramIR.ScreenRect {
+        let rawFields = try context.requiredMatch(
+            #"static\s+const\s+WindowTemplate\s+sTouchToStartWindow\s*=\s*\{\s*[^,]+,\s*([0-9]+\s*,\s*[0-9]+\s*,\s*[0-9]+\s*,\s*[0-9]+)\s*,"#,
+            in: titleSourceText,
+            sourceFile: sourceFile,
+            description: "title prompt window template"
+        )
+        let values = rawFields
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard values.count == 4,
+              let leftTiles = Int(values[0]),
+              let topTiles = Int(values[1]),
+              let widthTiles = Int(values[2]),
+              let heightTiles = Int(values[3]) else {
+            throw OpeningIRLoweringError.invalidPatternInteger(
+                sourceFile: sourceFile,
+                description: "title prompt window template",
+                value: rawFields
+            )
+        }
+
+        return .init(
+            x: leftTiles * 8,
+            y: topTiles * 8,
+            width: widthTiles * 8,
+            height: heightTiles * 8
+        )
+    }
+
+    private func titlePromptText(
+        context: OpeningIRLoweringContext
+    ) throws -> String {
+        let messageURL = context.rootURL
+            .appendingPathComponent("files/msgdata/msg/msg_0719.gmm", isDirectory: false)
+        let messageText = try String(contentsOf: messageURL, encoding: .utf8)
+        let rawPrompt = try context.requiredMatch(
+            #"<language\s+name=\"English\">([^<]+)</language>"#,
+            in: messageText,
+            sourceFile: "files/msgdata/msg/msg_0719.gmm",
+            description: "title prompt text"
+        )
+        return rawPrompt
+            .replacingOccurrences(of: "{ALN_CENTER}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func titleCaseNodes(
@@ -482,6 +593,10 @@ private struct OpeningIRLoweringContext {
     private let translationUnits: [ClangTranslationUnit]
     private let sourceDocuments: [String: OpeningSourceDocument]
     private let pretRoot: URL
+
+    var rootURL: URL {
+        pretRoot
+    }
 
     init(
         translationUnits: [ClangTranslationUnit],

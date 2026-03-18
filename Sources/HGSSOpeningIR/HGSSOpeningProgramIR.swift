@@ -274,6 +274,7 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         public let startLevel: Int
         public let endLevel: Int
         public let durationFrames: Int
+        public let colorHex: String?
         public let provenance: Provenance
 
         public init(
@@ -281,12 +282,14 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             startLevel: Int,
             endLevel: Int,
             durationFrames: Int,
+            colorHex: String? = nil,
             provenance: Provenance
         ) {
             self.target = target
             self.startLevel = startLevel
             self.endLevel = endLevel
             self.durationFrames = durationFrames
+            self.colorHex = colorHex
             self.provenance = provenance
         }
     }
@@ -350,6 +353,9 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
         public let targetID: String
         public let visibleFrames: Int
         public let hiddenFrames: Int
+        public let screen: ScreenID?
+        public let rect: ScreenRect?
+        public let text: String?
         public let initialPhase: InitialPhase
         public let provenance: Provenance
 
@@ -357,12 +363,18 @@ public struct HGSSOpeningProgramIR: Codable, Equatable, Sendable {
             targetID: String,
             visibleFrames: Int,
             hiddenFrames: Int,
+            screen: ScreenID? = nil,
+            rect: ScreenRect? = nil,
+            text: String? = nil,
             initialPhase: InitialPhase,
             provenance: Provenance
         ) {
             self.targetID = targetID
             self.visibleFrames = visibleFrames
             self.hiddenFrames = hiddenFrames
+            self.screen = screen
+            self.rect = rect
+            self.text = text
             self.initialPhase = initialPhase
             self.provenance = provenance
         }

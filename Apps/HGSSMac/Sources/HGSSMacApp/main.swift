@@ -7,6 +7,7 @@ import SwiftUI
 final class GameViewModel: ObservableObject {
     struct ReadyState {
         let loadedBundle: LoadedOpeningBundle
+        let loadedProgram: LoadedOpeningProgram
         let controller: HGSSOpeningPlaybackController
         let audioPlayer: HGSSOpeningAudioPlayer
     }
@@ -33,7 +34,11 @@ final class GameViewModel: ObservableObject {
             do {
                 let contentRoot = try resolveContentRoot()
                 let loadedBundle = try OpeningBundleLoader().load(from: contentRoot)
-                let controller = HGSSOpeningPlaybackController(loadedBundle: loadedBundle)
+                let loadedProgram = try OpeningProgramLoader().load(from: contentRoot)
+                let controller = HGSSOpeningPlaybackController(
+                    loadedBundle: loadedBundle,
+                    loadedProgram: loadedProgram
+                )
                 let audioPlayer = HGSSOpeningAudioPlayer(loadedBundle: loadedBundle)
                 controller.onAudioCue = { dispatchedCue in
                     audioPlayer.handle(dispatchedCue)
@@ -45,6 +50,7 @@ final class GameViewModel: ObservableObject {
 
                 let readyState = ReadyState(
                     loadedBundle: loadedBundle,
+                    loadedProgram: loadedProgram,
                     controller: controller,
                     audioPlayer: audioPlayer
                 )
@@ -121,7 +127,9 @@ final class GameViewModel: ObservableObject {
 
     private func hasOpeningContent(at root: URL) -> Bool {
         let bundleURL = root.appendingPathComponent("opening_bundle.json", isDirectory: false)
-        return FileManager.default.fileExists(atPath: bundleURL.path())
+        let programURL = root.appendingPathComponent("opening_program_ir.json", isDirectory: false)
+        return FileManager.default.fileExists(atPath: bundleURL.path()) &&
+            FileManager.default.fileExists(atPath: programURL.path())
     }
 
     private func errorMessage(for error: Error) -> String {
@@ -173,7 +181,7 @@ private struct LoadingView: View {
                 .foregroundStyle(.white)
             ProgressView()
                 .tint(.white)
-            Text("Loading the extracted HeartGold intro movie scenes and title handoff.")
+            Text("Loading the extracted HeartGold intro movie scenes and title-screen program.")
                 .foregroundStyle(Color.white.opacity(0.82))
         }
         .padding(28)

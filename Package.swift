@@ -64,7 +64,7 @@ let package = Package(
         ),
         .target(
             name: "HGSSRender",
-            dependencies: ["HGSSCore", "HGSSDataModel"],
+            dependencies: ["HGSSCore", "HGSSDataModel", "HGSSOpeningIR"],
             path: "Sources/HGSSRender"
         ),
         .executableTarget(
@@ -105,6 +105,7 @@ let package = Package(
                 "HGSSRender",
                 "HGSSDataModel",
                 "HGSSCore",
+                "HGSSOpeningIR",
                 .product(name: "Testing", package: "swift-testing")
             ],
             path: "Tests/HGSSRenderTests"

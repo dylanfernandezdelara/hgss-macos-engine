@@ -82,13 +82,35 @@ struct OpeningIRLowererTests {
         }.first)
         #expect(promptFlash.visibleFrames == 30)
         #expect(promptFlash.hiddenFrames == 15)
+        #expect(promptFlash.screen == .top)
+        #expect(promptFlash.rect == .init(x: 0, y: 144, width: 256, height: 16))
+        #expect(promptFlash.text == "TOUCH TO START")
 
         let proceedFlash = try #require(titleScene.states.first(where: { $0.id == "title_proceed_flash" }))
+        #expect(proceedFlash.duration == .fixedFrames(5))
         #expect(proceedFlash.transitions.contains(where: {
-            $0.targetStateID == "title_proceed_flash_2" && $0.trigger == .flagEquals(name: "title_white_flash_finished", value: 1)
+            $0.targetStateID == "title_proceed_flash_2" && $0.trigger == .stateCompleted
         }))
-        #expect(proceedFlash.transitions.contains(where: {
-            $0.targetStateID == "title_fadeout" && $0.trigger == .flagEquals(name: "title_bgm_fade_complete", value: 1)
+        #expect(proceedFlash.commands.contains(where: { command in
+            if case let .fade(payload) = command {
+                return payload.colorHex == "#FFFFFF" && payload.durationFrames == 5
+            }
+            return false
+        }))
+
+        let proceedFlash2 = try #require(titleScene.states.first(where: { $0.id == "title_proceed_flash_2" }))
+        #expect(proceedFlash2.duration == .fixedFrames(55))
+
+        let proceedNoFlash = try #require(titleScene.states.first(where: { $0.id == "title_proceed_noflash" }))
+        #expect(proceedNoFlash.duration == .fixedFrames(60))
+
+        let fadeOut = try #require(titleScene.states.first(where: { $0.id == "title_fadeout" }))
+        #expect(fadeOut.duration == .fixedFrames(6))
+        #expect(fadeOut.commands.contains(where: { command in
+            if case let .dispatchAudio(payload) = command {
+                return payload.action == .stopBGM && payload.cueName == "SEQ_GS_POKEMON_THEME"
+            }
+            return false
         }))
     }
 
