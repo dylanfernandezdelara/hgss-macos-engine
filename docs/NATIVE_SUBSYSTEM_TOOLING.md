@@ -30,8 +30,9 @@ Current repo state:
 
 - `HGSSExtractCLI` now has a working `clang-c` parser path backed by Homebrew LLVM headers and `libclang`
 - the extractor now validates the upstream opening/title sources through that parser before continuing with the existing extraction flow
+- the extractor now emits a first `opening_program_ir.json` artifact with source-backed opening scene order plus the initial title-screen state machine and prompt-flash timing
 - local parser-only support headers are generated under `Content/Local/Tooling/pokeheartgold_parse_support/`
-- remaining work is AST-to-IR lowering and replacing the remaining regex-derived metadata
+- remaining work is expanding that IR from high-level sequencing into per-scene directives and replacing the remaining regex-derived metadata
 
 Required tools:
 
@@ -50,6 +51,7 @@ Required outputs:
 - exact BG/window/scroll/fade directives
 - exact screen-flip state
 - exact title-screen play-state behavior, including the flashing start prompt
+- emitted local artifact, currently `opening_program_ir.json`
 
 Why it is needed:
 
@@ -234,12 +236,19 @@ These remain useful, but they are not sufficient by themselves for exact parity.
 
 ## Recommended Order
 
-1. Finish AST-to-IR lowering from the now-working `clang-c` parser path and replace remaining hand-authored opening/title metadata.
-2. Extend the title target from a single frozen handoff frame to the real title-screen play state with flashing start prompt.
-3. Build the native audio core for the opening/title cue set.
-4. Replace parity-critical SceneKit usage with native 3D playback or deterministic baked frames.
-5. Finish the exact particle path for scene 4.
-6. Run the parity harness until visual and audio diffs are eliminated.
+1. Expand AST-to-IR lowering from scene sequencing into per-scene BG/window/scroll/fade directives for `intro_movie_scene_1.c` through `intro_movie_scene_5.c`, replacing the remaining regex-derived metadata.
+2. Start consuming `opening_program_ir.json` in extractor-side validation and runtime sequencing so title-state timing no longer depends on duplicated hand-authored logic.
+3. Extend the title target from a single frozen handoff frame to the real title-screen play state with flashing start prompt.
+4. Build the native audio core for the opening/title cue set.
+5. Replace parity-critical SceneKit usage with native 3D playback or deterministic baked frames.
+6. Finish the exact particle path for scene 4.
+7. Run the parity harness until visual and audio diffs are eliminated.
+
+## Immediate Todos
+
+1. Lower `intro_movie_scene_1.c` through `intro_movie_scene_5.c` into concrete IR commands for fades, window masks, scrolls, and scene-local timings.
+2. Add extractor snapshot coverage for `opening_program_ir.json` so parser-driven scene/state output is byte-stable.
+3. Thread the emitted IR into the title/opening playback controller before replacing render/audio subsystems underneath it.
 
 ## Non-Goals
 
