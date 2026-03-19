@@ -10,6 +10,14 @@ if [[ -d /Applications/Xcode.app/Contents/Developer ]]; then
   export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
 
+if [[ -z "${LLVM_PREFIX:-}" ]] && command -v brew >/dev/null 2>&1; then
+  BREW_LLVM_PREFIX="$(brew --prefix llvm 2>/dev/null || true)"
+  if [[ -n "$BREW_LLVM_PREFIX" && -f "$BREW_LLVM_PREFIX/include/clang-c/Index.h" ]]; then
+    export LLVM_PREFIX="$BREW_LLVM_PREFIX"
+    echo "Using Homebrew LLVM at $LLVM_PREFIX"
+  fi
+fi
+
 SWIFT=(xcrun swift)
 
 echo "Resolving root package dependencies..."

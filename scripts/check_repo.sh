@@ -8,7 +8,12 @@ if [[ -d /Applications/Xcode.app/Contents/Developer ]]; then
   export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
 
-SWIFT=(xcrun swift)
+TEST_SCRATCH="$ROOT_DIR/.build-tests"
+APP_SCRATCH="$ROOT_DIR/.build-app"
+EXTRACTOR_SCRATCH="$ROOT_DIR/.build-extractor"
+SWIFT_SHARED=(xcrun swift)
+SWIFT_APP=(xcrun swift)
+SWIFT_EXTRACTOR=(xcrun swift)
 
 echo "Checking required files..."
 required=(
@@ -31,13 +36,13 @@ for file in "${required[@]}"; do
 done
 
 echo "Building shared package..."
-"${SWIFT[@]}" build
+"${SWIFT_SHARED[@]}" build --scratch-path "$TEST_SCRATCH"
 
 echo "Building app shell package..."
-"${SWIFT[@]}" build --package-path Apps/HGSSMac
+"${SWIFT_APP[@]}" build --package-path Apps/HGSSMac --scratch-path "$APP_SCRATCH"
 
 echo "Running HeartGold opening extractor dry-run check..."
-"${SWIFT[@]}" run HGSSExtractCLI \
+"${SWIFT_EXTRACTOR[@]}" run --scratch-path "$EXTRACTOR_SCRATCH" HGSSExtractCLI \
   --mode opening-heartgold \
   --input "$ROOT_DIR/DevContent/Stub" \
   --output "$ROOT_DIR/Content/Local/CheckRepoExtract" \

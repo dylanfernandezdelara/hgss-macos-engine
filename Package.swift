@@ -1,5 +1,17 @@
 // swift-tools-version: 5.10
+import Foundation
 import PackageDescription
+
+let llvmPrefix = resolvedLLVMPrefix()
+let llvmIncludePath = "\(llvmPrefix)/include"
+let llvmLibraryPath = "\(llvmPrefix)/lib"
+let libclangLinkerSettings: [LinkerSetting] = [
+    .unsafeFlags(["-L", llvmLibraryPath]),
+    .linkedLibrary("clang"),
+]
+let libclangSwiftSettings: [SwiftSetting] = [
+    .unsafeFlags(["-Xcc", "-I\(llvmIncludePath)"]),
+]
 
 let package = Package(
     name: "HGSSEngine",
@@ -8,6 +20,7 @@ let package = Package(
     ],
     products: [
         .library(name: "HGSSDataModel", targets: ["HGSSDataModel"]),
+        .library(name: "HGSSOpeningIR", targets: ["HGSSOpeningIR"]),
         .library(name: "HGSSContent", targets: ["HGSSContent"]),
         .library(name: "HGSSTelemetry", targets: ["HGSSTelemetry"]),
         .library(name: "HGSSCore", targets: ["HGSSCore"]),
@@ -19,8 +32,20 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "CClangC",
+            path: "Sources/CClangC",
+            publicHeadersPath: "include",
+            cSettings: [
+                .unsafeFlags(["-I", llvmIncludePath]),
+            ]
+        ),
+        .target(
             name: "HGSSDataModel",
             path: "Sources/HGSSDataModel"
+        ),
+        .target(
+            name: "HGSSOpeningIR",
+            path: "Sources/HGSSOpeningIR"
         ),
         .target(
             name: "HGSSContent",
@@ -39,13 +64,34 @@ let package = Package(
         ),
         .target(
             name: "HGSSRender",
-            dependencies: ["HGSSCore", "HGSSDataModel"],
-            path: "Sources/HGSSRender"
+            dependencies: ["HGSSCore", "HGSSDataModel", "HGSSOpeningIR"],
+            path: "Sources/HGSSRender",
+            sources: [
+                "DSGlyphTextRenderer.swift",
+                "DualScreenView.swift",
+                "OpeningAudioPlayer.swift",
+                "OpeningBundleLoader.swift",
+                "OpeningPlaybackController.swift",
+                "OpeningPlayerView.swift",
+                "OpeningProgramLoader.swift",
+                "OpeningScreenCompositor.swift",
+                "RenderBundleLoader.swift",
+            ]
         ),
         .executableTarget(
             name: "HGSSExtractCLI",
-            dependencies: ["HGSSContent", "HGSSDataModel"],
-            path: "Sources/HGSSExtractCLI"
+            dependencies: ["CClangC", "HGSSContent", "HGSSDataModel", "HGSSOpeningIR"],
+            path: "Sources/HGSSExtractCLI",
+            swiftSettings: libclangSwiftSettings,
+            linkerSettings: libclangLinkerSettings
+        ),
+        .testTarget(
+            name: "HGSSOpeningIRTests",
+            dependencies: [
+                "HGSSOpeningIR",
+                .product(name: "Testing", package: "swift-testing")
+            ],
+            path: "Tests/HGSSOpeningIRTests"
         ),
         .testTarget(
             name: "HGSSContentTests",
@@ -70,6 +116,7 @@ let package = Package(
                 "HGSSRender",
                 "HGSSDataModel",
                 "HGSSCore",
+                "HGSSOpeningIR",
                 .product(name: "Testing", package: "swift-testing")
             ],
             path: "Tests/HGSSRenderTests"
@@ -78,10 +125,44 @@ let package = Package(
             name: "HGSSExtractCLITests",
             dependencies: [
                 "HGSSExtractCLI",
+                "HGSSCore",
                 "HGSSDataModel",
+                "HGSSOpeningIR",
+                "HGSSRender",
                 .product(name: "Testing", package: "swift-testing")
             ],
-            path: "Tests/HGSSExtractCLITests"
+            path: "Tests/HGSSExtractCLITests",
+            swiftSettings: libclangSwiftSettings,
+            linkerSettings: libclangLinkerSettings
         )
     ]
 )
+
+private func resolvedLLVMPrefix() -> String {
+    if let environmentPrefix = ProcessInfo.processInfo.environment["LLVM_PREFIX"], !environmentPrefix.isEmpty {
+        return environmentPrefix
+    }
+
+    let candidatePrefixes = [
+        "/opt/homebrew/opt/llvm",
+        "/usr/local/opt/llvm",
+        "/opt/local/libexec/llvm-22",
+        "/opt/local/libexec/llvm-21",
+    ]
+    let fileManager = FileManager.default
+
+    for prefix in candidatePrefixes {
+        let headerPath = "\(prefix)/include/clang-c/Index.h"
+        if fileManager.fileExists(atPath: headerPath) {
+            return prefix
+        }
+    }
+
+    fatalError(
+        """
+        Unable to locate an LLVM install that provides clang-c/Index.h.
+        Set LLVM_PREFIX to the LLVM/Homebrew prefix, for example:
+          export LLVM_PREFIX=/opt/homebrew/opt/llvm
+        """
+    )
+}

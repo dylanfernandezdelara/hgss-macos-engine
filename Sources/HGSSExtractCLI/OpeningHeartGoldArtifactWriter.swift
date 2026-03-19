@@ -1,5 +1,6 @@
 import Foundation
 import HGSSDataModel
+import HGSSOpeningIR
 
 struct OpeningProvenanceDocument: Codable, Equatable {
     struct AssetSource: Codable, Equatable {
@@ -82,13 +83,21 @@ struct OpeningHeartGoldArtifactWriter {
 
     func write(
         bundle: HGSSOpeningBundle,
+        programIR: HGSSOpeningProgramIR,
         provenance: OpeningProvenanceDocument,
         reference: OpeningReferenceDocument,
         report: OpeningExtractReport,
         outputRoot: URL
     ) throws {
-        try validate(bundle: bundle, provenance: provenance, reference: reference, outputRoot: outputRoot)
+        try validate(
+            bundle: bundle,
+            programIR: programIR,
+            provenance: provenance,
+            reference: reference,
+            outputRoot: outputRoot
+        )
         try writeJSON(bundle, to: outputRoot.appendingPathComponent("opening_bundle.json", isDirectory: false))
+        try writeJSON(programIR, to: outputRoot.appendingPathComponent("opening_program_ir.json", isDirectory: false))
         try writeJSON(provenance, to: outputRoot.appendingPathComponent("opening_provenance.json", isDirectory: false))
         try writeJSON(reference, to: outputRoot.appendingPathComponent("opening_reference.json", isDirectory: false))
         try writeJSON(report, to: outputRoot.appendingPathComponent("opening_extract_report.json", isDirectory: false))
@@ -96,10 +105,13 @@ struct OpeningHeartGoldArtifactWriter {
 
     func validate(
         bundle: HGSSOpeningBundle,
+        programIR: HGSSOpeningProgramIR,
         provenance: OpeningProvenanceDocument,
         reference: OpeningReferenceDocument,
         outputRoot: URL
     ) throws {
+        try programIR.validate()
+
         let actualSceneOrder = bundle.scenes.map(\.id.rawValue)
         let expectedSceneOrder = HGSSOpeningBundle.SceneID.allCases.map(\.rawValue)
         guard actualSceneOrder == expectedSceneOrder else {

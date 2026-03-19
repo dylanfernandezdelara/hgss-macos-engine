@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import ndspy.color
+import ndspy.lz10
 import ndspy.narc
 import ndspy.soundArchive
 import ndspy.soundBank
@@ -899,9 +900,19 @@ def render_sequence_audio(args: argparse.Namespace) -> None:
 
     sequence_cycle_accumulator = 0
     current_time = 0.0
+    target_duration_seconds = args.target_duration_seconds
 
     while True:
+        if target_duration_seconds is not None and current_time >= target_duration_seconds:
+            for track in track_states.values():
+                track.ended = True
+            break
+
         while any(not track.ended and track.wait_ticks == 0 for track in track_states.values()):
+            if target_duration_seconds is not None and current_time >= target_duration_seconds:
+                for track in track_states.values():
+                    track.ended = True
+                break
             for track_number in sorted(track_states.keys()):
                 track = track_states[track_number]
                 if not track.ended and track.wait_ticks == 0:
@@ -1588,6 +1599,51 @@ def decode_sprite(args: argparse.Namespace) -> None:
     manifest_path = output_dir / "manifest.json"
     with manifest_path.open("w", encoding="utf-8") as handle:
         json.dump(manifest, handle, indent=2, sort_keys=True)
+
+
+def extract_narc_members(args: argparse.Namespace) -> None:
+    narc = ndspy.narc.NARC.fromFile(args.input)
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for member in args.members:
+        member_index = int(member)
+        if member_index < 0 or member_index >= len(narc.files):
+            raise ValueError(f"NARC member index {member_index} is out of range for {args.input}")
+
+        payload = narc.files[member_index]
+        if args.auto_decompress_lz10 and payload[:1] == b"\x10":
+            payload = ndspy.lz10.decompress(payload)
+
+        (output_dir / f"{member_index}.bin").write_bytes(payload)
+
+
+def render_ncgr_sheet(args: argparse.Namespace) -> None:
+    ncgr = NCGR.load_from(args.ncgr)
+    nclr = NCLR.load_from(args.nclr)
+    width_tiles = max(1, int(args.width_tiles))
+    tile_count = len(ncgr.tiles)
+    height_tiles = max(1, math.ceil(tile_count / width_tiles))
+    image = Image.new("RGBA", (width_tiles * 8, height_tiles * 8), (0, 0, 0, 0))
+
+    for tile_index, tile in enumerate(ncgr.tiles):
+        tile_x = tile_index % width_tiles
+        tile_y = tile_index // width_tiles
+        for pixel_index, color_index in enumerate(tile):
+            pixel_x = pixel_index % 8
+            pixel_y = pixel_index // 8
+            if color_index >= len(nclr.colors):
+                continue
+            red, green, blue = nclr.colors[color_index]
+            alpha = 0 if args.transparent_index_zero and color_index == 0 else 255
+            image.putpixel(
+                (tile_x * 8 + pixel_x, tile_y * 8 + pixel_y),
+                (red, green, blue, alpha),
+            )
+
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    image.save(output, "PNG")
 
 
 def summarize_sdat(args: argparse.Namespace) -> None:
@@ -2442,6 +2498,21 @@ def build_parser() -> argparse.ArgumentParser:
     sprite.add_argument("--nanr", required=True)
     sprite.add_argument("--output-dir", required=True)
     sprite.set_defaults(func=decode_sprite)
+
+    narc_extract = subparsers.add_parser("narc-extract", help="Extract raw NARC members to files.")
+    narc_extract.add_argument("--input", required=True)
+    narc_extract.add_argument("--output-dir", required=True)
+    narc_extract.add_argument("--members", nargs="+", required=True)
+    narc_extract.add_argument("--auto-decompress-lz10", action="store_true")
+    narc_extract.set_defaults(func=extract_narc_members)
+
+    ncgr_sheet = subparsers.add_parser("ncgr-sheet", help="Render an NCGR/NCLR tile sheet to PNG.")
+    ncgr_sheet.add_argument("--ncgr", required=True)
+    ncgr_sheet.add_argument("--nclr", required=True)
+    ncgr_sheet.add_argument("--output", required=True)
+    ncgr_sheet.add_argument("--width-tiles", type=int, default=8)
+    ncgr_sheet.add_argument("--transparent-index-zero", action="store_true")
+    ncgr_sheet.set_defaults(func=render_ncgr_sheet)
 
     sdat = subparsers.add_parser("sdat-summary", help="Summarize an SDAT archive to JSON.")
     sdat.add_argument("--input", required=True)

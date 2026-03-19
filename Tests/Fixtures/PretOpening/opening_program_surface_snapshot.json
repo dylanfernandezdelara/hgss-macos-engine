@@ -1,0 +1,305 @@
+{
+  "checkSaveRouting": {
+    "initialStateID": "check_save_route",
+    "messageTexts": {
+      "check_save_message_battle_hall_corrupted": "The most recent Battle Hall record\\nis corrupted.\\rThe previously saved record will be\\nloaded instead.\\n",
+      "check_save_message_battle_hall_erased": "The Battle Hall record has been erased.\\n\\n",
+      "check_save_message_battle_video_corrupted": "The most recent Battle Video is\\ncorrupted.\\rThe previously saved Battle Video will\\nbe loaded instead.\\n",
+      "check_save_message_battle_video_erased": "A Battle Video appears to have been\\nerased.",
+      "check_save_message_save_corrupted": "The save file is corrupted.\\nThe previous save file will be loaded.",
+      "check_save_message_save_erase": "The save file will be erased\\ndue to corruption or damage."
+    },
+    "transitions": [
+      {
+        "flagName": "check_save_status_flags",
+        "flagValue": 0,
+        "targetSceneID": "main_menu",
+        "targetStateID": "main_menu_route",
+        "triggerKind": "flag_equals"
+      },
+      {
+        "flagMask": 2,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_save_erase",
+        "triggerKind": "flag_bit_set"
+      },
+      {
+        "flagMask": 1,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_save_corrupted",
+        "triggerKind": "flag_bit_set"
+      },
+      {
+        "flagMask": 8,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_battle_hall_erased",
+        "triggerKind": "flag_bit_set"
+      },
+      {
+        "flagMask": 4,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_battle_hall_corrupted",
+        "triggerKind": "flag_bit_set"
+      },
+      {
+        "flagMask": 32,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_battle_video_erased",
+        "triggerKind": "flag_bit_set"
+      },
+      {
+        "flagMask": 16,
+        "flagName": "check_save_status_flags",
+        "targetStateID": "check_save_prepare_battle_video_corrupted",
+        "triggerKind": "flag_bit_set"
+      }
+    ]
+  },
+  "mainMenuRouting": {
+    "initialStateID": "main_menu_route",
+    "options": {
+      "main_menu_continue": {
+        "options": [
+          {
+            "destinationID": "ov36_App_MainMenu_SelectOption_Continue",
+            "enabled": true,
+            "id": "continue",
+            "requiredFlags": [
+              {
+                "name": "main_menu_has_save_data",
+                "value": 1
+              }
+            ],
+            "text": "CONTINUE"
+          },
+          {
+            "destinationID": "ov36_App_MainMenu_SelectOption_NewGame",
+            "enabled": true,
+            "id": "new_game",
+            "requiredFlags": [],
+            "text": "NEW GAME"
+          },
+          {
+            "destinationID": "ov112_App_MainMenu_SelectOption_ConnectToPokewalker",
+            "enabled": true,
+            "id": "pokewalker",
+            "requiredFlags": [],
+            "text": "CONNECT TO POK\u00E9WALKER"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MysteryGift",
+            "enabled": true,
+            "id": "mystery_gift",
+            "requiredFlags": [
+              {
+                "name": "main_menu_draw_mystery_gift",
+                "value": 1
+              },
+              {
+                "name": "main_menu_has_pokedex",
+                "value": 1
+              }
+            ],
+            "text": "MYSTERY GIFT"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_ConnectToRanger",
+            "enabled": true,
+            "id": "ranger",
+            "requiredFlags": [
+              {
+                "name": "main_menu_draw_ranger",
+                "value": 1
+              },
+              {
+                "name": "main_menu_has_pokedex",
+                "value": 1
+              }
+            ],
+            "text": "CONNECT TO POK\u00E9MON RANGER"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_ruby",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 1
+              }
+            ],
+            "text": "MIGRATE FROM RUBY"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_sapphire",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 2
+              }
+            ],
+            "text": "MIGRATE FROM SAPPHIRE"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_leafgreen",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 3
+              }
+            ],
+            "text": "MIGRATE FROM LEAFGREEN"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_firered",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 4
+              }
+            ],
+            "text": "MIGRATE FROM FIRERED"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_MigrateFromAgb",
+            "enabled": true,
+            "id": "migrate_emerald",
+            "requiredFlags": [
+              {
+                "name": "main_menu_connected_agb_game",
+                "value": 5
+              }
+            ],
+            "text": "MIGRATE FROM EMERALD"
+          },
+          {
+            "destinationID": "sub_02027098:data/eoo.dat",
+            "enabled": true,
+            "id": "connect_to_wii",
+            "requiredFlags": [
+              {
+                "name": "main_menu_draw_connect_to_wii",
+                "value": 1
+              }
+            ],
+            "text": "CONNECT TO Wii"
+          },
+          {
+            "destinationID": "gApp_MainMenu_SelectOption_NintendoWFCSetup",
+            "enabled": true,
+            "id": "wfc",
+            "requiredFlags": [],
+            "text": "NINTENDO WI-FI\\nCONNECTION SETTINGS"
+          },
+          {
+            "destinationID": "ov75_App_MainMenu_SelectOption_WiiMessageSettings",
+            "enabled": true,
+            "id": "wii_settings",
+            "requiredFlags": [],
+            "text": "Wii MESSAGE SETTINGS"
+          }
+        ],
+        "selectedOptionID": "continue"
+      },
+      "main_menu_new_game": {
+        "dispatchDestinationID": "ov36_App_MainMenu_SelectOption_NewGame",
+        "dispatchSelectionID": "new_game",
+        "options": [],
+        "selectedOptionID": null
+      }
+    },
+    "transitions": [
+      {
+        "flagName": "main_menu_has_save_data",
+        "flagValue": 1,
+        "targetStateID": "main_menu_continue",
+        "triggerKind": "flag_equals"
+      },
+      {
+        "flagName": "main_menu_has_save_data",
+        "flagValue": 0,
+        "targetStateID": "main_menu_new_game",
+        "triggerKind": "flag_equals"
+      }
+    ]
+  },
+  "sceneOrder": [
+    "scene1",
+    "scene2",
+    "scene3",
+    "scene4",
+    "scene5",
+    "title_screen",
+    "delete_save",
+    "mic_test",
+    "check_save",
+    "main_menu"
+  ],
+  "stateOrder": {
+    "check_save": [
+      "check_save_route",
+      "check_save_prepare_save_erase",
+      "check_save_fade_in_save_erase",
+      "check_save_message_save_erase",
+      "check_save_fade_out_save_erase",
+      "check_save_prepare_save_corrupted",
+      "check_save_fade_in_save_corrupted",
+      "check_save_message_save_corrupted",
+      "check_save_fade_out_save_corrupted",
+      "check_save_prepare_battle_hall_erased",
+      "check_save_fade_in_battle_hall_erased",
+      "check_save_message_battle_hall_erased",
+      "check_save_fade_out_battle_hall_erased",
+      "check_save_prepare_battle_hall_corrupted",
+      "check_save_fade_in_battle_hall_corrupted",
+      "check_save_message_battle_hall_corrupted",
+      "check_save_fade_out_battle_hall_corrupted",
+      "check_save_prepare_battle_video_erased",
+      "check_save_fade_in_battle_video_erased",
+      "check_save_message_battle_video_erased",
+      "check_save_fade_out_battle_video_erased",
+      "check_save_prepare_battle_video_corrupted",
+      "check_save_fade_in_battle_video_corrupted",
+      "check_save_message_battle_video_corrupted",
+      "check_save_fade_out_battle_video_corrupted"
+    ],
+    "main_menu": [
+      "main_menu_route",
+      "main_menu_continue",
+      "main_menu_new_game"
+    ],
+    "title_screen": [
+      "title_wait_fade",
+      "title_start_music",
+      "title_play_delay",
+      "title_play",
+      "title_proceed_flash",
+      "title_proceed_flash_2",
+      "title_proceed_noflash",
+      "title_fadeout_menu",
+      "title_fadeout_clearsave",
+      "title_fadeout_timeout",
+      "title_fadeout_mic_test"
+    ]
+  },
+  "titlePrompt": {
+    "hiddenFrames": 15,
+    "initialPhase": "visible",
+    "letterSpacing": 1,
+    "rect": {
+      "height": 16,
+      "width": 256,
+      "x": 0,
+      "y": 144
+    },
+    "screen": "top",
+    "text": "TOUCH TO START",
+    "visibleFrames": 30
+  }
+}

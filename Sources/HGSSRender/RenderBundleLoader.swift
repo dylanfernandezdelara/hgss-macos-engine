@@ -1,12 +1,15 @@
 import Foundation
 import HGSSCore
 import HGSSDataModel
+import HGSSOpeningIR
 
 public enum HGSSRenderError: LocalizedError {
     case bundleMissing(path: String)
     case bundleDecodeFailed(underlying: Error)
     case openingBundleMissing(path: String)
     case openingBundleDecodeFailed(underlying: Error)
+    case openingProgramMissing(path: String)
+    case openingProgramDecodeFailed(underlying: Error)
     case duplicateAssetID(String)
     case unknownAssetID(String)
     case missingAssetFile(assetID: String, path: String)
@@ -24,6 +27,10 @@ public enum HGSSRenderError: LocalizedError {
             return "Missing opening bundle at \(path)."
         case let .openingBundleDecodeFailed(underlying):
             return "Failed to decode opening bundle: \(underlying.localizedDescription)"
+        case let .openingProgramMissing(path):
+            return "Missing opening program IR at \(path)."
+        case let .openingProgramDecodeFailed(underlying):
+            return "Failed to decode opening program IR: \(underlying.localizedDescription)"
         case let .duplicateAssetID(assetID):
             return "Render bundle contains duplicate asset id '\(assetID)'."
         case let .unknownAssetID(assetID):
@@ -41,6 +48,16 @@ public enum HGSSRenderError: LocalizedError {
         }
     }
 
+}
+
+public struct LoadedOpeningProgram: Equatable, Sendable {
+    public let rootURL: URL
+    public let program: HGSSOpeningProgramIR
+
+    init(rootURL: URL, program: HGSSOpeningProgramIR) {
+        self.rootURL = rootURL
+        self.program = program
+    }
 }
 
 public struct LoadedRenderBundle: Equatable, Sendable {

@@ -1,12 +1,17 @@
 import AppKit
 import Foundation
 import HGSSDataModel
-import SceneKit
+import HGSSOpeningIR
 import SwiftUI
 
 public struct HGSSOpeningPlayerView: View {
+    private enum NativeMetrics {
+        static let screenGap: CGFloat = 18
+    }
+
     @ObservedObject private var controller: HGSSOpeningPlaybackController
     private let loadedBundle: LoadedOpeningBundle
+    private let compositor: HGSSOpeningScreenCompositor
     private let showDebugOverlay: Bool
     private let onBottomScreenTap: () -> Void
 
@@ -18,58 +23,32 @@ public struct HGSSOpeningPlayerView: View {
     ) {
         self.loadedBundle = loadedBundle
         self.controller = controller
+        self.compositor = HGSSOpeningScreenCompositor(loadedBundle: loadedBundle)
         self.showDebugOverlay = showDebugOverlay
         self.onBottomScreenTap = onBottomScreenTap
     }
 
     public var body: some View {
-        GeometryReader { geometry in
-            let topScreen = loadedBundle.bundle.topScreen
-            let bottomScreen = loadedBundle.bundle.bottomScreen
-            let chromePadding: CGFloat = 24
-            let availableWidth = max(0, geometry.size.width - (chromePadding * 2))
-            let availableHeight = max(0, geometry.size.height - (chromePadding * 2))
-            let scale = HGSSDualScreenLayout.integerScale(
-                containerWidth: availableWidth,
-                containerHeight: availableHeight,
-                nativeWidth: topScreen.width,
-                topHeight: topScreen.height,
-                bottomHeight: bottomScreen.height,
-                screenGap: 18
-            )
-            let scaledWidth = CGFloat(topScreen.width * scale)
-            let scaledHeight = CGFloat((topScreen.height + bottomScreen.height) * scale) + (18 * CGFloat(scale))
+        let topScreen = loadedBundle.bundle.topScreen
+        let bottomScreen = loadedBundle.bundle.bottomScreen
 
-            VStack(spacing: 18) {
-                openingScreenView(screen: .top, size: topScreen)
-                    .frame(width: CGFloat(topScreen.width), height: CGFloat(topScreen.height))
+        VStack(spacing: NativeMetrics.screenGap) {
+            openingScreenView(screen: .top, size: topScreen)
+                .frame(width: CGFloat(topScreen.width), height: CGFloat(topScreen.height))
 
-                openingScreenView(screen: .bottom, size: bottomScreen)
-                    .frame(width: CGFloat(bottomScreen.width), height: CGFloat(bottomScreen.height))
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        onBottomScreenTap()
-                    }
-            }
-            .scaleEffect(CGFloat(scale), anchor: .center)
-            .frame(
-                width: scaledWidth,
-                height: scaledHeight
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            .padding(chromePadding)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(hex: "#040507"),
-                        Color(hex: "#111014"),
-                        Color(hex: "#20160E")
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            openingScreenView(screen: .bottom, size: bottomScreen)
+                .frame(width: CGFloat(bottomScreen.width), height: CGFloat(bottomScreen.height))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    onBottomScreenTap()
+                }
         }
+        .frame(
+            width: CGFloat(topScreen.width),
+            height: CGFloat(topScreen.height + bottomScreen.height) + NativeMetrics.screenGap,
+            alignment: .top
+        )
+        .background(Color.black)
     }
 
     @ViewBuilder
@@ -77,62 +56,116 @@ public struct HGSSOpeningPlayerView: View {
         screen: HGSSOpeningBundle.ScreenID,
         size: HGSSOpeningBundle.NativeScreen
     ) -> some View {
-        let scene = controller.currentScene
-        let frame = controller.state.frameInScene
-        let screenLayers = layers(for: screen, scene: scene, frame: frame)
-        let screenSprites = spriteAnimations(for: screen, scene: scene, frame: frame)
-        let screenModels = modelAnimations(for: screen, scene: scene, frame: frame)
-        let screenBrightness = overlayForScreen(screen, scene: scene, frame: frame)
-        let maskState = maskStateForScreen(screen, scene: scene, frame: frame, size: size)
-        let circleWipeState = circleWipeStateForScreen(screen, scene: scene, frame: frame)
+        ZStack(alignment: .topLeading) {
+            if let renderedImage = compositor.renderCGImage(
+                screen: screen,
+                size: size,
+                controller: controller
+            ) {
+                Image(decorative: renderedImage, scale: 1, orientation: .up)
+                    .interpolation(.none)
+                    .frame(width: CGFloat(size.width), height: CGFloat(size.height), alignment: .topLeading)
+            } else {
+                Color.black
+                    .frame(width: CGFloat(size.width), height: CGFloat(size.height), alignment: .topLeading)
+            }
+
+            if showDebugOverlay {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(controller.currentProgramScene?.id.rawValue ?? controller.currentScene.id.rawValue)
+                    Text("frame \(controller.state.frameInScene)/\(controller.currentScene.durationFrames - 1)")
+                    if let programState = controller.currentProgramState {
+                        Text("\(programState.id) @ \(controller.state.frameInProgramState)")
+                    }
+                }
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .padding(8)
+                .foregroundStyle(.white)
+                .background(Color.black.opacity(0.45))
+            }
+        }
+        .background(Color.black)
+        .clipped()
+    }
+
+    private func hasProgramSurfaceContent(for screen: HGSSOpeningBundle.ScreenID) -> Bool {
+        let programScreen = programScreenID(for: screen)
+        return controller.activeSolidFill(screen: programScreen) != nil
+            || controller.activeMessageBox(screen: programScreen) != nil
+            || controller.activeMenu(screen: programScreen) != nil
+    }
+
+    private func programPromptView(
+        _ prompt: HGSSOpeningProgramIR.PromptFlashCommand
+    ) -> some View {
+        let rect = prompt.rect ?? .init(x: 0, y: 144, width: 256, height: 16)
+        let promptText = prompt.text ?? "TOUCH TO START"
+        return glyphTextView(
+            promptText,
+            style: .init(
+                foregroundPaletteIndex: 1,
+                shadowPaletteIndex: 1,
+                backgroundPaletteIndex: 0,
+                letterSpacing: prompt.letterSpacing
+            ),
+            fallback: {
+                Text(promptText)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(0.8)
+                    .foregroundStyle(Color(red: 0.86, green: 0.55, blue: 0.09))
+            }
+        )
+            .frame(width: CGFloat(rect.width), height: CGFloat(rect.height))
+            .position(
+                x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
+                y: CGFloat(rect.y) + (CGFloat(rect.height) / 2.0)
+            )
+    }
+
+    @ViewBuilder
+    private func postTitleProgramScreenView(
+        screen: HGSSOpeningBundle.ScreenID,
+        size: HGSSOpeningBundle.NativeScreen
+    ) -> some View {
+        let programScreen = programScreenID(for: screen)
+        let fill = controller.activeSolidFill(screen: programScreen)
+        let messageBox = controller.activeMessageBox(screen: programScreen)
+        let menu = controller.activeMenu(screen: programScreen)
+        let programFadeOverlay = controller.activeProgramFadeOverlay()
+        let programGlowOverlay = controller.activeProgramGlowOverlay(screen: programScreen)
 
         ZStack(alignment: .topLeading) {
-            ZStack(alignment: .topLeading) {
-                ForEach(screenLayers, id: \.id) { layer in
-                    openingLayerView(layer: layer, scene: scene, frame: frame)
-                }
+            Rectangle()
+                .fill(Color(hex: fill?.colorHex ?? "#000000"))
+                .frame(width: CGFloat(size.width), height: CGFloat(size.height))
 
-                ForEach(screenSprites, id: \.id) { animation in
-                    openingSpriteView(animation: animation, scene: scene, frame: frame)
-                }
-
-                ForEach(screenModels, id: \.id) { model in
-                    openingModelView(model: model, sceneFrame: frame)
-                }
+            if let messageBox {
+                programMessageBoxView(messageBox)
             }
-            .frame(width: CGFloat(size.width), height: CGFloat(size.height), alignment: .topLeading)
-            .clipped()
-            .mask(
-                screenMask(
-                    width: CGFloat(size.width),
-                    height: CGFloat(size.height),
-                    maskState: maskState
+
+            if let menu {
+                programMenuView(
+                    menu,
+                    selectedOptionID: controller.resolvedMenuSelectionID(for: menu)
                 )
-            )
-
-            if let circleWipeState {
-                Rectangle()
-                    .fill(circleWipeState.color)
-                    .frame(width: CGFloat(size.width), height: CGFloat(size.height))
-                    .mask(
-                        circleWipeMask(
-                            width: CGFloat(size.width),
-                            height: CGFloat(size.height),
-                            state: circleWipeState
-                        )
-                    )
             }
 
-            if let screenBrightness {
+            if let programGlowOverlay {
                 Rectangle()
-                    .fill(screenBrightness.color.opacity(screenBrightness.opacity))
+                    .fill(Color(hex: programGlowOverlay.colorHex).opacity(programGlowOverlay.opacity))
+                    .frame(width: CGFloat(size.width), height: CGFloat(size.height))
+            }
+
+            if let programFadeOverlay {
+                Rectangle()
+                    .fill(Color(hex: programFadeOverlay.colorHex).opacity(programFadeOverlay.opacity))
                     .frame(width: CGFloat(size.width), height: CGFloat(size.height))
             }
 
             if showDebugOverlay {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(scene.id.rawValue)
-                    Text("frame \(frame)/\(scene.durationFrames - 1)")
+                    Text(controller.currentProgramScene?.id.rawValue ?? "post_title")
+                    Text(controller.currentProgramState?.id ?? "<none>")
                 }
                 .font(.system(size: 8, weight: .medium, design: .monospaced))
                 .padding(8)
@@ -146,6 +179,367 @@ public struct HGSSOpeningPlayerView: View {
         )
         .background(Color.black)
         .clipped()
+    }
+
+    @ViewBuilder
+    private func programMessageBoxView(
+        _ messageBox: HGSSOpeningProgramIR.MessageBoxCommand
+    ) -> some View {
+        let rect = messageBox.rect
+        let insets = messageBox.textInsets ?? .init(top: 4, left: 6, bottom: 4, right: 6)
+        let text = messageBox.text.replacingOccurrences(of: "\\n", with: "\n")
+
+        ZStack(alignment: .topLeading) {
+            if let frameAssetID = messageBox.frameAssetID {
+                framedSurfaceView(
+                    assetID: frameAssetID,
+                    size: CGSize(width: rect.width, height: rect.height)
+                )
+                .position(
+                    x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
+                    y: CGFloat(rect.y) + (CGFloat(rect.height) / 2.0)
+                )
+            } else {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color(red: 0.08, green: 0.09, blue: 0.16))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.white.opacity(0.85), lineWidth: 2)
+                    )
+                    .frame(width: CGFloat(rect.width), height: CGFloat(rect.height))
+                    .position(
+                        x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
+                        y: CGFloat(rect.y) + (CGFloat(rect.height) / 2.0)
+                    )
+            }
+
+            glyphTextView(
+                text,
+                style: .body,
+                fallback: {
+                    Text(text)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                }
+            )
+            .frame(
+                width: CGFloat(rect.width - insets.left - insets.right),
+                height: CGFloat(rect.height - insets.top - insets.bottom),
+                alignment: .topLeading
+            )
+            .position(
+                x: CGFloat(rect.x + insets.left) + (CGFloat(rect.width - insets.left - insets.right) / 2.0),
+                y: CGFloat(rect.y + insets.top) + (CGFloat(rect.height - insets.top - insets.bottom) / 2.0)
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func programMenuView(
+        _ menu: HGSSOpeningProgramIR.MenuCommand,
+        selectedOptionID: String
+    ) -> some View {
+        if let chrome = menu.chrome {
+            let scrollOffset = menuScrollOffset(menu, selectedOptionID: selectedOptionID)
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(menu.options.enumerated()), id: \.element.id) { index, option in
+                    let rect = menuOptionRect(menu, index: index, scrollOffset: scrollOffset)
+                    let isSelected = option.id == selectedOptionID
+                    let frameAssetID = isSelected
+                        ? (chrome.selectedFrameAssetID ?? chrome.normalFrameAssetID)
+                        : chrome.normalFrameAssetID
+
+                    if let frameAssetID {
+                        framedSurfaceView(
+                            assetID: frameAssetID,
+                            size: CGSize(width: rect.width, height: rect.height)
+                        )
+                        .position(
+                            x: CGFloat(rect.x) + (CGFloat(rect.width) / 2.0),
+                            y: CGFloat(rect.y) + (CGFloat(rect.height) / 2.0)
+                        )
+                    }
+
+                    if let wirelessIconType = option.wirelessIconType,
+                       let wifiIconSheetAssetID = chrome.wifiIconSheetAssetID {
+                        wifiIconView(
+                            assetID: wifiIconSheetAssetID,
+                            type: wirelessIconType
+                        )
+                        .frame(width: 16, height: 16)
+                        .position(
+                            x: CGFloat(rect.x + rect.width - 8),
+                            y: CGFloat(rect.y + 8)
+                        )
+                    }
+
+                    glyphTextView(
+                        option.text.replacingOccurrences(of: "\\n", with: "\n"),
+                        style: .body,
+                        fallback: {
+                            Text(option.text.replacingOccurrences(of: "\\n", with: "\n"))
+                                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
+                        }
+                    )
+                    .frame(
+                        width: CGFloat(max(0, rect.width - 40)),
+                        height: CGFloat(max(0, rect.height - 8)),
+                        alignment: .topLeading
+                    )
+                    .position(
+                        x: CGFloat(rect.x + 20) + (CGFloat(max(0, rect.width - 40)) / 2.0),
+                        y: CGFloat(rect.y + 4) + (CGFloat(max(0, rect.height - 8)) / 2.0)
+                    )
+                    .opacity(option.enabled ? 1.0 : 0.6)
+                }
+
+                if let upArrowRect = chrome.upArrowRect,
+                   chrome.upArrowFrameAssetIDs.isEmpty == false,
+                   scrollOffset > 0 {
+                    arrowAnimationView(frameAssetIDs: chrome.upArrowFrameAssetIDs)
+                        .frame(width: CGFloat(upArrowRect.width), height: CGFloat(upArrowRect.height))
+                        .position(
+                            x: CGFloat(upArrowRect.x) + (CGFloat(upArrowRect.width) / 2.0),
+                            y: CGFloat(upArrowRect.y) + (CGFloat(upArrowRect.height) / 2.0)
+                        )
+                }
+
+                if let downArrowRect = chrome.downArrowRect,
+                   chrome.downArrowFrameAssetIDs.isEmpty == false,
+                   menuContentHeight(menu) - scrollOffset > 192 {
+                    arrowAnimationView(frameAssetIDs: chrome.downArrowFrameAssetIDs)
+                        .frame(width: CGFloat(downArrowRect.width), height: CGFloat(downArrowRect.height))
+                        .position(
+                            x: CGFloat(downArrowRect.x) + (CGFloat(downArrowRect.width) / 2.0),
+                            y: CGFloat(downArrowRect.y) + (CGFloat(downArrowRect.height) / 2.0)
+                        )
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(menu.options, id: \.id) { option in
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(option.id == selectedOptionID ? Color(red: 0.96, green: 0.79, blue: 0.12) : Color.clear)
+                            .frame(width: 8, height: 8)
+                        glyphTextView(
+                            option.text.replacingOccurrences(of: "\\n", with: "\n"),
+                            style: .body,
+                            fallback: {
+                                Text(option.text.replacingOccurrences(of: "\\n", with: "\n"))
+                                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(option.id == selectedOptionID ? Color.white : Color.white.opacity(0.7))
+                            }
+                        )
+                        .opacity(option.id == selectedOptionID ? 1.0 : 0.78)
+                    }
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.black.opacity(0.24))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    )
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 18)
+        }
+    }
+
+    private func programScreenID(
+        for screen: HGSSOpeningBundle.ScreenID
+    ) -> HGSSOpeningProgramIR.ScreenID {
+        switch screen {
+        case .top:
+            return .top
+        case .bottom:
+            return .bottom
+        }
+    }
+
+    @ViewBuilder
+    private func glyphTextView<Fallback: View>(
+        _ text: String,
+        style: HGSSDSGlyphTextStyle,
+        @ViewBuilder fallback: () -> Fallback
+    ) -> some View {
+        if let image = try? HGSSDSGlyphRenderer.shared.renderImage(
+            text: text,
+            from: loadedBundle.rootURL,
+            style: style
+        ) {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.none)
+                .frame(width: image.size.width, height: image.size.height, alignment: .topLeading)
+        } else {
+            fallback()
+        }
+    }
+
+    @ViewBuilder
+    private func framedSurfaceView(
+        assetID: String,
+        size: CGSize
+    ) -> some View {
+        if let tiles = nineSliceTiles(assetID: assetID),
+           tiles.count == 9 {
+            let tileHeight = tiles[0].size.height
+            let middleHeight = max(0, size.height - (tileHeight * 2))
+
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    Image(nsImage: tiles[0]).interpolation(.none)
+                    Image(nsImage: tiles[1]).resizable(resizingMode: .tile).interpolation(.none)
+                    Image(nsImage: tiles[2]).interpolation(.none)
+                }
+                .frame(width: size.width, height: tileHeight, alignment: .topLeading)
+
+                HStack(spacing: 0) {
+                    Image(nsImage: tiles[3]).resizable(resizingMode: .tile).interpolation(.none)
+                    Image(nsImage: tiles[4]).resizable(resizingMode: .tile).interpolation(.none)
+                    Image(nsImage: tiles[5]).resizable(resizingMode: .tile).interpolation(.none)
+                }
+                .frame(width: size.width, height: middleHeight, alignment: .topLeading)
+
+                HStack(spacing: 0) {
+                    Image(nsImage: tiles[6]).interpolation(.none)
+                    Image(nsImage: tiles[7]).resizable(resizingMode: .tile).interpolation(.none)
+                    Image(nsImage: tiles[8]).interpolation(.none)
+                }
+                .frame(width: size.width, height: tileHeight, alignment: .topLeading)
+            }
+            .frame(width: size.width, height: size.height, alignment: .topLeading)
+        } else {
+            Color.clear
+                .frame(width: size.width, height: size.height)
+        }
+    }
+
+    @ViewBuilder
+    private func wifiIconView(
+        assetID: String,
+        type: Int
+    ) -> some View {
+        if let image = try? loadedBundle.assetURL(id: assetID).image,
+           let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            let iconWidth = cgImage.width / 2
+            let iconOriginX = type == 2 ? iconWidth : 0
+            let cropRect = CGRect(x: iconOriginX, y: 0, width: iconWidth, height: cgImage.height)
+            if let icon = croppedImage(from: cgImage, rect: cropRect) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.none)
+            } else {
+                Color.clear
+            }
+        } else {
+            Color.clear
+        }
+    }
+
+    @ViewBuilder
+    private func arrowAnimationView(frameAssetIDs: [String]) -> some View {
+        let frameIndex = frameAssetIDs.isEmpty ? 0 : (controller.state.frameInProgramState / 4) % frameAssetIDs.count
+        if frameAssetIDs.indices.contains(frameIndex),
+           let image = try? loadedBundle.assetURL(id: frameAssetIDs[frameIndex]).image {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.none)
+        } else {
+            Color.clear
+        }
+    }
+
+    private func menuContentHeight(
+        _ menu: HGSSOpeningProgramIR.MenuCommand
+    ) -> CGFloat {
+        let optionHeights = menu.options.map { CGFloat($0.heightPixels ?? 32) }
+        let spacing = CGFloat(menu.chrome?.optionSpacingPixels ?? 16)
+        let totalOptionHeight = optionHeights.reduce(0, +)
+        let totalSpacing = spacing * CGFloat(max(0, optionHeights.count - 1))
+        let topInset = CGFloat(menu.chrome?.optionOrigin.y ?? 8)
+        return topInset + totalOptionHeight + totalSpacing
+    }
+
+    private func menuScrollOffset(
+        _ menu: HGSSOpeningProgramIR.MenuCommand,
+        selectedOptionID: String
+    ) -> CGFloat {
+        guard let selectedIndex = menu.options.firstIndex(where: { $0.id == selectedOptionID }) else {
+            return 0
+        }
+
+        let rect = menuOptionRect(menu, index: selectedIndex, scrollOffset: 0)
+        let viewportHeight: CGFloat = 192
+        let bottomPadding: CGFloat = 8
+        let rawOffset = CGFloat(rect.y + rect.height) - (viewportHeight - bottomPadding)
+        let maxOffset = max(0, menuContentHeight(menu) - viewportHeight)
+        return max(0, min(rawOffset, maxOffset))
+    }
+
+    private func menuOptionRect(
+        _ menu: HGSSOpeningProgramIR.MenuCommand,
+        index: Int,
+        scrollOffset: CGFloat
+    ) -> HGSSOpeningProgramIR.ScreenRect {
+        let chrome = menu.chrome
+        let originX = chrome?.optionOrigin.x ?? 24
+        let originY = chrome?.optionOrigin.y ?? 8
+        let width = chrome?.optionWidth ?? 184
+        let spacing = chrome?.optionSpacingPixels ?? 16
+        let y = menu.options.prefix(index).reduce(originY) { partial, option in
+            partial + (option.heightPixels ?? 32) + spacing
+        } - Int(scrollOffset.rounded(.towardZero))
+        let height = menu.options[index].heightPixels ?? 32
+        return .init(x: originX, y: y, width: width, height: height)
+    }
+
+    private func nineSliceTiles(assetID: String) -> [NSImage]? {
+        guard let image = try? loadedBundle.assetURL(id: assetID).image,
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return nil
+        }
+
+        let tileWidth = cgImage.width / 3
+        let tileHeight = cgImage.height / 3
+        guard tileWidth > 0, tileHeight > 0 else {
+            return nil
+        }
+
+        var tiles: [NSImage] = []
+        for row in 0..<3 {
+            for column in 0..<3 {
+                let cropRect = CGRect(
+                    x: column * tileWidth,
+                    y: cgImage.height - ((row + 1) * tileHeight),
+                    width: tileWidth,
+                    height: tileHeight
+                )
+                guard let tile = croppedImage(from: cgImage, rect: cropRect) else {
+                    return nil
+                }
+                tiles.append(tile)
+            }
+        }
+
+        return tiles
+    }
+
+    private func croppedImage(
+        from cgImage: CGImage,
+        rect: CGRect
+    ) -> NSImage? {
+        guard let cropped = cgImage.cropping(to: rect.integral) else {
+            return nil
+        }
+        return NSImage(cgImage: cropped, size: NSSize(width: cropped.width, height: cropped.height))
     }
 
     private func layers(
@@ -167,18 +561,6 @@ public struct HGSSOpeningPlayerView: View {
         frame: Int
     ) -> [HGSSOpeningBundle.SpriteAnimationRef] {
         scene.spriteAnimations
-            .filter { $0.screen == screen && isActive(startFrame: $0.startFrame, endFrame: $0.endFrame, frame: frame) }
-            .sorted { lhs, rhs in
-                lhs.zIndex == rhs.zIndex ? lhs.id < rhs.id : lhs.zIndex < rhs.zIndex
-            }
-    }
-
-    private func modelAnimations(
-        for screen: HGSSOpeningBundle.ScreenID,
-        scene: HGSSOpeningBundle.Scene,
-        frame: Int
-    ) -> [HGSSOpeningBundle.ModelAnimationRef] {
-        scene.modelAnimations
             .filter { $0.screen == screen && isActive(startFrame: $0.startFrame, endFrame: $0.endFrame, frame: frame) }
             .sorted { lhs, rhs in
                 lhs.zIndex == rhs.zIndex ? lhs.id < rhs.id : lhs.zIndex < rhs.zIndex
@@ -269,23 +651,6 @@ public struct HGSSOpeningPlayerView: View {
             x: CGFloat(frameRect.x) + scrollOffset.width + (CGFloat(frameRect.width) / 2.0),
             y: CGFloat(frameRect.y) + scrollOffset.height + (CGFloat(frameRect.height) / 2.0)
         )
-    }
-
-    private func openingModelView(
-        model: HGSSOpeningBundle.ModelAnimationRef,
-        sceneFrame: Int
-    ) -> some View {
-        let frameRect = model.screenRect
-        return SceneModelView(
-            model: model,
-            url: try? loadedBundle.assetURL(id: model.assetID),
-            sceneFrame: sceneFrame
-        )
-            .frame(width: CGFloat(frameRect.width), height: CGFloat(frameRect.height))
-            .position(
-                x: CGFloat(frameRect.x) + (CGFloat(frameRect.width) / 2.0),
-                y: CGFloat(frameRect.y) + (CGFloat(frameRect.height) / 2.0)
-            )
     }
 
     private func overlayForScreen(
@@ -566,184 +931,6 @@ private struct LineWipeMaskShape: Shape {
     }
 }
 
-private struct SceneModelView: NSViewRepresentable {
-    let model: HGSSOpeningBundle.ModelAnimationRef
-    let url: URL?
-    let sceneFrame: Int
-
-    func makeNSView(context: Context) -> SCNView {
-        let view = SCNView()
-        view.backgroundColor = .clear
-        view.autoenablesDefaultLighting = model.lights.isEmpty
-        view.allowsCameraControl = false
-        view.isPlaying = false
-        view.antialiasingMode = .none
-        return view
-    }
-
-    func updateNSView(_ nsView: SCNView, context: Context) {
-        guard let url else {
-            nsView.scene = nil
-            nsView.pointOfView = nil
-            return
-        }
-        if nsView.scene == nil || context.coordinator.loadedURL != url || context.coordinator.loadedModelID != model.id {
-            context.coordinator.loadedURL = url
-            context.coordinator.loadedModelID = model.id
-            let scene = try? SCNScene(url: url, options: nil)
-            applyConfiguration(to: scene)
-            configureAnimationPlayers(in: scene)
-            nsView.scene = scene
-            nsView.pointOfView = scene?.rootNode.childNode(withName: "openingCamera", recursively: false)
-        }
-        nsView.sceneTime = sceneTime(for: model, sceneFrame: sceneFrame)
-    }
-
-    private func applyConfiguration(to scene: SCNScene?) {
-        guard let scene else {
-            return
-        }
-
-        if let translation = model.translation {
-            scene.rootNode.position = SCNVector3(translation)
-        }
-
-        if let camera = model.camera {
-            let cameraNode = SCNNode()
-            let scnCamera = SCNCamera()
-            if let fieldOfViewDegrees = camera.fieldOfViewDegrees {
-                scnCamera.fieldOfView = fieldOfViewDegrees
-            }
-            if let nearClipDistance = camera.nearClipDistance {
-                scnCamera.zNear = max(0.001, nearClipDistance)
-            }
-            if let farClipDistance = sceneKitFarClipDistance(for: camera) {
-                scnCamera.zFar = farClipDistance
-            }
-            cameraNode.name = "openingCamera"
-            cameraNode.camera = scnCamera
-            cameraNode.position = SCNVector3(camera.position)
-            cameraNode.look(at: SCNVector3(camera.target))
-            scene.rootNode.addChildNode(cameraNode)
-        }
-
-        if !model.lights.isEmpty {
-            scene.rootNode.enumerateChildNodes { node, _ in
-                if node.light != nil {
-                    node.removeFromParentNode()
-                }
-            }
-
-            for lightState in model.lights {
-                let directionVector = SIMD3<Float>(
-                    Float(lightState.direction.x),
-                    Float(lightState.direction.y),
-                    Float(lightState.direction.z)
-                )
-                guard simd_length_squared(directionVector) > 0.000001 else {
-                    continue
-                }
-
-                let lightNode = SCNNode()
-                let light = SCNLight()
-                light.type = .directional
-                light.color = NSColor(lightState.colorHex)
-                lightNode.light = light
-
-                let direction = simd_normalize(directionVector)
-                lightNode.simdLook(at: direction, up: SIMD3<Float>(0, 1, 0), localFront: SIMD3<Float>(0, 0, -1))
-                scene.rootNode.addChildNode(lightNode)
-            }
-        }
-
-        if let materialState = model.material {
-            scene.rootNode.enumerateHierarchy { node, _ in
-                guard let geometry = node.geometry else {
-                    return
-                }
-
-                for material in geometry.materials {
-                    if let diffuseHex = materialState.diffuseHex {
-                        material.multiply.contents = NSColor(diffuseHex)
-                    }
-                    if let ambientHex = materialState.ambientHex {
-                        material.ambient.contents = NSColor(ambientHex)
-                    }
-                    if let specularHex = materialState.specularHex {
-                        material.specular.contents = NSColor(specularHex)
-                    }
-                    if let emissionHex = materialState.emissionHex {
-                        material.emission.contents = NSColor(emissionHex)
-                    }
-                }
-            }
-        }
-
-        scene.isPaused = false
-    }
-
-    private func configureAnimationPlayers(in scene: SCNScene?) {
-        guard let scene else {
-            return
-        }
-
-        scene.rootNode.enumerateHierarchy { node, _ in
-            for key in node.animationKeys {
-                if let player = node.animationPlayer(forKey: key) {
-                    player.animation.usesSceneTimeBase = true
-                    player.animation.repeatCount = model.loop ? .greatestFiniteMagnitude : 0
-                    player.paused = false
-                    player.speed = 1.0
-                    player.play()
-                }
-            }
-        }
-    }
-
-    private func sceneTime(for model: HGSSOpeningBundle.ModelAnimationRef, sceneFrame: Int) -> TimeInterval {
-        let frameValue: Double
-        if let freezeAtFrame = model.freezeAtFrame {
-            frameValue = freezeAtFrame
-        } else {
-            let relativeFrame = max(0, sceneFrame - model.startFrame)
-            if model.loop {
-                frameValue = Double(relativeFrame)
-            } else if let endFrame = model.endFrame {
-                frameValue = Double(min(relativeFrame, max(0, endFrame - model.startFrame)))
-            } else {
-                frameValue = Double(relativeFrame)
-            }
-        }
-        return frameValue / HGSSOpeningPlaybackController.framesPerSecond
-    }
-
-    private func sceneKitFarClipDistance(
-        for camera: HGSSOpeningBundle.ModelAnimationRef.CameraState
-    ) -> Double? {
-        guard let farClipDistance = camera.farClipDistance else {
-            return nil
-        }
-
-        let dx = camera.position.x - camera.target.x
-        let dy = camera.position.y - camera.target.y
-        let dz = camera.position.z - camera.target.z
-        let targetDistance = sqrt((dx * dx) + (dy * dy) + (dz * dz))
-        guard farClipDistance > targetDistance else {
-            return nil
-        }
-        return farClipDistance
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    final class Coordinator {
-        var loadedURL: URL?
-        var loadedModelID: String?
-    }
-}
-
 private extension URL {
     var image: NSImage? {
         NSImage(contentsOf: self)
@@ -772,24 +959,5 @@ private extension Color {
         }
 
         self.init(red: red, green: green, blue: blue)
-    }
-}
-
-private extension SCNVector3 {
-    init(_ vector: HGSSOpeningBundle.Vector3) {
-        self.init(vector.x, vector.y, vector.z)
-    }
-}
-
-private extension NSColor {
-    convenience init(_ hex: String) {
-        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var value: UInt64 = 0
-        Scanner(string: cleaned).scanHexInt64(&value)
-
-        let red = CGFloat((value >> 16) & 0xFF) / 255.0
-        let green = CGFloat((value >> 8) & 0xFF) / 255.0
-        let blue = CGFloat(value & 0xFF) / 255.0
-        self.init(red: red, green: green, blue: blue, alpha: 1.0)
     }
 }

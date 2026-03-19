@@ -1,6 +1,9 @@
 import AppKit
+import CoreImage
 import Foundation
 import HGSSDataModel
+import HGSSOpeningIR
+import Metal
 import SceneKit
 
 private struct HelperSpriteManifest: Decodable {
@@ -49,9 +52,17 @@ private struct BakedModelScreenResult {
     let assets: [HGSSOpeningBundle.Asset]
     let frameAssetIDs: [String]
     let startFrame: Int
-    let endFrame: Int
+    let endFrame: Int?
+    let loop: Bool
     let zIndex: Int
     let upstreamFiles: [String]
+}
+
+private struct ModelRendererState {
+    let renderer: SCNRenderer
+    let cycleFrames: Int?
+    let commandQueue: MTLCommandQueue
+    let ciContext: CIContext
 }
 
 private struct RenderedAudioCueResult {
@@ -264,6 +275,12 @@ private enum OpeningHeartGoldExtractModeError: Error, LocalizedError {
     case missingScene4BakedParticlePhase(String)
     case missingScene4ParticleResource(Int)
     case missingScene4SparklesSequence
+    case missingMetalDevice
+    case missingMetalCommandQueue
+    case metalTextureCreationFailed
+    case metalCommandBufferCreationFailed
+    case metalRenderedImageUnavailable
+    case metalRenderFailed(String)
     case sourcePatternNotFound(file: String, pattern: String)
     case invalidSourceNumbers(file: String, pattern: String)
 
@@ -277,6 +294,18 @@ private enum OpeningHeartGoldExtractModeError: Error, LocalizedError {
             return "Scene 4 particle manifest is missing required resource \(resourceID)."
         case .missingScene4SparklesSequence:
             return "Scene 4 sparkles sequence did not decode any frames."
+        case .missingMetalDevice:
+            return "A Metal device is required to bake SceneKit frames in the extractor."
+        case .missingMetalCommandQueue:
+            return "Failed to create a Metal command queue for SceneKit baking."
+        case .metalTextureCreationFailed:
+            return "Failed to allocate a Metal render target for SceneKit baking."
+        case .metalCommandBufferCreationFailed:
+            return "Failed to create a Metal command buffer for SceneKit baking."
+        case .metalRenderedImageUnavailable:
+            return "Failed to convert the baked SceneKit frame into an image."
+        case let .metalRenderFailed(message):
+            return "SceneKit Metal bake failed: \(message)"
         case let .sourcePatternNotFound(file, pattern):
             return "Could not derive opening metadata from \(file) using pattern \(pattern)."
         case let .invalidSourceNumbers(file, pattern):
@@ -311,13 +340,44 @@ struct OpeningHeartGoldExtractor {
             throw ExtractCLIError.missingPretRoot
         }
 
+        let extractorStart = CFAbsoluteTimeGetCurrent()
+
+        func formattedDuration(since startedAt: CFAbsoluteTime) -> String {
+            let elapsedSeconds = Int(CFAbsoluteTimeGetCurrent() - startedAt)
+            let minutes = elapsedSeconds / 60
+            let seconds = elapsedSeconds % 60
+            return String(format: "%02dm%02ds", minutes, seconds)
+        }
+
+        func logPhaseStart(_ label: String) -> CFAbsoluteTime {
+            print("[opening-heartgold] \(label)...")
+            return CFAbsoluteTimeGetCurrent()
+        }
+
+        func logPhaseEnd(_ label: String, startedAt: CFAbsoluteTime) {
+            print("[opening-heartgold] \(label) completed in \(formattedDuration(since: startedAt)).")
+        }
+
+        let sourcePhaseStart = logPhaseStart("Validating source inputs and lowering opening IR")
         try validateOpeningInputs(pretRoot: pretRoot)
+        let parseSupportRoot = PokeheartgoldOpeningSourceValidator.defaultSupportRoot(repoRoot: repoRoot)
+        let parseValidation = try PokeheartgoldOpeningSourceValidator().validate(
+            pretRoot: pretRoot,
+            supportRoot: parseSupportRoot
+        )
+        let programIR = try PokeheartgoldOpeningIRLowerer().lower(
+            validation: parseValidation,
+            pretRoot: pretRoot
+        )
         let scene3SourceURL = pretRoot.appendingPathComponent("src/intro_movie_scene_3.c", isDirectory: false)
         let scene4SourceURL = pretRoot.appendingPathComponent("src/intro_movie_scene_4.c", isDirectory: false)
         let titleScreenSourceURL = pretRoot.appendingPathComponent("src/title_screen.c", isDirectory: false)
         let scene3Source = try parseScene3Source(from: scene3SourceURL)
         let scene4Source = try parseScene4Source(from: scene4SourceURL)
         let titleHandoffSource = try parseTitleHandoffSource(from: titleScreenSourceURL)
+        logPhaseEnd("Validating source inputs and lowering opening IR", startedAt: sourcePhaseStart)
+
+        let toolingPhaseStart = logPhaseStart("Preparing Python tooling")
         try runProcess(
             executable: ensureToolsScript,
             arguments: [],
@@ -331,7 +391,9 @@ struct OpeningHeartGoldExtractor {
         }
 
         let apicula = try resolveApiculaBinary()
+        logPhaseEnd("Preparing Python tooling", startedAt: toolingPhaseStart)
 
+        let outputPhaseStart = logPhaseStart("Preparing extractor output directories")
         let outputRoot = config.output
         if FileManager.default.fileExists(atPath: outputRoot.path()) {
             try FileManager.default.removeItem(at: outputRoot)
@@ -348,12 +410,14 @@ struct OpeningHeartGoldExtractor {
         for directory in [assetsRoot, audioRoot, nitro2DRoot, model3DRoot, intermediateAudioRoot, intermediateParticleRoot] {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
+        logPhaseEnd("Preparing extractor output directories", startedAt: outputPhaseStart)
 
         let openingDir = pretRoot.appendingPathComponent("files/demo/opening/gs_opening", isDirectory: true)
         let titleDir = pretRoot.appendingPathComponent("files/demo/title/titledemo", isDirectory: true)
         let soundArchive = pretRoot.appendingPathComponent("files/data/sound/gs_sound_data.sdat", isDirectory: false)
         let particleArchive = pretRoot.appendingPathComponent("files/a/0/5/9", isDirectory: false)
 
+        let particlePhaseStart = logPhaseStart("Generating particle intermediates")
         try runPythonHelper(
             pythonTool: pythonTool,
             helperScript: helperScript,
@@ -364,6 +428,7 @@ struct OpeningHeartGoldExtractor {
                 "--output-dir", intermediateParticleRoot.appendingPathComponent("scene4", isDirectory: true).path()
             ]
         )
+        logPhaseEnd("Generating particle intermediates", startedAt: particlePhaseStart)
 
         var assets: [HGSSOpeningBundle.Asset] = []
         var provenanceSources: [OpeningProvenanceDocument.AssetSource] = []
@@ -380,6 +445,7 @@ struct OpeningHeartGoldExtractor {
         let scene4AssetDirectory = assetsRoot.appendingPathComponent("scene4", isDirectory: true)
         let scene5AssetDirectory = assetsRoot.appendingPathComponent("scene5", isDirectory: true)
         let titleAssetDirectory = assetsRoot.appendingPathComponent("title_handoff", isDirectory: true)
+        let postTitleAssetDirectory = assetsRoot.appendingPathComponent("post_title", isDirectory: true)
         for directory in [
             scene1AssetDirectory,
             scene2AssetDirectory,
@@ -387,10 +453,12 @@ struct OpeningHeartGoldExtractor {
             scene4AssetDirectory,
             scene5AssetDirectory,
             titleAssetDirectory,
+            postTitleAssetDirectory,
         ] {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
 
+        let assetPhaseStart = logPhaseStart("Extracting scene, title, and post-title visual assets")
         let scene1Sub0 = try decodeTilemap(
             assetID: "scene1_bottom_sub0",
             outputName: "scene1_bottom_sub0.png",
@@ -1147,6 +1215,108 @@ struct OpeningHeartGoldExtractor {
         )
         registerAsset(titleSparklesModel.asset, upstreamFiles: titleSparklesModel.upstreamFiles)
 
+        let postTitleIntermediateRoot = intermediateRoot.appendingPathComponent("post_title", isDirectory: true)
+        let winframeArchive = pretRoot.appendingPathComponent("files/pbr/winframe.narc", isDirectory: false)
+        let mainMenuArchive = pretRoot.appendingPathComponent("files/a/1/1/3", isDirectory: false)
+        let winframeIntermediateDirectory = postTitleIntermediateRoot.appendingPathComponent("winframe", isDirectory: true)
+        let mainMenuIntermediateDirectory = postTitleIntermediateRoot.appendingPathComponent("main_menu", isDirectory: true)
+
+        try extractNarcMembers(
+            input: winframeArchive,
+            outputDirectory: winframeIntermediateDirectory,
+            helperScript: helperScript,
+            pythonTool: pythonTool,
+            members: [0, 1, 24, 25]
+        )
+        try extractNarcMembers(
+            input: mainMenuArchive,
+            outputDirectory: mainMenuIntermediateDirectory,
+            helperScript: helperScript,
+            pythonTool: pythonTool,
+            members: [44, 45, 46, 47, 48, 49],
+            autoDecompressLZ10: true
+        )
+
+        let checkSaveWindowFrame = try decodeNCGRTileSheet(
+            assetID: "check_save_window_frame",
+            outputName: "check_save_window_frame.png",
+            sceneDirectory: postTitleAssetDirectory,
+            intermediateDirectory: winframeIntermediateDirectory,
+            helperScript: helperScript,
+            pythonTool: pythonTool,
+            ncgr: winframeIntermediateDirectory.appendingPathComponent("0.bin", isDirectory: false),
+            nclr: winframeIntermediateDirectory.appendingPathComponent("24.bin", isDirectory: false),
+            widthTiles: 3,
+            transparentIndexZero: true,
+            provenance: "External/pokeheartgold/src/application/check_savedata.c"
+        )
+        registerAsset(checkSaveWindowFrame.asset, upstreamFiles: checkSaveWindowFrame.upstreamFiles)
+
+        let mainMenuButtonFrameNormal = try decodeNCGRTileSheet(
+            assetID: "main_menu_button_frame_normal",
+            outputName: "main_menu_button_frame_normal.png",
+            sceneDirectory: postTitleAssetDirectory,
+            intermediateDirectory: winframeIntermediateDirectory,
+            helperScript: helperScript,
+            pythonTool: pythonTool,
+            ncgr: winframeIntermediateDirectory.appendingPathComponent("0.bin", isDirectory: false),
+            nclr: winframeIntermediateDirectory.appendingPathComponent("24.bin", isDirectory: false),
+            widthTiles: 3,
+            transparentIndexZero: true,
+            provenance: "External/pokeheartgold/src/application/main_menu/main_menu.c"
+        )
+        registerAsset(mainMenuButtonFrameNormal.asset, upstreamFiles: mainMenuButtonFrameNormal.upstreamFiles)
+
+        let mainMenuButtonFrameSelected = try decodeNCGRTileSheet(
+            assetID: "main_menu_button_frame_selected",
+            outputName: "main_menu_button_frame_selected.png",
+            sceneDirectory: postTitleAssetDirectory,
+            intermediateDirectory: winframeIntermediateDirectory,
+            helperScript: helperScript,
+            pythonTool: pythonTool,
+            ncgr: winframeIntermediateDirectory.appendingPathComponent("1.bin", isDirectory: false),
+            nclr: winframeIntermediateDirectory.appendingPathComponent("25.bin", isDirectory: false),
+            widthTiles: 3,
+            transparentIndexZero: true,
+            provenance: "External/pokeheartgold/src/application/main_menu/main_menu.c"
+        )
+        registerAsset(mainMenuButtonFrameSelected.asset, upstreamFiles: mainMenuButtonFrameSelected.upstreamFiles)
+
+        let mainMenuWifiIcons = try decodeNCGRTileSheet(
+            assetID: "main_menu_wifi_icons",
+            outputName: "main_menu_wifi_icons.png",
+            sceneDirectory: postTitleAssetDirectory,
+            intermediateDirectory: mainMenuIntermediateDirectory,
+            helperScript: helperScript,
+            pythonTool: pythonTool,
+            ncgr: mainMenuIntermediateDirectory.appendingPathComponent("48.bin", isDirectory: false),
+            nclr: mainMenuIntermediateDirectory.appendingPathComponent("49.bin", isDirectory: false),
+            widthTiles: 4,
+            transparentIndexZero: true,
+            provenance: "External/pokeheartgold/src/application/main_menu/main_menu.c"
+        )
+        registerAsset(mainMenuWifiIcons.asset, upstreamFiles: mainMenuWifiIcons.upstreamFiles)
+
+        let mainMenuArrows = try extractSpriteSequences(
+            sequenceIndices: [0, 1],
+            assetIDPrefix: "main_menu_arrow",
+            sceneDirectory: postTitleAssetDirectory,
+            intermediateDirectory: mainMenuIntermediateDirectory.appendingPathComponent("arrow_sprites", isDirectory: true),
+            helperScript: helperScript,
+            pythonTool: pythonTool,
+            ncgr: mainMenuIntermediateDirectory.appendingPathComponent("47.bin", isDirectory: false),
+            nclr: mainMenuIntermediateDirectory.appendingPathComponent("44.bin", isDirectory: false),
+            ncer: mainMenuIntermediateDirectory.appendingPathComponent("46.bin", isDirectory: false),
+            nanr: mainMenuIntermediateDirectory.appendingPathComponent("45.bin", isDirectory: false),
+            provenance: "External/pokeheartgold/src/application/main_menu/main_menu.c"
+        )
+        for sequence in mainMenuArrows.values.sorted(by: { $0.frameAssetIDs.first ?? "" < $1.frameAssetIDs.first ?? "" }) {
+            sequence.assets.forEach { registerAsset($0, upstreamFiles: sequence.upstreamFiles) }
+        }
+
+        logPhaseEnd("Extracting scene, title, and post-title visual assets", startedAt: assetPhaseStart)
+
+        let audioPhaseStart = logPhaseStart("Rendering opening/title audio references")
         let scene1AudioCue = try renderAudioCue(
             cueName: "SEQ_GS_TITLE",
             sceneID: "scene1",
@@ -1188,7 +1358,9 @@ struct OpeningHeartGoldExtractor {
                 provenance: titleAudioCue.upstreamFiles
             )
         )
+        logPhaseEnd("Rendering opening/title audio references", startedAt: audioPhaseStart)
 
+        let finalizePhaseStart = logPhaseStart("Finalizing baked scenes and writing artifacts")
         assets.sort { lhs, rhs in lhs.id < rhs.id }
         provenanceSources.sort { lhs, rhs in lhs.assetID < rhs.assetID }
 
@@ -1221,15 +1393,21 @@ struct OpeningHeartGoldExtractor {
         )
 
         let bundle: HGSSOpeningBundle
-        if ProcessInfo.processInfo.environment["HGSS_ENABLE_SCENEKIT_BAKE"] == "1" {
+        if sceneKitBakeSceneIDs(for: initialBundle).isEmpty == false {
             bundle = try bakeModelScreens(
                 bundle: initialBundle,
                 outputRoot: outputRoot,
+                sceneIDs: sceneKitBakeSceneIDs(for: initialBundle),
                 provenanceSources: &provenanceSources
             )
         } else {
             bundle = initialBundle
         }
+
+        try copyOpeningTextAssets(
+            pretRoot: pretRoot,
+            outputRoot: outputRoot
+        )
 
         try writeJSON(
             bundle,
@@ -1251,6 +1429,9 @@ struct OpeningHeartGoldExtractor {
                 "External/pokeheartgold/files/demo/opening/gs_opening",
                 "External/pokeheartgold/files/demo/title/titledemo",
                 "External/pokeheartgold/files/a/0/5/9",
+                "External/pokeheartgold/files/graphic/font/font_00000000.bin",
+                "External/pokeheartgold/files/graphic/font/font_00000007.bin",
+                "External/pokeheartgold/charmap.txt",
             ],
             assetSources: provenanceSources,
             audioArchive: "External/pokeheartgold/files/data/sound/gs_sound_data.sdat"
@@ -1295,11 +1476,13 @@ struct OpeningHeartGoldExtractor {
         )
         try OpeningHeartGoldArtifactWriter().write(
             bundle: bundle,
+            programIR: programIR,
             provenance: provenance,
             reference: reference,
             report: report,
             outputRoot: outputRoot
         )
+        logPhaseEnd("Finalizing baked scenes and writing artifacts", startedAt: finalizePhaseStart)
 
         print("Extractor complete.")
         print("Mode: \(config.mode.rawValue)")
@@ -1309,6 +1492,7 @@ struct OpeningHeartGoldExtractor {
         print("Assets: \(bundle.assets.count)")
         print("Audio cues: \(audioCueCount)")
         print("Pret root: \(pretRoot.path())")
+        print("Total time: \(formattedDuration(since: extractorStart))")
     }
 
     private func buildScenes(
@@ -2495,6 +2679,76 @@ struct OpeningHeartGoldExtractor {
         )
     }
 
+    private func extractNarcMembers(
+        input: URL,
+        outputDirectory: URL,
+        helperScript: URL,
+        pythonTool: URL,
+        members: [Int],
+        autoDecompressLZ10: Bool = false
+    ) throws {
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        var arguments = [
+            "narc-extract",
+            "--input", input.path(),
+            "--output-dir", outputDirectory.path(),
+            "--members",
+        ] + members.map(String.init)
+        if autoDecompressLZ10 {
+            arguments.append("--auto-decompress-lz10")
+        }
+        try runPythonHelper(
+            pythonTool: pythonTool,
+            helperScript: helperScript,
+            arguments: arguments
+        )
+    }
+
+    private func decodeNCGRTileSheet(
+        assetID: String,
+        outputName: String,
+        sceneDirectory: URL,
+        intermediateDirectory: URL,
+        helperScript: URL,
+        pythonTool: URL,
+        ncgr: URL,
+        nclr: URL,
+        widthTiles: Int,
+        transparentIndexZero: Bool = false,
+        provenance: String
+    ) throws -> (asset: HGSSOpeningBundle.Asset, upstreamFiles: [String]) {
+        try FileManager.default.createDirectory(at: intermediateDirectory, withIntermediateDirectories: true)
+        let intermediatePNG = intermediateDirectory.appendingPathComponent(outputName, isDirectory: false)
+        var arguments = [
+            "ncgr-sheet",
+            "--ncgr", ncgr.path(),
+            "--nclr", nclr.path(),
+            "--output", intermediatePNG.path(),
+            "--width-tiles", String(widthTiles),
+        ]
+        if transparentIndexZero {
+            arguments.append("--transparent-index-zero")
+        }
+        try runPythonHelper(
+            pythonTool: pythonTool,
+            helperScript: helperScript,
+            arguments: arguments
+        )
+
+        let assetURL = sceneDirectory.appendingPathComponent(outputName, isDirectory: false)
+        try FileManager.default.copyItem(at: intermediatePNG, to: assetURL)
+        let image = try loadImage(at: assetURL)
+        let asset = HGSSOpeningBundle.Asset(
+            id: assetID,
+            kind: .image,
+            relativePath: relativePathString(for: assetURL),
+            pixelWidth: Int(image.size.width),
+            pixelHeight: Int(image.size.height),
+            provenance: provenance
+        )
+        return (asset, [ncgr.path(), nclr.path(), provenance])
+    }
+
     private func decodeTilemap(
         assetID: String,
         outputName: String,
@@ -2812,17 +3066,27 @@ struct OpeningHeartGoldExtractor {
 
         let wavOutput = sceneAudioRoot.appendingPathComponent("\(cueName.lowercased()).wav", isDirectory: false)
         let metadataOutput = sceneIntermediateAudioRoot.appendingPathComponent("\(cueName.lowercased()).json", isDirectory: false)
+        var arguments = [
+            "render-audio",
+            "--input", soundArchive.path(),
+            "--cue-name", cueName,
+            "--output-wav", wavOutput.path(),
+            "--output-json", metadataOutput.path(),
+        ]
+        if let targetDurationSeconds = audioRenderTargetDurationSeconds(
+            cueName: cueName,
+            sceneID: sceneID
+        ) {
+            arguments.append(contentsOf: [
+                "--target-duration-seconds",
+                String(format: "%.3f", targetDurationSeconds),
+            ])
+        }
 
         try runPythonHelper(
             pythonTool: pythonTool,
             helperScript: helperScript,
-            arguments: [
-                "render-audio",
-                "--input", soundArchive.path(),
-                "--cue-name", cueName,
-                "--output-wav", wavOutput.path(),
-                "--output-json", metadataOutput.path(),
-            ]
+            arguments: arguments
         )
 
         let asset = HGSSOpeningBundle.Asset(
@@ -2842,9 +3106,34 @@ struct OpeningHeartGoldExtractor {
         )
     }
 
+    private func audioRenderTargetDurationSeconds(
+        cueName: String,
+        sceneID: String
+    ) -> Double? {
+        switch (sceneID, cueName) {
+        case ("scene1", "SEQ_GS_TITLE"):
+            return 12.0
+        case ("title_handoff", "SEQ_GS_POKEMON_THEME"):
+            return 12.0
+        default:
+            return nil
+        }
+    }
+
+    private func sceneKitBakeSceneIDs(
+        for bundle: HGSSOpeningBundle
+    ) -> Set<HGSSOpeningBundle.SceneID> {
+        let allSceneIDs = Set(bundle.scenes.filter { !$0.modelAnimations.isEmpty }.map(\.id))
+        guard ProcessInfo.processInfo.environment["HGSS_DISABLE_SCENEKIT_BAKE"] != "1" else {
+            return []
+        }
+        return allSceneIDs
+    }
+
     private func bakeModelScreens(
         bundle: HGSSOpeningBundle,
         outputRoot: URL,
+        sceneIDs: Set<HGSSOpeningBundle.SceneID>,
         provenanceSources: inout [OpeningProvenanceDocument.AssetSource]
     ) throws -> HGSSOpeningBundle {
         let assetByID = Dictionary(uniqueKeysWithValues: bundle.assets.map { ($0.id, $0) })
@@ -2854,7 +3143,7 @@ struct OpeningHeartGoldExtractor {
         var scenes: [HGSSOpeningBundle.Scene] = []
 
         for scene in bundle.scenes {
-            guard !scene.modelAnimations.isEmpty else {
+            guard !scene.modelAnimations.isEmpty, sceneIDs.contains(scene.id) else {
                 scenes.append(scene)
                 continue
             }
@@ -2881,7 +3170,7 @@ struct OpeningHeartGoldExtractor {
                 }
                 provenanceSources.append(contentsOf: assetSources)
 
-                if baked.frameAssetIDs.count == 1, baked.startFrame == 0, baked.endFrame == 0 {
+                if baked.frameAssetIDs.count == 1, baked.startFrame == 0, baked.endFrame == 0, baked.loop == false {
                     let layer = HGSSOpeningBundle.LayerRef(
                         id: "\(scene.id.rawValue)_\(screen.rawValue)_model_bake_layer",
                         assetID: baked.frameAssetIDs[0],
@@ -2903,7 +3192,7 @@ struct OpeningHeartGoldExtractor {
                             frameDurationFrames: 1,
                             startFrame: baked.startFrame,
                             endFrame: baked.endFrame,
-                            loop: false,
+                            loop: baked.loop,
                             zIndex: baked.zIndex
                         )
                     )
@@ -2948,7 +3237,6 @@ struct OpeningHeartGoldExtractor {
     ) throws -> BakedModelScreenResult {
         let screenSize = CGSize(width: 256, height: 192)
         let startFrame = models.map(\.startFrame).min() ?? 0
-        let endFrame = models.map { $0.endFrame ?? (sceneDurationFrames - 1) }.max() ?? 0
         let zIndex = models.map(\.zIndex).min() ?? 1
         let screenDirectory = outputRoot
             .appendingPathComponent("assets", isDirectory: true)
@@ -2958,18 +3246,26 @@ struct OpeningHeartGoldExtractor {
         var frameAssetIDs: [String] = []
         var upstreamFiles: [String] = []
 
-        var renderers: [String: SCNRenderer] = [:]
+        var rendererStates: [String: ModelRendererState] = [:]
         for model in models {
             guard let asset = assetByID[model.assetID] else {
                 throw ExtractCLIError.missingPretRenderAsset(path: model.assetID)
             }
             let assetURL = outputRoot.appendingPathComponent(asset.relativePath, isDirectory: false)
-            renderers[model.id] = try makeModelRenderer(assetURL: assetURL, model: model)
+            rendererStates[model.id] = try makeModelRenderer(assetURL: assetURL, model: model)
         }
 
-        for frame in startFrame...endFrame {
+        let shouldLoop = sceneDurationFrames == 1 && models.allSatisfy { $0.loop && $0.endFrame == nil }
+        let cycleFrames = shouldLoop
+            ? max(1, models.compactMap { rendererStates[$0.id]?.cycleFrames }.reduce(1, leastCommonMultiple))
+            : 0
+        let effectiveEndFrame = shouldLoop
+            ? startFrame + cycleFrames - 1
+            : models.map { $0.endFrame ?? (sceneDurationFrames - 1) }.max() ?? 0
+
+        for frame in startFrame...effectiveEndFrame {
             let activeModels = models.filter { model in
-                let modelEndFrame = model.endFrame ?? (sceneDurationFrames - 1)
+                let modelEndFrame = model.endFrame ?? (shouldLoop ? effectiveEndFrame : sceneDurationFrames - 1)
                 return frame >= model.startFrame && frame <= modelEndFrame
             }
 
@@ -2981,14 +3277,14 @@ struct OpeningHeartGoldExtractor {
             for model in activeModels.sorted(by: { lhs, rhs in
                 lhs.zIndex == rhs.zIndex ? lhs.id < rhs.id : lhs.zIndex < rhs.zIndex
             }) {
-                guard let renderer = renderers[model.id] else {
+                guard let rendererState = rendererStates[model.id] else {
                     continue
                 }
                 let sceneTime = modelSceneTime(model: model, sceneFrame: frame)
-                let rendered = renderer.snapshot(
-                    atTime: sceneTime,
-                    with: screenSize,
-                    antialiasingMode: .none
+                let rendered = try renderModelSnapshot(
+                    rendererState: rendererState,
+                    sceneTime: sceneTime,
+                    size: screenSize
                 )
                 rendered.draw(in: CGRect(origin: .zero, size: screenSize))
             }
@@ -3020,7 +3316,8 @@ struct OpeningHeartGoldExtractor {
             assets: assets,
             frameAssetIDs: frameAssetIDs,
             startFrame: startFrame,
-            endFrame: endFrame,
+            endFrame: shouldLoop ? nil : effectiveEndFrame,
+            loop: shouldLoop,
             zIndex: zIndex,
             upstreamFiles: upstreamFiles
         )
@@ -3029,17 +3326,100 @@ struct OpeningHeartGoldExtractor {
     private func makeModelRenderer(
         assetURL: URL,
         model: HGSSOpeningBundle.ModelAnimationRef
-    ) throws -> SCNRenderer {
+    ) throws -> ModelRendererState {
         _ = NSApplication.shared
-        let stagedAssetURL = try stageModelAssetForSceneKit(assetURL)
-        let scene = try SCNScene(url: stagedAssetURL, options: nil)
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw OpeningHeartGoldExtractModeError.missingMetalDevice
+        }
+        guard let commandQueue = device.makeCommandQueue() else {
+            throw OpeningHeartGoldExtractModeError.missingMetalCommandQueue
+        }
+        let sceneData = try Data(contentsOf: assetURL)
+        let assetDirectory = assetURL.deletingLastPathComponent()
+        let loadingOptions: [SCNSceneSource.LoadingOption: Any] = [
+            .assetDirectoryURLs: [assetDirectory],
+        ]
+        guard
+            let sceneSource = SCNSceneSource(data: sceneData, options: loadingOptions),
+            let scene = sceneSource.scene(options: loadingOptions)
+        else {
+            throw ExtractCLIError.missingPretRenderAsset(path: assetURL.path())
+        }
         scene.background.contents = NSColor.clear
         configureModelScene(scene, model: model)
-        let renderer = SCNRenderer(device: nil, options: nil)
+        let renderer = SCNRenderer(device: device, options: nil)
         renderer.scene = scene
         renderer.pointOfView = scene.rootNode.childNode(withName: "openingCamera", recursively: false)
         renderer.isJitteringEnabled = false
-        return renderer
+        return ModelRendererState(
+            renderer: renderer,
+            cycleFrames: model.loop ? animationCycleFrames(in: scene) : nil,
+            commandQueue: commandQueue,
+            ciContext: CIContext(mtlDevice: device)
+        )
+    }
+
+    private func renderModelSnapshot(
+        rendererState: ModelRendererState,
+        sceneTime: TimeInterval,
+        size: CGSize
+    ) throws -> NSImage {
+        let width = max(1, Int(size.width.rounded(.up)))
+        let height = max(1, Int(size.height.rounded(.up)))
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        textureDescriptor.usage = [.renderTarget, .shaderRead]
+        textureDescriptor.storageMode = .shared
+        guard let texture = rendererState.commandQueue.device.makeTexture(descriptor: textureDescriptor) else {
+            throw OpeningHeartGoldExtractModeError.metalTextureCreationFailed
+        }
+
+        let passDescriptor = MTLRenderPassDescriptor()
+        let colorAttachment = passDescriptor.colorAttachments[0]
+        colorAttachment?.texture = texture
+        colorAttachment?.loadAction = .clear
+        colorAttachment?.storeAction = .store
+        colorAttachment?.clearColor = MTLClearColorMake(0, 0, 0, 0)
+
+        guard let commandBuffer = rendererState.commandQueue.makeCommandBuffer() else {
+            throw OpeningHeartGoldExtractModeError.metalCommandBufferCreationFailed
+        }
+
+        rendererState.renderer.render(
+            atTime: sceneTime,
+            viewport: CGRect(origin: .zero, size: size),
+            commandBuffer: commandBuffer,
+            passDescriptor: passDescriptor
+        )
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+
+        if let error = commandBuffer.error {
+            throw OpeningHeartGoldExtractModeError.metalRenderFailed(error.localizedDescription)
+        }
+
+        guard let ciImage = CIImage(
+            mtlTexture: texture,
+            options: [CIImageOption.colorSpace: CGColorSpaceCreateDeviceRGB()]
+        ) else {
+            throw OpeningHeartGoldExtractModeError.metalRenderedImageUnavailable
+        }
+
+        let flipped = ciImage.transformed(
+            by: CGAffineTransform(scaleX: 1, y: -1).translatedBy(x: 0, y: -CGFloat(height))
+        )
+        guard let cgImage = rendererState.ciContext.createCGImage(
+            flipped,
+            from: CGRect(x: 0, y: 0, width: width, height: height)
+        ) else {
+            throw OpeningHeartGoldExtractModeError.metalRenderedImageUnavailable
+        }
+
+        return NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
     }
 
     private func configureModelScene(
@@ -3137,14 +3517,6 @@ struct OpeningHeartGoldExtractor {
         return farClipDistance
     }
 
-    private func stageModelAssetForSceneKit(_ assetURL: URL) throws -> URL {
-        let sourceDirectory = assetURL.deletingLastPathComponent()
-        let stagedDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("hgss-opening-3d-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.copyItem(at: sourceDirectory, to: stagedDirectory)
-        return stagedDirectory.appendingPathComponent(assetURL.lastPathComponent, isDirectory: false)
-    }
-
     private func modelSceneTime(
         model: HGSSOpeningBundle.ModelAnimationRef,
         sceneFrame: Int
@@ -3164,6 +3536,27 @@ struct OpeningHeartGoldExtractor {
         }
 
         return frameValue / 60.0
+    }
+
+    private func animationCycleFrames(in scene: SCNScene) -> Int? {
+        var durations: [Int] = []
+        scene.rootNode.enumerateHierarchy { node, _ in
+            for key in node.animationKeys {
+                guard let player = node.animationPlayer(forKey: key) else {
+                    continue
+                }
+                let frameCount = Int(round(player.animation.duration * 60.0))
+                if frameCount > 0 {
+                    durations.append(frameCount)
+                }
+            }
+        }
+
+        guard durations.isEmpty == false else {
+            return nil
+        }
+
+        return durations.reduce(1, leastCommonMultiple)
     }
 
     private func writePNG(_ image: NSImage, to url: URL) throws {
@@ -3341,4 +3734,52 @@ private func rgb15Hex(red: Int, green: Int, blue: Int) -> String {
         convert(green),
         convert(blue)
     )
+}
+
+private func copyOpeningTextAssets(
+    pretRoot: URL,
+    outputRoot: URL
+) throws {
+    let fontOutputDirectory = outputRoot.appendingPathComponent(HGSSOpeningTextAssetPaths.directory, isDirectory: true)
+    try FileManager.default.createDirectory(at: fontOutputDirectory, withIntermediateDirectories: true)
+
+    let copies: [(source: URL, destination: URL)] = [
+        (
+            pretRoot.appendingPathComponent("files/graphic/font/font_00000000.bin", isDirectory: false),
+            outputRoot.appendingPathComponent(HGSSOpeningTextAssetPaths.fontData, isDirectory: false)
+        ),
+        (
+            pretRoot.appendingPathComponent("files/graphic/font/font_00000007.bin", isDirectory: false),
+            outputRoot.appendingPathComponent(HGSSOpeningTextAssetPaths.fontPalette, isDirectory: false)
+        ),
+        (
+            pretRoot.appendingPathComponent("charmap.txt", isDirectory: false),
+            outputRoot.appendingPathComponent(HGSSOpeningTextAssetPaths.charmap, isDirectory: false)
+        ),
+    ]
+
+    for copy in copies {
+        if FileManager.default.fileExists(atPath: copy.destination.path()) {
+            try FileManager.default.removeItem(at: copy.destination)
+        }
+        try FileManager.default.copyItem(at: copy.source, to: copy.destination)
+    }
+}
+
+private func greatestCommonDivisor(_ lhs: Int, _ rhs: Int) -> Int {
+    var a = abs(lhs)
+    var b = abs(rhs)
+    while b != 0 {
+        let remainder = a % b
+        a = b
+        b = remainder
+    }
+    return max(a, 1)
+}
+
+private func leastCommonMultiple(_ lhs: Int, _ rhs: Int) -> Int {
+    guard lhs > 0, rhs > 0 else {
+        return max(lhs, rhs)
+    }
+    return (lhs / greatestCommonDivisor(lhs, rhs)) * rhs
 }
