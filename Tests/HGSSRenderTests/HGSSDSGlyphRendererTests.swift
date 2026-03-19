@@ -9,7 +9,9 @@ struct HGSSDSGlyphRendererTests {
     func rendersTitlePromptGlyphs() throws {
         let root = try makeTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        try copyExtractedFontAssets(to: root)
+        guard try copyExtractedFontAssetsIfAvailable(to: root) else {
+            return
+        }
 
         let image = try HGSSDSGlyphRenderer.shared.renderImage(
             text: "TOUCH TO START",
@@ -26,7 +28,9 @@ struct HGSSDSGlyphRendererTests {
     func rendersMultilineMessageGlyphs() throws {
         let root = try makeTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        try copyExtractedFontAssets(to: root)
+        guard try copyExtractedFontAssetsIfAvailable(to: root) else {
+            return
+        }
 
         let image = try HGSSDSGlyphRenderer.shared.renderImage(
             text: "The save file is corrupted.\nThe previous save file will be loaded.",
@@ -46,7 +50,7 @@ struct HGSSDSGlyphRendererTests {
         return root
     }
 
-    private func copyExtractedFontAssets(to root: URL) throws {
+    private func copyExtractedFontAssetsIfAvailable(to root: URL) throws -> Bool {
         let fontDirectory = root.appendingPathComponent(HGSSOpeningTextAssetPaths.directory, isDirectory: true)
         try FileManager.default.createDirectory(at: fontDirectory, withIntermediateDirectories: true)
 
@@ -72,8 +76,13 @@ struct HGSSDSGlyphRendererTests {
         ]
 
         for copy in copies {
+            guard FileManager.default.fileExists(atPath: copy.source.path()) else {
+                return false
+            }
             try FileManager.default.copyItem(at: copy.source, to: copy.destination)
         }
+
+        return true
     }
 
     private func opaquePixelCount(in image: NSImage) -> Int {
