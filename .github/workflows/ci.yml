@@ -12,6 +12,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install LLVM
+        run: |
+          brew install llvm
+          echo "LLVM_PREFIX=$(brew --prefix llvm)" >> "$GITHUB_ENV"
+
       - name: Bootstrap
         run: ./scripts/bootstrap.sh
 
